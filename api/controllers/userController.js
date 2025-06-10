@@ -5,6 +5,7 @@ const resModel = require('../lib/resModel');
 let User = require("../models/userModel");
 let Role = require("../models/roleModel");
 const bcryptServices = require('../services/bcrypt.services');
+const userServices = require('../services/user.service');
 
 
 
@@ -217,6 +218,69 @@ module.exports.googleWithLogin = async (req, res) => {
 
     }
 }
+
+/**
+ * @api {get} /api/user/details/:id  Get User Details
+ * @apiName Get User Details
+ * @apiGroup User
+ * @apiDescription User Service...
+ * @apiSampleRequest http://localhost:2001/api/user/details/:id
+ */
+module.exports.getUserDetails = async (req, res) => {
+    try {
+        const { id } = req.params;
+        let _id = id
+        // Find product by ID
+        const user = await User.findById(_id);
+        if (!user) {
+            resModel.success = false;
+            resModel.message = "User Does't Exists";
+            resModel.data = null;
+            res.status(400).json(resModel)
+        } else {
+            resModel.success = true;
+            resModel.message = "User Details Found Successfully";
+            resModel.data = user;
+            res.status(200).json(resModel);
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internel Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel)
+    }
+};
+
+/**
+ * @api {get} /api/user/getAllUser  Get All User
+ * @apiName Get All User
+ * @apiGroup User
+ * @apiDescription User Service...
+ * @apiSampleRequest http://localhost:2001/api/user/getAllUser
+ */
+module.exports.getAllUser = async (req, res) => {
+    try {
+        const userCheck = await userServices().getAllUsers(req.query);
+        if (userCheck) {
+            resModel.success = true;
+            resModel.message = "Get All Users Successfully";
+            resModel.data = userCheck;
+            res.status(200).json(resModel);
+        }
+        else {
+            resModel.success = true;
+            resModel.message = "User Not Found";
+            resModel.data = [];
+            res.status(200).json(resModel)
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+}
+
 
 
 

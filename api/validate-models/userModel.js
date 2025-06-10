@@ -12,3 +12,8 @@ module.exports.signupUser = joi.object({
   password: joi.string().required(),
   confirmPassword: joi.string().required(),
 })
+
+module.exports.commonId = joi.object({
+  id: joi.string().required(),
+
+})
