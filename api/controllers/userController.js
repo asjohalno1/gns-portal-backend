@@ -143,10 +143,10 @@ module.exports.signInUser = async (req, res) => {
  */
 module.exports.addRole = async (req, res) => {
     try {
-        const { role,id } = req.body;
+        const { role, id } = req.body;
         let roleInfo = {
             role: role.toLowerCase(),
-            id:id
+            id: id
         }
         const newRole = new Role(roleInfo)
         let roleRes = await newRole.save();
@@ -162,7 +162,53 @@ module.exports.addRole = async (req, res) => {
             resModel.data = null;
             res.status(400).json(resModel);
         }
-        
+
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+
+    }
+}
+
+
+module.exports.googleWithLogin = async (req, res) => {
+    try {
+        const { name, email, picture } = req.body;
+        const [firstName, lastName] = name.split(" ");
+        const userCheck = await User.findOne({ email });
+        if (userCheck) {
+            const accessToken = await jwtService.issueJwtToken({email,id: userCheck._id})
+            resModel.success = true;
+            resModel.message = "User Login Successfully";
+            resModel.data = { token: accessToken, user: userCheck };
+            res.status(200).json(resModel);
+        } else {
+            let userInfo = {
+                first_name: firstName,
+                last_name: lastName,
+                profile: picture,
+                email: email.toLowerCase(),
+                password: "",
+                role_id: 2
+            }
+            const newUser = new User(userInfo)
+            let userCheck = await newUser.save();
+            if (userCheck) {
+                const accessToken = await jwtService.issueJwtToken({ email, id: userCheck._id })
+                resModel.success = true;
+                resModel.message = "User Login Successfully";
+                resModel.data = { token: accessToken, user: userCheck };
+                res.status(200).json(resModel);
+            } else {
+                resModel.success = false;
+                resModel.message = "Something Went Wrong Please Try Again";
+                resModel.data = null;
+                res.status(400).json(resModel);
+            }
+
+        }
     } catch (error) {
         resModel.success = false;
         resModel.message = "Internal Server Error";
