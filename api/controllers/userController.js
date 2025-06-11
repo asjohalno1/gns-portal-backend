@@ -430,54 +430,53 @@ module.exports.getClientDashboard = async (req, res) => {
  */
 module.exports.getClientDocuments = async (req, res) => {
     try {
-      const { clientEmail } = req.query;
-      if (!clientEmail) {
-        resModel.success = false;
-        resModel.message = "clientEmail is required";
-        resModel.data = null;
-        res.status(400).json(resModel);
-      }
-  
-      const documents = await uploadDocuments.find({ clientEmail })
-        .populate('category', 'name')
-        .populate('subCategory', 'name')
-        .populate('request', 'status');
-  
-      const grouped = {
-        all: [],
-        accepted: [],
-        pending: [],
-        rejected: []
-      };
-  
-      documents.forEach(doc => {
-        const docData = {
-          documentName: doc.fileName,
-          documentType: doc.category?.name || 'N/A',
-          uploadedDate: doc.createdAt,
-          status: doc.request?.status || 'pending',
-          comments: doc.rejectionReason || null,
-          requestId: doc.request?._id
+        const { clientEmail } = req.query;
+        if (!clientEmail) {
+            resModel.success = false;
+            resModel.message = "clientEmail is required";
+            resModel.data = null;
+            res.status(400).json(resModel);
+        }
+
+        const documents = await uploadDocuments.find({ clientEmail })
+            .populate('category', 'name')
+            .populate('subCategory', 'name')
+            .populate('request', 'status');
+
+        const grouped = {
+            all: [],
+            accepted: [],
+            pending: [],
+            rejected: []
         };
-  
-        grouped.all.push(docData);
-        if (docData.status === 'accepted') grouped.accepted.push(docData);
-        else if (docData.status === 'pending') grouped.pending.push(docData);
-        else if (docData.status === 'rejected') grouped.rejected.push(docData);
-      });
-  
-      resModel.success = true;
-      resModel.message = "Client documents fetched successfully";
-      resModel.data = grouped;
-      res.status(200).json(resModel);
-  
+
+        documents.forEach(doc => {
+            const docData = {
+                documentName: doc.fileName,
+                documentType: doc.category?.name || 'N/A',
+                uploadedDate: doc.createdAt,
+                status: doc.request?.status || 'pending',
+                comments: doc.rejectionReason || null,
+                requestId: doc.request?._id
+            };
+
+            grouped.all.push(docData);
+            if (docData.status === 'accepted') grouped.accepted.push(docData);
+            else if (docData.status === 'pending') grouped.pending.push(docData);
+            else if (docData.status === 'rejected') grouped.rejected.push(docData);
+        });
+
+        resModel.success = true;
+        resModel.message = "Client documents fetched successfully";
+        resModel.data = grouped;
+        res.status(200).json(resModel);
     } catch (error) {
         resModel.success = false;
         resModel.message = "Internal Server Error";
         resModel.data = null;
         res.status(500).json(resModel);
     }
-  };
+};
 
 
 
