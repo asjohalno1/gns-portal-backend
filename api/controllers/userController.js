@@ -11,6 +11,7 @@ const DocumentRequest = require('../models/documentRequest');
 const Category = require('../models/category');
 const SubCategory = require('../models/subCategory');
 const uploadDocuments = require('../models/uploadDocuments');
+const notification = require('../models/notification');
 
 
 
@@ -478,6 +479,42 @@ module.exports.getClientDocuments = async (req, res) => {
     }
 };
 
+
+/**
+ * @api {get} /api/user/getAllNotifications  Get All Notifications
+ * @apiName Get All Notifications
+ * @apiGroup User
+ * @apiDescription User Service...
+ * @apiSampleRequest http://localhost:2001/api/user/getAllNotifications
+ */
+module.exports.getAllNotifications = async (req, res) => {
+    try {
+        if(!req.query.email){
+            resModel.success = false;
+            resModel.message = "Email is required";
+            resModel.data = null;
+            return res.status(400).json(resModel);
+        }
+        const notificationRes = await notification.find({emailId:req.query.email});
+        if (notificationRes) {
+            resModel.success = true;
+            resModel.message = "Get All Notifications Successfully";
+            resModel.data = {notification:notificationRes,upcomingRemainders:[]};
+            res.status(200).json(resModel);
+        }
+        else {
+            resModel.success = true;
+            resModel.message = "Notifications Not Found";
+            resModel.data = [];
+            res.status(200).json(resModel)
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+}
 
 
 
