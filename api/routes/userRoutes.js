@@ -3,6 +3,10 @@
 const userCntrl = require('../controllers/userController');
 /* Controller import  ends */
 
+/**Multer import starts */
+const upload = require('../services/multer.services');
+/**Multer import ends */
+
 /* validate model import starts */
 const userModel = require('../validate-models/userModel');
 /* validate model  import  ends */
@@ -16,7 +20,9 @@ module.exports = function (app, validator) {
    app.post('/api/staff/googleLogin',userCntrl.googleWithLogin);
    app.post('/api/admin/signup',validator.body(userModel.signupUser),userCntrl.signupUser);
    app.post('/api/role/add',userCntrl.addRole);
-   
+   app.post('/api/user/uploadDocument',auth,upload.single('file'),userCntrl.uploadDocument);
+   app.get('/api/user/dashboardDetails',auth,userCntrl.getClientDashboard);
+   app.get('/api/user/clientDocuments',auth,userCntrl.getClientDocuments);
 }
 
 

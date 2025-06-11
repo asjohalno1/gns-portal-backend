@@ -6,6 +6,12 @@ let User = require("../models/userModel");
 let Role = require("../models/roleModel");
 const bcryptServices = require('../services/bcrypt.services');
 const userServices = require('../services/user.service');
+const uploadDocument = require('../models/uploadDocuments')
+const DocumentRequest = require('../models/documentRequest');
+const Category = require('../models/category');
+const SubCategory = require('../models/subCategory');
+const uploadDocuments = require('../models/uploadDocuments');
+
 
 
 
@@ -180,7 +186,7 @@ module.exports.googleWithLogin = async (req, res) => {
         const [firstName, lastName] = name.split(" ");
         const userCheck = await User.findOne({ email });
         if (userCheck) {
-            const accessToken = await jwtService.issueJwtToken({email,id: userCheck._id})
+            const accessToken = await jwtService.issueJwtToken({ email, id: userCheck._id })
             resModel.success = true;
             resModel.message = "User Login Successfully";
             resModel.data = { token: accessToken, user: userCheck };
@@ -281,6 +287,197 @@ module.exports.getAllUser = async (req, res) => {
     }
 }
 
+/**
+ * @api {post} /api/user/uploadDocument  Upload Document
+ * @apiName Upload Document
+ * @apiGroup User
+ * @apiBody {String} categoryId  categoryId.
+ * @apiBody {String} subCategoryId  SubCategoryId.
+ * @apiBody {String} notes  Notes.
+ * @apiBody {String} file  File.
+ * @apiHeader {String} authorization Authorization.
+ * @apiDescription user Service...
+ * @apiSampleRequest http://localhost:2001/api/user/uploadDocument 
+ */
+module.exports.uploadDocument = async (req, res) => {
+    try {
+        const { categoryId, subCategoryId, notes } = req.body;
+        const uploadInfo = {
+            request: req?.userInfo?.requestId || "68491f061d704b8d045a07ee",
+            clientEmail: req?.userInfo?.email.toLowerCase() || "bob@example.com",
+            category: categoryId,
+            subCategory: subCategoryId,
+            notes: notes,
+            fileName: req.file.originalname,
+            filePath: req.file.path
+
+        };
+
+        const newUpload = new uploadDocument(uploadInfo);
+        let uploadRes = await newUpload.save();
+
+        if (uploadRes) {
+            resModel.success = true;
+            resModel.message = "Document Upload Successfully";
+            resModel.data = uploadRes
+            res.status(200).json(resModel)
+        } else {
+            resModel.success = false;
+            resModel.message = "Error while uploading Document";
+            resModel.data = null;
+            res.status(400).json(resModel);
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+
+    }
+}
+
+
+/**
+ * @api {get} /api/user/dashboardDetails  Get Dashboard Details
+ * @apiName  Get Dashboard Details
+ * @apiGroup User
+ * @apiHeader {String} authorization Authorization.
+ * @apiDescription User Service...
+ * @apiSampleRequest http://localhost:2001/api/user/dashboardDetails
+ */
+module.exports.getClientDashboard = async (req, res) => {
+    const clientEmail = "bob@example.com";
+    try {
+        const now = new Date();
+        const allRequests = await DocumentRequest.find({ clientEmail });
+        const totalDocuments = allRequests.length;
+        const pendingCount = allRequests.filter(doc => doc.status === 'pending').length;
+        const completedCount = await uploadDocument.countDocuments({ clientEmail });
+        const overdueCount = allRequests.filter(doc => doc.status === 'pending' && doc.dueDate < now).length;
+
+        // Document Requests with populated category/subCategory
+        const documentRequests = await DocumentRequest.find({ clientEmail })
+            .populate('category')
+            .populate('subCategory')
+            .sort({ createdAt: -1 });
+
+        // Uploaded Docs (recent activity)
+        const recentActivity = await uploadDocument.find({ clientEmail })
+            .populate('category')
+            .populate('subCategory')
+            .sort({ createdAt: -1 })
+            .limit(5);
+
+        const upcomingDeadlines = documentRequests
+            .filter(doc => doc.status === 'pending')
+            .map(doc => {
+                const daysLeft = Math.ceil((new Date(doc.dueDate) - now) / (1000 * 60 * 60 * 24));
+                let priority = 'Low';
+                if (daysLeft <= 1) priority = 'High';
+                else if (daysLeft <= 3) priority = 'Medium';
+
+                return {
+                    document: doc.subCategory?.name || 'Unnamed',
+                    type: doc.category?.name || '',
+                    dueDate: doc.dueDate,
+                    priority,
+                    daysLeft
+                };
+            });
+
+        res.status(200).json({
+            success: true,
+            message: "Client Dashboard Data Found successfully",
+            data: {
+                stats: {
+                    totalDocuments,
+                    completed: completedCount,
+                    pending: pendingCount,
+                    overdue: overdueCount
+                },
+                documentRequests: documentRequests.map(doc => ({
+                    document: doc.subCategory?.name || '',
+                    type: doc.category?.name || '',
+                    status: doc.status,
+                    dueDate: doc.dueDate
+                })),
+                upcomingDeadlines,
+                recentActivity: recentActivity.map(doc => ({
+                    document: doc.subCategory?.name || '',
+                    type: doc.category?.name || '',
+                    uploadedAt: doc.createdAt
+                }))
+            }
+        });
+
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
+
+
+/**
+ * @api {get} /api/user/clientDocuments  Get Client Documents
+ * @apiName Get Client Documents
+ * @apiGroup User
+ * @apiHeader {String} authorization Authorization.
+ * @apiDescription User Service...
+ * @apiSampleRequest http://localhost:2001/api/user/clientDocuments
+ */
+module.exports.getClientDocuments = async (req, res) => {
+    try {
+      const { clientEmail } = req.query;
+      if (!clientEmail) {
+        resModel.success = false;
+        resModel.message = "clientEmail is required";
+        resModel.data = null;
+        res.status(400).json(resModel);
+      }
+  
+      const documents = await uploadDocuments.find({ clientEmail })
+        .populate('category', 'name')
+        .populate('subCategory', 'name')
+        .populate('request', 'status');
+  
+      const grouped = {
+        all: [],
+        accepted: [],
+        pending: [],
+        rejected: []
+      };
+  
+      documents.forEach(doc => {
+        const docData = {
+          documentName: doc.fileName,
+          documentType: doc.category?.name || 'N/A',
+          uploadedDate: doc.createdAt,
+          status: doc.request?.status || 'pending',
+          comments: doc.rejectionReason || null,
+          requestId: doc.request?._id
+        };
+  
+        grouped.all.push(docData);
+        if (docData.status === 'accepted') grouped.accepted.push(docData);
+        else if (docData.status === 'pending') grouped.pending.push(docData);
+        else if (docData.status === 'rejected') grouped.rejected.push(docData);
+      });
+  
+      resModel.success = true;
+      resModel.message = "Client documents fetched successfully";
+      resModel.data = grouped;
+      res.status(200).json(resModel);
+  
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+  };
 
 
 
