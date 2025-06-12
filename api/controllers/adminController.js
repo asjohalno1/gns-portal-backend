@@ -1,6 +1,8 @@
 const resModel = require('../lib/resModel');
 let Category = require("../models/category");
 let subCategory = require("../models/subCategory");
+const adminServices = require('../services/admin.services');
+const Client = require('../models/clientModel');
 
 
 /** Category Api's starts */
@@ -156,3 +158,166 @@ module.exports.getAllSubCategory = async (req, res) => {
 
 
 /** SubCategory Api's End */
+
+
+
+/**
+ * @api {post} /api/client/add Add New Client
+ * @apiName AddClient
+ * @apiGroup Client
+ * @apiBody {String} name Client's Name.
+ * @apiBody {String} email Client's Email.
+ * @apiBody {String} phoneNumber Client's Phone Number.
+ * @apiBody {String} address Client's Address.
+ * @apiBody {String} city Client's City.
+ * @apiBody {String} state Client's State.
+ * @apiBody {String} zipCode Client's ZIP Code.
+ * @apiBody {Boolean} status (Optional) Client's Status.
+ * @apiDescription API for adding a new client.
+ * @apiSampleRequest http://localhost:2001/api/client/add
+ */
+module.exports.addClient = async (req, res) => {
+    try {
+        const { name, email, phoneNumber, address, city, state, zipCode, status } = req.body;
+        const existingClient = await Client.findOne({ email });
+        if (existingClient) {
+            resModel.success = false;
+            resModel.message = "Client already exists";
+            resModel.data = null;
+            res.status(201).json(resModel);
+        }
+        const newClient = new Client({
+            name,
+            email: email.toLowerCase(),
+            phoneNumber,
+            address,
+            city,
+            state,
+            zipCode,
+            status: status || false
+        });
+
+        const savedClient = await newClient.save();
+        resModel.success = true;
+        resModel.message = "Client added successfully";
+        resModel.data = savedClient;
+        res.status(200).json(resModel);
+
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
+
+/**
+ * @api {put} /api/client/update/:id Update Client
+ * @apiName Update Client
+ * @apiGroup Client
+ * @apiBody {String} name Client's Name.
+ * @apiBody {String} email Client's Email.
+ * @apiBody {String} phoneNumber Client's Phone Number.
+ * @apiBody {String} address Client's Address.
+ * @apiBody {String} city Client's City.
+ * @apiBody {String} state Client's State.
+ * @apiBody {String} zipCode Client's ZIP Code.
+ * @apiBody {Boolean} status (Optional) Client's Status.
+ * @apiDescription client Service...
+ * @apiSampleRequest http://localhost:2001/api/client/update/:id
+ */
+module.exports.updateClient = async (req, res) => {
+    try {
+        const clientId = req.params.id;
+        const { name, email, phoneNumber, address, city, state, zipCode, status } = req.body;
+        let updatedData = {
+            name,
+            email: email.toLowerCase(),
+            phoneNumber,
+            address,
+            city,
+            state,
+            zipCode,
+            status: status || false
+        };
+        const updatedClient = await Client.findByIdAndUpdate(clientId, updatedData, { new: true });
+        if (updatedClient) {
+            resModel.success = true;
+            resModel.message = "Client updated successfully";
+            resModel.data = updatedClient;
+            res.status(200).json(resModel);
+        } else {
+            resModel.success = true;
+            resModel.message = "Error While Updating Client";
+            resModel.data = updatedClient;
+            res.status(400).json(resModel);
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
+/**
+ * @api {get} /api/client/details/:id  Get Client Details
+ * @apiName Get Client Details
+ * @apiGroup Client
+ * @apiDescription client Service...
+ * @apiSampleRequest http://localhost:2001/api/client/details/:id
+ */
+module.exports.getclientDetails = async (req, res) => {
+    try {
+        const { id } = req.params;
+        let _id = id
+        const client = await Client.findById(_id);
+        if (!client) {
+            resModel.success = false;
+            resModel.message = "Client Does't Exists";
+            resModel.data = null;
+            res.status(400).json(resModel)
+        } else {
+            resModel.success = true;
+            resModel.message = "Client Details Found Successfully";
+            resModel.data = client;
+            res.status(200).json(resModel);
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internel Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel)
+    }
+};
+
+/**
+ * @api {get} /api/client/getAllClient  Get All Clients
+ * @apiName Get All Clients
+ * @apiGroup Client
+ * @apiDescription Client Service...
+ * @apiSampleRequest http://localhost:2001/api/client/getAllClient
+ */
+module.exports.getAllClient = async (req, res) => {
+    try {
+        const userCheck = await adminServices().getAllClients(req.query);
+        if (userCheck) {
+            resModel.success = true;
+            resModel.message = "Get All Clients Successfully";
+            resModel.data = userCheck;
+            res.status(200).json(resModel);
+        }
+        else {
+            resModel.success = true;
+            resModel.message = "Clients Not Found";
+            resModel.data = [];
+            res.status(200).json(resModel)
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+}

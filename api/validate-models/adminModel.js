@@ -14,3 +14,21 @@ module.exports.addSubCategory = joi.object({
     categoryId: joi.string().required(),
   })
   /**SubCategory Model Ends */
+
+  module.exports.commonId = joi.object({
+    id: joi.string().required(),
+  
+  })
+
+  /**Client Model Starts */
+  module.exports.addClient = joi.object({
+    name: joi.string().required(),
+    email: joi.string().email().required(),
+    phoneNumber: joi.string().required(),
+    address: joi.string().required(),
+    city: joi.string().required(),
+    state: joi.string().required(),
+    zipCode: joi.string().required(),
+    status: joi.boolean(),
+  })
+  /**Client Model Ends */

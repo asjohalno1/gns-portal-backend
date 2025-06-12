@@ -19,6 +19,15 @@ module.exports = function (app, validator) {
    app.post('/api/subcategory/add',validator.body(adminModel.addSubCategory),adminCntrl.addSubCategory)
    app.get('/api/subcategory/getAllSubCategory',adminCntrl.getAllSubCategory)
    /** SubCategory Routes's ends */
+
+
+   /*** Client Routes's starts */
+
+   app.post('/api/client/add',validator.body(adminModel.addClient),adminCntrl.addClient)
+   app.get('/api/client/getAllClient', adminCntrl.getAllClient)
+   app.get('/api/client/details/:id',validator.params(adminModel.commonId),adminCntrl.getclientDetails)
+   app.put('/api/client/update/:id',validator.params(adminModel.commonId),adminCntrl.updateClient)
+   /*** Client Routes's ends */
  
    
 }
