@@ -21,6 +21,12 @@ console.log("NODE_ENV:", process.env.NODE_ENV);
 
 app.use('/apidoc', express.static(path.join(__dirname, '/apidoc/doc')));
 require('./api/routes')(app, validator);
+
+/**Reminder */
+let remainder = require('./api/services/remainder.services');
+//remainder.scheduleDailyReminder()
+
+
 /**Db Require */
 let connectDB = require('./api/lib/db');
 connectDB()
