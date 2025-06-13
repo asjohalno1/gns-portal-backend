@@ -347,23 +347,23 @@ module.exports.uploadDocument = async (req, res) => {
  * @apiSampleRequest http://localhost:2001/api/user/dashboardDetails
  */
 module.exports.getClientDashboard = async (req, res) => {
-    const clientEmail = "bob@example.com";
+    const id = req?.userInfo?.requestId;
     try {
         const now = new Date();
-        const allRequests = await DocumentRequest.find({ clientEmail });
+        const allRequests = await DocumentRequest.find({ _id:id });
         const totalDocuments = allRequests.length;
         const pendingCount = allRequests.filter(doc => doc.status === 'pending').length;
-        const completedCount = await uploadDocument.countDocuments({ clientEmail });
+        const completedCount = await uploadDocument.countDocuments({ request: id });
         const overdueCount = allRequests.filter(doc => doc.status === 'pending' && doc.dueDate < now).length;
 
         // Document Requests with populated category/subCategory
-        const documentRequests = await DocumentRequest.find({ clientEmail })
+        const documentRequests = await DocumentRequest.find({ _id:id })
             .populate('category')
             .populate('subCategory')
             .sort({ createdAt: -1 });
 
         // Uploaded Docs (recent activity)
-        const recentActivity = await uploadDocument.find({ clientEmail })
+        const recentActivity = await uploadDocument.find({ request: id })
             .populate('category')
             .populate('subCategory')
             .sort({ createdAt: -1 })
@@ -431,15 +431,8 @@ module.exports.getClientDashboard = async (req, res) => {
  */
 module.exports.getClientDocuments = async (req, res) => {
     try {
-        const { clientEmail } = req.query;
-        if (!clientEmail) {
-            resModel.success = false;
-            resModel.message = "clientEmail is required";
-            resModel.data = null;
-            res.status(400).json(resModel);
-        }
-
-        const documents = await uploadDocuments.find({ clientEmail })
+        const id = req?.userInfo?.requestId;
+        const documents = await uploadDocuments.find({ request: id })
             .populate('category', 'name')
             .populate('subCategory', 'name')
             .populate('request', 'status');
@@ -484,18 +477,14 @@ module.exports.getClientDocuments = async (req, res) => {
  * @api {get} /api/user/getAllNotifications  Get All Notifications
  * @apiName Get All Notifications
  * @apiGroup User
+ * @apiHeader {String} authorization Authorization.
  * @apiDescription User Service...
  * @apiSampleRequest http://localhost:2001/api/user/getAllNotifications
  */
 module.exports.getAllNotifications = async (req, res) => {
     try {
-        if(!req.query.email){
-            resModel.success = false;
-            resModel.message = "Email is required";
-            resModel.data = null;
-            return res.status(400).json(resModel);
-        }
-        const notificationRes = await notification.find({emailId:req.query.email});
+        const id = req?.userInfo?.requestId;
+        const notificationRes = await notification.find({_id:id});
         if (notificationRes) {
             resModel.success = true;
             resModel.message = "Get All Notifications Successfully";

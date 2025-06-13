@@ -1,6 +1,12 @@
+const { request } = require('http');
 const resModel = require('../lib/resModel');
 let Category = require("../models/category");
 let DocumentRequest = require("../models/documentRequest");
+const template = require('../models/template');
+const jwt = require('../services/jwt.services');
+const mailServices = require('../services/mail.services');
+const twilioServices = require('../services/twilio.services');
+const Client = require('../models/clientModel');
 
 
 
@@ -9,31 +15,79 @@ let DocumentRequest = require("../models/documentRequest");
  * @api {post} /api/staff/requestDocument  Document Request
  * @apiName Document Request
  * @apiGroup Staff
- * @apiBody {Array} clientEmail  clientEmail.
+ * @apiBody {Array} clientId  client Id.
  * @apiBody {String} categoryId  categoryId.
  * @apiBody {String} subCategoryId  SubCategoryId.
  * @apiBody {String} dueDate  DueDate.
  * @apiBody {String} instructions  Instructions.
+ * @apiBody {String} expiration  Expiration.
+ * @apiBody {String} linkMethod  Link Method.
+ * @apiBody {String} templateId  Template Id.
+ * @apiBody {String} notifyMethod Notification method (e.g., email, sms).
+ * @apiBody {String} remainderSchedule Reminder schedule (e.g., "ThreeDays", "OneDays","overDue").
  * @apiHeader {String} authorization Authorization.
  * @apiDescription Staff Service...
  * @apiSampleRequest http://localhost:2001/api/staff/requestDocument 
  */
+
+
 module.exports.documentRequest = async (req, res) => {
     try {
-        const { clientEmail,categoryId,subCategoryId,dueDate,instructions } = req.body;
-        let requestRes
-        for (const email of clientEmail) {
+        let {
+            templateId,
+            clientId,
+            categoryId,
+            subCategoryId,
+            dueDate,
+            instructions,
+            notifyMethod,
+            remainderSchedule,
+            expiration,
+            linkMethod
+        } = req.body;
+        let templateData = null;
+        // If templateId is provided, try fetching the template
+        if (templateId) {
+            templateData = await template.findById(templateId);
+            // Override only missing fields with template values
+            categoryId = templateData.categoryId || categoryId;
+            subCategoryId = templateData.subCategoryId || subCategoryId;
+            notifyMethod = templateData.notifyMethod || notifyMethod;
+            remainderSchedule = templateData.remainderSchedule || remainderSchedule;
+            instructions = templateData.message || instructions; "";
+        }
+        let requestRes;
+        for (const client of clientId) {
             const requestInfo = {
                 createdBy: req.userInfo.id,
-                clientEmail: email.toLowerCase(),
+                clientId: client,
                 category: categoryId,
                 subCategory: subCategoryId,
                 dueDate,
-                instructions
+                instructions,
+                notifyMethod,
+                remainderSchedule,
+                templateId: templateId || null,
+                expiration,
+                linkMethod
             };
 
             const newRequest = new DocumentRequest(requestInfo);
-           requestRes = await newRequest.save();
+            requestRes = await newRequest.save();
+            let tokenInfo = {
+                clientId: client,
+                userId: req.userInfo.id,
+                requestId: requestRes._id
+            }
+            let expiresIn = parseInt(expiration)
+            let requestLink = await jwt.linkToken(tokenInfo, expiresIn)
+            let clientRes = await Client.findById({ _id: client });
+            if (linkMethod === "email") {
+               // mailServices(clientRes?.email,"Document Request", requestLink);
+            } else {
+                twilioServices(clientRes?.phoneNumber, requestLink)
+            }
+            //console.log(requestLink)
         }
         if (requestRes) {
             resModel.success = true;
@@ -53,6 +107,5 @@ module.exports.documentRequest = async (req, res) => {
         resModel.message = "Internal Server Error";
         resModel.data = null;
         res.status(500).json(resModel);
-
     }
-}
+};

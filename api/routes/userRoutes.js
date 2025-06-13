@@ -23,7 +23,7 @@ module.exports = function (app, validator) {
    app.post('/api/user/uploadDocument',auth,upload.single('file'),userCntrl.uploadDocument);
    app.get('/api/user/dashboardDetails',auth,userCntrl.getClientDashboard);
    app.get('/api/user/clientDocuments',auth,userCntrl.getClientDocuments);
-   app.get('/api/user/getAllNotifications',userCntrl.getAllNotifications);
+   app.get('/api/user/getAllNotifications',auth,userCntrl.getAllNotifications);
 }
 
 

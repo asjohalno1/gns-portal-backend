@@ -7,7 +7,14 @@ module.exports = {
   },
   async verifyJwtToken(token, cb) {
     return jwt.verify(token, secret_key, cb);
-  }
-}
+  },
+  async linkToken(payload,expiresIn) {
+    const token = jwt.sign(payload, secret_key, {expiresIn: `${expiresIn}h`});
+    
+    return `http://localhost:3000/HomePage?token=${token}` 
+  },
+
+
+} 
 
 
