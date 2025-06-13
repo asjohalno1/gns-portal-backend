@@ -1,6 +1,8 @@
 let DocumentRequest = require("../models/documentRequest");
 let mailServices = require("../services/mail.services");
 let notification = require("../models/notification");
+let twilioServices = require("../services/twilio.services");
+const Client = require("../models/clientModel");
 
 const sendRemainder = async () => {
     const requests = await DocumentRequest.find({ status: "pending" });
@@ -11,6 +13,12 @@ const sendRemainder = async () => {
             emailId: request.clientEmail,
             message:message,
             type:"reminder"
+        }
+        if (request.notifyMethod === "email") {
+            await mailServices(request.clientEmail,title, message);
+        }else{
+            let clientRes = await Client.findById({_id:request.clientId});
+            await twilioServices(clientRes.phoneNumber,title, message);
         }
         const newNotification = new notification(notificationInfo)
         await newNotification.save();
