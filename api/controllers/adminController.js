@@ -3,6 +3,7 @@ let Category = require("../models/category");
 let subCategory = require("../models/subCategory");
 const adminServices = require('../services/admin.services');
 const Client = require('../models/clientModel');
+const Template = require('../models/template');
 
 
 /** Category Api's starts */
@@ -321,3 +322,155 @@ module.exports.getAllClient = async (req, res) => {
         res.status(500).json(resModel);
     }
 }
+
+
+/**
+ * @api {post} /api/template/add Add New Template
+ * @apiName AddTemplate
+ * @apiGroup Template
+ * @apiBody {String} name Template name.
+ * @apiBody {String} categoryId Template category ID.
+ * @apiBody {String} subCategoryId Template sub-category ID.
+ * @apiBody {String} notifyMethod Notification method (e.g., email, sms).
+ * @apiBody {String} remainderSchedule Reminder schedule (e.g., "Weekly", "Monthly").
+ * @apiBody {String} [message] Optional message content.
+ * @apiBody {Boolean} [active=true] Template active status.
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription API for adding a new document request template.
+ * @apiSampleRequest http://localhost:2001/api/template/add
+ */
+module.exports.addTemplate = async (req, res) => {
+    try {
+        const { name, categoryId, subCategoryId, notifyMethod, remainderSchedule, message, active } = req.body;
+        const existingTemplate = await Template.findOne({ name, categoryId, subCategoryId });
+        if (existingTemplate) {
+            resModel.success = false;
+            resModel.message = "Template already exists";
+            resModel.data = null;
+            res.status(201).json(resModel);
+        }
+
+        const newTemplate = new Template({
+            name,
+            categoryId,
+            subCategoryId,
+            notifyMethod,
+            remainderSchedule,
+            message,
+            active: active !== undefined ? active : true,
+            userId: req.userInfo.id
+        });
+        const savedTemplate = await newTemplate.save();
+        if (!savedTemplate) {
+            resModel.success = false;
+            resModel.message = "Error while creating Template";
+            resModel.data = null;
+            res.status(400).json(resModel);
+        } else {
+            resModel.success = true;
+            resModel.message = "Template added successfully";
+            resModel.data = savedTemplate;
+            res.status(200).json(resModel);
+        }
+
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
+
+/**
+ * @api {put} /api/template/update/:id Update Template
+ * @apiName UpdateTemplate
+ * @apiGroup Template
+ * @apiParam {String} id Template ID (MongoDB ObjectId)
+ * @apiBody {String} name Template name.
+ * @apiBody {String} categoryId Template category ID.
+ * @apiBody {String} subCategoryId Template sub-category ID.
+ * @apiBody {String} notifyMethod Notification method (e.g., email, sms).
+ * @apiBody {String} remainderSchedule Reminder schedule (e.g., "Weekly", "Monthly").
+ * @apiBody {String} message Optional message content.
+ * @apiBody {Boolean} active Template active status.
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription API to update an existing template.
+ * @apiSampleRequest http://localhost:2001/api/template/update/:id
+ */
+module.exports.updateTemplate = async (req, res) => {
+    try {
+        const templateId = req.params.id;
+        const { name, categoryId, subCategoryId, notifyMethod, remainderSchedule, message, active } = req.body;
+        const updateData = {
+            name,
+            categoryId,
+            subCategoryId,
+            notifyMethod,
+            remainderSchedule,
+            message,
+            active,
+            userId: req.userInfo.id
+        }
+        const existingTemplate = await Template.findById(templateId);
+        if (!existingTemplate) {
+            resModel.success = false;
+            resModel.message = "Template not found";
+            resModel.data = null;
+            res.status(404).json(resModel);
+        }
+
+        const updatedTemplate = await Template.findByIdAndUpdate(
+            templateId,
+            { $set: updateData },
+            { new: true }
+        );
+        if (!updatedTemplate) {
+            resModel.success = false;
+            resModel.message = "Error While Updating Template";
+            resModel.data = null;
+            res.status(404).json(resModel);
+        } else {
+            resModel.success = true;
+            resModel.message = "Template updated successfully";
+            resModel.data = updatedTemplate;
+            res.status(200).json(resModel);
+        }
+
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
+/**
+ * @api {get} /api/template/all Get All Templates
+ * @apiName GetAllTemplates
+ * @apiGroup Template
+ * @apiDescription API to fetch all document request templates.
+ * @apiSampleRequest http://localhost:2001/api/template/all
+ */
+module.exports.getAllTemplates = async (req, res) => {
+    try {
+        const templates = await Template.find().sort({ createdAt: -1 });
+        if (!templates) {
+            resModel.success = false;
+            resModel.message = "Templates not found";
+            resModel.data = null;
+            res.status(404).json(resModel);
+        } else {
+            resModel.success = true;
+            resModel.message = "Templates Found Successfully";
+            resModel.data = templates;
+            res.status(200).json(resModel);
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+

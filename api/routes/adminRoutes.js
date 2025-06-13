@@ -28,6 +28,12 @@ module.exports = function (app, validator) {
    app.get('/api/client/details/:id',validator.params(adminModel.commonId),adminCntrl.getclientDetails)
    app.put('/api/client/update/:id',validator.params(adminModel.commonId),adminCntrl.updateClient)
    /*** Client Routes's ends */
+
+   /**Template Routes's starts */
+   app.post('/api/template/add',auth,validator.body(adminModel.addTemplate),adminCntrl.addTemplate)
+   app.put('/api/template/update/:id',auth,validator.params(adminModel.commonId),adminCntrl.updateTemplate)
+   app.get('/api/template/all',adminCntrl.getAllTemplates)
+   /**Template Routes's ends */
  
    
 }

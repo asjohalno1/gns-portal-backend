@@ -32,3 +32,16 @@ module.exports.addSubCategory = joi.object({
     status: joi.boolean(),
   })
   /**Client Model Ends */
+
+
+  /**Template Model Starts */
+  module.exports.addTemplate = joi.object({
+    name: joi.string().required(),
+    categoryId: joi.string().required(),
+    subCategoryId: joi.string().required(),
+    notifyMethod: joi.string().required(),
+    remainderSchedule: joi.string().required(),
+    message: joi.string().allow('').optional(),
+    active: joi.boolean(),
+  })
+  /**Template Model Ends */
