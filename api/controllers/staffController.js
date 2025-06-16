@@ -83,7 +83,7 @@ module.exports.documentRequest = async (req, res) => {
             let requestLink = await jwt.linkToken(tokenInfo, expiresIn)
             let clientRes = await Client.findById({ _id: client });
             if (linkMethod === "email") {
-               mailServices(clientRes?.email,"Document Request", requestLink);
+              await mailServices.sendEmail(clientRes?.email,"Document Request",requestLink,clientRes?.name,"shareLink");
             } else {
                // twilioServices(clientRes?.phoneNumber, requestLink)
             }

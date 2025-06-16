@@ -26,7 +26,7 @@ const sendRemainder = async () => {
         }
 
         const title = "Reminder";
-        const message = `Hi ${request.clientName},\n\nThis is a ${
+        const message = `Hi ${request.name},\n\nThis is a ${
             type === "overDue" ? "final" : "friendly"
         } reminder that you have a document request pending${
             request.dueDate ? ` (Due: ${dueDate.format("YYYY-MM-DD")})` : ""
@@ -43,7 +43,7 @@ const sendRemainder = async () => {
 
         // Send reminder
         if (request.notifyMethod === "email") {
-            await mailServices(request.clientEmail, title, message);
+            await mailServices(request?.email,title,request?.requestLink,request?.name,"sendReminder");
         } else {
             const client = await Client.findById(request.clientId);
             if (client?.phoneNumber) {
