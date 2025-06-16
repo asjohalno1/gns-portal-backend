@@ -74,14 +74,16 @@ module.exports.documentRequest = async (req, res) => {
 
             const newRequest = new DocumentRequest(requestInfo);
             requestRes = await newRequest.save();
+            let clientRes = await Client.findById({ _id: client });
             let tokenInfo = {
                 clientId: client,
                 userId: req.userInfo.id,
-                requestId: requestRes._id
+                requestId: requestRes?._id,
+                email: clientRes?.email
             }
             let expiresIn = parseInt(expiration)
             let requestLink = await jwt.linkToken(tokenInfo, expiresIn)
-            let clientRes = await Client.findById({ _id: client });
+          
             if (linkMethod === "email") {
               await mailServices.sendEmail(clientRes?.email,"Document Request",requestLink,clientRes?.name,"shareLink");
             } else {

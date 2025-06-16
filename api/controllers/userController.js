@@ -303,14 +303,14 @@ module.exports.getAllUser = async (req, res) => {
 module.exports.uploadDocument = async (req, res) => {
     try {
         const { categoryId, subCategoryId, notes } = req.body;
+        let files = req.files;
         const uploadInfo = {
-            request: req?.userInfo?.requestId || "68491f061d704b8d045a07ee",
-            clientEmail: req?.userInfo?.email.toLowerCase() || "bob@example.com",
+            request: req?.userInfo?.requestId,
+            clientEmail: req?.userInfo?.email.toLowerCase(),
             category: categoryId,
             subCategory: subCategoryId,
             notes: notes,
-            fileName: req.file.originalname,
-            filePath: req.file.path
+            files: files
 
         };
 

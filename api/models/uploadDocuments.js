@@ -1,4 +1,5 @@
 // models/UploadedDocument.js
+const { object } = require('joi');
 const mongoose = require('mongoose');
 
 const uploadedDocumentSchema = new mongoose.Schema({
@@ -6,8 +7,7 @@ const uploadedDocumentSchema = new mongoose.Schema({
   category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' }, 
   subCategory: { type: mongoose.Schema.Types.ObjectId, ref: 'subCategory' },
   clientEmail: String,
-  fileName: String,
-  filePath: String, // Local file path or GridFS ID
+  files:Array,
   notes: String,
   status: {
     type: String,

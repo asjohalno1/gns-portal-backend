@@ -43,7 +43,7 @@ const sendRemainder = async () => {
 
         // Send reminder
         if (request.notifyMethod === "email") {
-            await mailServices(request?.email,title,request?.requestLink,request?.name,"sendReminder");
+            await mailServices.sendEmailRemainder(request?.email,title,request?.requestLink,request?.name,"sendReminder",message);
         } else {
             const client = await Client.findById(request.clientId);
             if (client?.phoneNumber) {
