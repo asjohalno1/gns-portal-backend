@@ -1,30 +1,31 @@
 const nodemailer = require("nodemailer");
+const generateTemplate = require("../../templates/link.ejs");
 
-// Create transporter
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",       // Replace with your SMTP host
-  port: 587,                      // Use 465 for SSL, 587 for TLS
-  secure: false,                  // Set true for port 465, false for other ports
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false,
   auth: {
-    user: "shaktisainisd@gmail.com",  // SMTP username
-    pass: "Welcome@1",     // SMTP password
+    user: "shaktisainisd@gmail.com",
+    pass: "pxrf kfwe yiyo jxjb", // Your Gmail App Password
   },
 });
 
-// Send mail
-const sendEmail= async(email,subject,link)=> {
+const sendEmail = async (email, subject, link, name = "User") => {
   try {
+    const htmlContent = generateTemplate({ name, link });
+
     const info = await transporter.sendMail({
       from: 'shaktisainisd@gmail.com',
       to: email,
       subject: subject,
-      text: link,
+      html: htmlContent,
     });
 
     console.log("Message sent: %s", info.messageId);
   } catch (error) {
     console.error("Error sending email:", error);
   }
-}
+};
 
 module.exports = sendEmail;

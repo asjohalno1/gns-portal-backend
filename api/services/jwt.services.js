@@ -11,7 +11,7 @@ module.exports = {
   async linkToken(payload,expiresIn) {
     const token = jwt.sign(payload, secret_key, {expiresIn: `${expiresIn}h`});
     
-    return `http://localhost:3000/HomePage?token=${token}` 
+    return `http://localhost:5173/?token=${token}` 
   },
 
 

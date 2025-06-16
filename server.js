@@ -23,8 +23,8 @@ app.use('/apidoc', express.static(path.join(__dirname, '/apidoc/doc')));
 require('./api/routes')(app, validator);
 
 /**Reminder */
-let remainder = require('./api/services/remainder.services');
-//remainder.scheduleDailyReminder()
+// let remainder = require('./api/services/mail.services');
+// remainder("saini@yopmail.com","reminder","https://www.google.com")
 
 
 /**Db Require */
