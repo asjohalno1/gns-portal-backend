@@ -7,6 +7,7 @@ const jwt = require('../services/jwt.services');
 const mailServices = require('../services/mail.services');
 const twilioServices = require('../services/twilio.services');
 const Client = require('../models/clientModel');
+const DocumentSubCategory = require('../models/documentSubcategory');
 
 
 
@@ -17,7 +18,7 @@ const Client = require('../models/clientModel');
  * @apiGroup Staff
  * @apiBody {Array} clientId  client Id.
  * @apiBody {String} categoryId  categoryId.
- * @apiBody {String} subCategoryId  SubCategoryId.
+ * @apiBody {Array} subCategoryId  SubCategoryId.
  * @apiBody {String} dueDate  DueDate.
  * @apiBody {String} instructions  Instructions.
  * @apiBody {String} expiration  Expiration.
@@ -29,8 +30,6 @@ const Client = require('../models/clientModel');
  * @apiDescription Staff Service...
  * @apiSampleRequest http://localhost:2001/api/staff/requestDocument 
  */
-
-
 module.exports.documentRequest = async (req, res) => {
     try {
         let {
@@ -45,24 +44,24 @@ module.exports.documentRequest = async (req, res) => {
             expiration,
             linkMethod
         } = req.body;
+
         let templateData = null;
-        // If templateId is provided, try fetching the template
         if (templateId) {
             templateData = await template.findById(templateId);
-            // Override only missing fields with template values
             categoryId = templateData.categoryId || categoryId;
             subCategoryId = templateData.subCategoryId || subCategoryId;
             notifyMethod = templateData.notifyMethod || notifyMethod;
             remainderSchedule = templateData.remainderSchedule || remainderSchedule;
-            instructions = templateData.message || instructions; "";
+            instructions = templateData.message || instructions;
         }
+
         let requestRes;
+
         for (const client of clientId) {
             const requestInfo = {
                 createdBy: req.userInfo.id,
                 clientId: client,
                 category: categoryId,
-                subCategory: subCategoryId,
                 dueDate,
                 instructions,
                 notifyMethod,
@@ -72,38 +71,53 @@ module.exports.documentRequest = async (req, res) => {
                 linkMethod
             };
 
+            // Save main document request
             const newRequest = new DocumentRequest(requestInfo);
             requestRes = await newRequest.save();
-            let clientRes = await Client.findById({ _id: client });
-            let tokenInfo = {
+
+            // Create subcategory entries (if any)
+            if (Array.isArray(subCategoryId)) {
+                for (const subCatId of subCategoryId) {
+                    await DocumentSubCategory.create({
+                        request: requestRes._id,
+                        category: categoryId,
+                        subCategory: subCatId
+                    });
+                }
+            }
+
+            // Generate token + link
+            const clientRes = await Client.findById(client);
+            const tokenInfo = {
                 clientId: client,
                 userId: req.userInfo.id,
-                requestId: requestRes?._id,
+                requestId: requestRes._id,
                 email: clientRes?.email
-            }
-            let expiresIn = parseInt(expiration)
-            let requestLink = await jwt.linkToken(tokenInfo, expiresIn)
-          
+            };
+
+            const expiresIn = parseInt(expiration);
+            const requestLink = await jwt.linkToken(tokenInfo, expiresIn);
+
+            // Send via email or SMS
             if (linkMethod === "email") {
-              await mailServices.sendEmail(clientRes?.email,"Document Request",requestLink,clientRes?.name,"shareLink");
+                await mailServices.sendEmail(clientRes?.email, "Document Request", requestLink, clientRes?.name, "shareLink");
             } else {
-               // twilioServices(clientRes?.phoneNumber, requestLink)
+                // await twilioServices(clientRes?.phoneNumber, requestLink);
             }
-            //console.log(requestLink)
         }
+
+        // Final response
         if (requestRes) {
             resModel.success = true;
             resModel.message = "Request Added Successfully";
-            resModel.data = requestRes
-            res.status(200).json(resModel)
-
+            resModel.data = requestRes;
+            res.status(200).json(resModel);
         } else {
             resModel.success = false;
             resModel.message = "Error while creating Request";
             resModel.data = null;
             res.status(400).json(resModel);
         }
-
     } catch (error) {
         resModel.success = false;
         resModel.message = "Internal Server Error";

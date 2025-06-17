@@ -12,6 +12,7 @@ const Category = require('../models/category');
 const SubCategory = require('../models/subCategory');
 const uploadDocuments = require('../models/uploadDocuments');
 const notification = require('../models/notification');
+const DocumentSubCategory = require('../models/documentSubcategory');
 
 
 
@@ -347,43 +348,60 @@ module.exports.uploadDocument = async (req, res) => {
  * @apiSampleRequest http://localhost:2001/api/user/dashboardDetails
  */
 module.exports.getClientDashboard = async (req, res) => {
-    const id = req?.userInfo?.requestId;
+    const requestId =req?.userInfo?.requestId;
+
     try {
         const now = new Date();
-        const allRequests = await DocumentRequest.find({ _id:id });
+        const allRequests = await DocumentRequest.find({ _id: requestId });
+
         const totalDocuments = allRequests.length;
         const pendingCount = allRequests.filter(doc => doc.status === 'pending').length;
-        const completedCount = await uploadDocument.countDocuments({ request: id });
         const overdueCount = allRequests.filter(doc => doc.status === 'pending' && doc.dueDate < now).length;
 
-        // Document Requests with populated category/subCategory
-        const documentRequests = await DocumentRequest.find({ _id:id })
+        const completedCount = await uploadDocument.countDocuments({ request: requestId });
+
+        // Get populated document request with category
+        const documentRequests = await DocumentRequest.find({ _id: requestId })
             .populate('category')
-            .populate('subCategory')
             .sort({ createdAt: -1 });
 
-        // Uploaded Docs (recent activity)
-        const recentActivity = await uploadDocument.find({ request: id })
-            .populate('category')
+        // Get related subCategories
+        const subCategoryLinks = await DocumentSubCategory.find({ request: requestId })
             .populate('subCategory')
+            .populate('category'); // optional, if needed
+
+        // Group subcategories by request ID
+        const subCatMap = {};
+        subCategoryLinks.forEach(link => {
+            if (!subCatMap[link.request]) subCatMap[link.request] = [];
+            subCatMap[link.request].push(link.subCategory);
+        });
+
+        // Get uploaded docs (recent activity)
+        const recentActivity = await uploadDocument.find({ request: requestId })
+            .populate('category')
+            .populate('subCategory') // still works if subCategory reference is directly in upload model
             .sort({ createdAt: -1 })
             .limit(5);
 
+        // Construct upcoming deadlines
         const upcomingDeadlines = documentRequests
             .filter(doc => doc.status === 'pending')
-            .map(doc => {
+            .flatMap(doc => {
                 const daysLeft = Math.ceil((new Date(doc.dueDate) - now) / (1000 * 60 * 60 * 24));
                 let priority = 'Low';
                 if (daysLeft <= 1) priority = 'High';
                 else if (daysLeft <= 3) priority = 'Medium';
 
-                return {
-                    document: doc.subCategory?.name || 'Unnamed',
+                const subCategories = subCatMap[doc._id] || [];
+
+                return subCategories.map(subCat => ({
+                    document: subCat?.name || 'Unnamed',
                     type: doc.category?.name || '',
                     dueDate: doc.dueDate,
                     priority,
                     daysLeft
-                };
+                }));
             });
 
         res.status(200).json({
@@ -396,12 +414,15 @@ module.exports.getClientDashboard = async (req, res) => {
                     pending: pendingCount,
                     overdue: overdueCount
                 },
-                documentRequests: documentRequests.map(doc => ({
-                    document: doc.subCategory?.name || '',
-                    type: doc.category?.name || '',
-                    status: doc.status,
-                    dueDate: doc.dueDate
-                })),
+                documentRequests: documentRequests.flatMap(doc => {
+                    const subCategories = subCatMap[doc._id] || [];
+                    return subCategories.map(subCat => ({
+                        document: subCat?.name || '',
+                        type: doc.category?.name || '',
+                        status: doc.status,
+                        dueDate: doc.dueDate
+                    }));
+                }),
                 upcomingDeadlines,
                 recentActivity: recentActivity.map(doc => ({
                     document: doc.subCategory?.name || '',
@@ -431,12 +452,21 @@ module.exports.getClientDashboard = async (req, res) => {
  */
 module.exports.getClientDocuments = async (req, res) => {
     try {
-        const id = req?.userInfo?.requestId;
-        const documents = await uploadDocuments.find({ request: id })
-            .populate('category', 'name')
+        const requestId = req?.userInfo?.requestId;
+        const documents = await uploadDocuments.find({ request: requestId })
+            .populate('category', 'name') // category still direct
+            .populate('request', 'status'); // get request status
+        const subCategoryLinks = await DocumentSubCategory.find({ request: requestId })
             .populate('subCategory', 'name')
-            .populate('request', 'status');
-
+            .populate('category', 'name');
+        const subCatMap = {};
+        subCategoryLinks.forEach(link => {
+            const catId = link.category?._id?.toString();
+            const subCatName = link.subCategory?.name || 'N/A';
+            if (catId) {
+                subCatMap[catId] = subCatName;
+            }
+        });
         const grouped = {
             all: [],
             accepted: [],
@@ -448,6 +478,7 @@ module.exports.getClientDocuments = async (req, res) => {
             const docData = {
                 documentName: doc.fileName,
                 documentType: doc.category?.name || 'N/A',
+                subCategory: subCatMap[doc.category?._id?.toString()] || 'N/A', // New subCategory info
                 uploadedDate: doc.createdAt,
                 status: doc.request?.status || 'pending',
                 comments: doc.rejectionReason || null,
@@ -470,7 +501,7 @@ module.exports.getClientDocuments = async (req, res) => {
         resModel.data = null;
         res.status(500).json(resModel);
     }
-};
+}
 
 
 /**
@@ -484,11 +515,11 @@ module.exports.getClientDocuments = async (req, res) => {
 module.exports.getAllNotifications = async (req, res) => {
     try {
         const id = req?.userInfo?.requestId;
-        const notificationRes = await notification.find({_id:id});
+        const notificationRes = await notification.find({ _id: id });
         if (notificationRes) {
             resModel.success = true;
             resModel.message = "Get All Notifications Successfully";
-            resModel.data = {notification:notificationRes,upcomingRemainders:[]};
+            resModel.data = { notification: notificationRes, upcomingRemainders: [] };
             res.status(200).json(resModel);
         }
         else {

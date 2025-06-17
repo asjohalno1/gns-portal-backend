@@ -5,7 +5,7 @@ const joi = require('joi');
 module.exports.addDocumentRequest = joi.object({
   clientId: joi.array().items(joi.string()).required(),
   categoryId: joi.string().required(),
-  subCategoryId: joi.string().required(),
+  subCategoryId: joi.array().required(),
   dueDate: joi.string().required(), 
   expiration: joi.string().required(), 
   linkMethod: joi.string().required(), 
