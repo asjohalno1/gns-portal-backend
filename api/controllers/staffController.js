@@ -267,11 +267,112 @@ module.exports.staffDashboard = async (req, res) => {
         res.status(200).json(resModel);
 
     } catch (error) {
-        console.error(error);
         resModel.success = false;
         resModel.message = "Internal Server Error";
         resModel.data = null;
         res.status(500).json(resModel);
     }
 };
+
+
+/**
+ * @api {get} /api/staff/getAllClients  Get All Staff Clients
+ * @apiName Get All Staff Clients
+ * @apiGroup Staff
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription Staff Client List Service...
+ * @apiSampleRequest http://localhost:2001/api/staff/getAllClients
+ */
+module.exports.getAllClientsByStaff = async (req, res) => {
+    try {
+        const staffId = req.userInfo?.id;
+        const {
+            search = '',
+            documentType,
+            status,
+            dateFrom,
+            dateTo,
+            sortByDate = 'desc' // new param
+        } = req.query;
+
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        const assignedClients = await assignClient.find({ staffId }).populate('clientId');
+        let allDocs = [];
+
+        for (const assignment of assignedClients) {
+            const client = assignment.clientId;
+            if (!client) continue;
+
+            // Search by name or email
+            const searchLower = search.toLowerCase();
+            if (
+                search &&
+                !client.name.toLowerCase().includes(searchLower) &&
+                !client.email.toLowerCase().includes(searchLower)
+            ) continue;
+
+            const documentRequests = await DocumentRequest.find({ clientId: client._id });
+
+            for (const doc of documentRequests) {
+                // Date filter
+                const created = new Date(doc.createdAt);
+                if (dateFrom && created < new Date(dateFrom)) continue;
+                if (dateTo && created > new Date(dateTo)) continue;
+
+                // Populate category and subCategory
+                const subCatLink = await DocumentSubCategory.findOne({ request: doc._id })
+                    .populate('category')
+                    .populate('subCategory');
+
+                const categoryName = subCatLink?.category?.name || '—';
+                const subCategoryName = subCatLink?.subCategory?.name || 'Unnamed Document';
+
+                // Filter by document type
+                if (documentType && categoryName.toLowerCase() !== documentType.toLowerCase()) continue;
+
+                // Filter by status
+                const docStatus = doc.status?.charAt(0).toUpperCase() + doc.status?.slice(1) || '—';
+                if (status && docStatus.toLowerCase() !== status.toLowerCase()) continue;
+
+                allDocs.push({
+                    clientName: client.name,
+                    document: subCategoryName,
+                    type: categoryName,
+                    status: docStatus,
+                    dateRequested: doc.createdAt,
+                });
+            }
+        }
+
+        // Sort manually since filtering is done in-memory
+        allDocs.sort((a, b) => {
+            const dateA = new Date(a.dateRequested);
+            const dateB = new Date(b.dateRequested);
+            return sortByDate === 'asc' ? dateA - dateB : dateB - dateA;
+        });
+
+        // Pagination
+        const paginatedDocs = allDocs.slice(skip, skip + limit);
+
+        resModel.success = true;
+        resModel.message = paginatedDocs.length > 0 ? "Documents fetched successfully" : "No documents found";
+        resModel.data = {
+            currentPage: page,
+            totalPages: Math.ceil(allDocs.length / limit),
+            totalDocuments: allDocs.length,
+            documents: paginatedDocs
+        };
+
+        res.status(200).json(resModel);
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
 

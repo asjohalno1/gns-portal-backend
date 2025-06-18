@@ -13,6 +13,7 @@ module.exports = function (app, validator) {
 
    app.post('/api/staff/requestDocument', auth, validator.body(staffModel.addDocumentRequest), staffCntrl.documentRequest)
    app.get('/api/staff/dashboard', auth, staffCntrl.staffDashboard)
+   app.get('/api/staff/getAllClients', auth, staffCntrl.getAllClientsByStaff)
 
 
 }
