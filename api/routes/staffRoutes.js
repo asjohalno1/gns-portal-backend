@@ -11,10 +11,10 @@ const auth = require('../middleware/auth');
 
 module.exports = function (app, validator) {
 
-   app.post('/api/staff/requestDocument',auth,validator.body(staffModel.addDocumentRequest),staffCntrl.documentRequest)
+   app.post('/api/staff/requestDocument', auth, validator.body(staffModel.addDocumentRequest), staffCntrl.documentRequest)
+   app.get('/api/staff/dashboard', auth, staffCntrl.staffDashboard)
 
- 
-   
+
 }
 
 

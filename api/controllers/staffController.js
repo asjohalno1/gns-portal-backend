@@ -8,6 +8,7 @@ const mailServices = require('../services/mail.services');
 const twilioServices = require('../services/twilio.services');
 const Client = require('../models/clientModel');
 const DocumentSubCategory = require('../models/documentSubcategory');
+const assignClient = require('../models/assignClients');
 
 
 
@@ -125,3 +126,152 @@ module.exports.documentRequest = async (req, res) => {
         res.status(500).json(resModel);
     }
 };
+
+
+
+/**
+ * @api {get} /api/staff/dashboard  Staff Dashboard
+ * @apiName Staff Dashboard
+ * @apiGroup Staff
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription Staff Dashboard Details
+ * @apiSampleRequest http://localhost:2001/api/staff/dashboard
+ */
+module.exports.staffDashboard = async (req, res) => {
+    try {
+        const staffId = req.userInfo?.id;
+        const search = req.query.search?.toLowerCase() || '';
+
+        const assignedClients = await assignClient.find({ staffId }).populate('clientId');
+
+        let fullDashboardData = []; // for all clients
+        let summary = {
+            activeClients: 0,
+            pendingRequests: 0,
+            overdue: 0,
+            documentsProcessed: 0
+        };
+
+        let urgentTasks = {
+            overdue: [],
+            today: [],
+            tomorrow: []
+        };
+
+        const now = new Date();
+
+        for (const assignment of assignedClients) {
+            const client = assignment.clientId;
+            if (!client) continue;
+
+            summary.activeClients += 1;
+
+            const docs = await DocumentRequest.find({ clientId: client._id }).sort({ updatedAt: -1 });
+
+            const totalRequests = docs.length;
+            const completed = docs.filter(doc => doc.status === 'accepted').length;
+            const pending = docs.filter(doc => doc.status === 'pending').length;
+            const overdue = docs.filter(doc => doc.dueDate && new Date(doc.dueDate) < now && doc.status === 'pending').length;
+
+            summary.documentsProcessed += completed;
+            summary.pendingRequests += pending;
+            summary.overdue += overdue;
+
+            let statusUpdate = 'Completed';
+            if (overdue > 0) statusUpdate = 'Overdue';
+            else if (pending > 0) statusUpdate = 'Pending';
+
+            let taskDeadline = '—';
+            let color = 'gray';
+
+            const futureDueDocs = docs
+                .filter(doc => doc.dueDate)
+                .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+
+            if (futureDueDocs.length) {
+                const nextDoc = futureDueDocs[0];
+                const daysLeft = Math.ceil((new Date(nextDoc.dueDate) - now) / (1000 * 60 * 60 * 24));
+                if (daysLeft < 0) {
+                    taskDeadline = 'Overdue';
+                    color = 'red';
+                } else if (daysLeft === 0) {
+                    taskDeadline = 'Today';
+                    color = 'orange';
+                } else if (daysLeft === 1) {
+                    taskDeadline = 'Tomorrow';
+                    color = 'yellow';
+                } else {
+                    taskDeadline = `${daysLeft} Days`;
+                    color = 'green';
+                }
+            }
+
+            for (const doc of docs) {
+                if (doc.status !== 'pending' || !doc.dueDate) continue;
+
+                const dueDate = new Date(doc.dueDate);
+                const diffInDays = Math.floor((dueDate - now) / (1000 * 60 * 60 * 24));
+
+                let categoryName = 'Unnamed Document';
+                if (doc.category) {
+                    const categoryDoc = await Category.findById(doc.category);
+                    if (categoryDoc) {
+                        categoryName = categoryDoc.name;
+                    }
+                }
+
+                const taskEntry = {
+                    clientName: client.name,
+                    category: categoryName,
+                };
+
+                if (diffInDays < 0) {
+                    taskEntry.daysOverdue = Math.abs(diffInDays);
+                    urgentTasks.overdue.push(taskEntry);
+                } else if (diffInDays === 0) {
+                    urgentTasks.today.push(taskEntry);
+                } else if (diffInDays === 1) {
+                    urgentTasks.tomorrow.push(taskEntry);
+                }
+            }
+
+            // Add all client dashboard entries (before search filtering)
+            fullDashboardData.push({
+                clientId: client._id,
+                name: client.name,
+                email: client.email,
+                documentRequest: totalRequests
+                    ? `Document remaining (${completed}/${totalRequests})`
+                    : 'All Uploaded',
+                taskDeadline,
+                taskDeadlineColor: color,
+                statusUpdate,
+                lastActivity: docs[0]?.updatedAt || client.createdAt
+            });
+        }
+
+        // 🔍 Apply search only to final output
+        const filteredClients = search
+            ? fullDashboardData.filter(client =>
+                client.name.toLowerCase().includes(search) ||
+                client.email.toLowerCase().includes(search))
+            : fullDashboardData;
+
+        resModel.success = true;
+        resModel.message = filteredClients.length > 0 ? "Dashboard data fetched successfully" : "No clients found";
+        resModel.data = {
+            summary,
+            urgentTasks,
+            clients: filteredClients
+        };
+        res.status(200).json(resModel);
+
+    } catch (error) {
+        console.error(error);
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+

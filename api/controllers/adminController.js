@@ -4,6 +4,7 @@ let subCategory = require("../models/subCategory");
 const adminServices = require('../services/admin.services');
 const Client = require('../models/clientModel');
 const Template = require('../models/template');
+const assignClient = require('../models/assignClients')
 
 
 /** Category Api's starts */
@@ -161,7 +162,7 @@ module.exports.getAllSubCategory = async (req, res) => {
 /** SubCategory Api's End */
 
 
-
+ /**Client Api's start */
 /**
  * @api {post} /api/client/add Add New Client
  * @apiName AddClient
@@ -323,6 +324,9 @@ module.exports.getAllClient = async (req, res) => {
     }
 }
 
+ /**Client Api's ends */
+
+ /**Templates Api's Start */
 
 /**
  * @api {post} /api/template/add Add New Template
@@ -473,4 +477,55 @@ module.exports.getAllTemplates = async (req, res) => {
         res.status(500).json(resModel);
     }
 };
+
+/**Templates Api's Ends */
+
+
+/**
+ * @api {post} /api/client/assign Assign Clients
+ * @apiName  Assign Clients
+ * @apiGroup Client
+ * @apiBody {String} clientId  Client ID.
+ * @apiBody {String} staffId  Staff ID.
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription Assign client to staff.
+ * @apiSampleRequest http://localhost:2001/api/client/assign
+ */
+module.exports.assignClients = async (req, res) => {
+    try {
+        const { clientId, staffId} = req.body;
+        const existingClient = await assignClient.findOne({clientId,staffId });
+        if (existingClient) {
+            resModel.success = false;
+            resModel.message = "Clients Already Assign";
+            resModel.data = null;
+            res.status(400).json(resModel);
+        }
+
+        const newAssign = new assignClient({
+            clientId,
+            staffId,
+        });
+        const savedClients = await newAssign.save();
+        if (!savedClients) {
+            resModel.success = false;
+            resModel.message = "Error While Assign clients to Staff";
+            resModel.data = null;
+            res.status(400).json(resModel);
+        } else {
+            resModel.success = true;
+            resModel.message = "Clients Assign To Staff Successfully";
+            resModel.data = savedClients;
+            res.status(200).json(resModel);
+        }
+
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
+
 

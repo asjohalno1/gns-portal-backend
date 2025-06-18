@@ -22,7 +22,6 @@ module.exports = function (app, validator) {
 
 
    /*** Client Routes's starts */
-
    app.post('/api/client/add',validator.body(adminModel.addClient),adminCntrl.addClient)
    app.get('/api/client/getAllClient', adminCntrl.getAllClient)
    app.get('/api/client/details/:id',validator.params(adminModel.commonId),adminCntrl.getclientDetails)
@@ -34,6 +33,12 @@ module.exports = function (app, validator) {
    app.put('/api/template/update/:id',auth,validator.params(adminModel.commonId),adminCntrl.updateTemplate)
    app.get('/api/template/all',adminCntrl.getAllTemplates)
    /**Template Routes's ends */
+
+
+   /**Assign Clients Routes Start */
+   app.post('/api/client/assign',auth,validator.body(adminModel.assignClients),adminCntrl.assignClients)
+
+    /**Assign Clients Routes Ends */
  
    
 }
