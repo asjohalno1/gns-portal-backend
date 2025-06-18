@@ -163,7 +163,7 @@ module.exports.getAllSubCategory = async (req, res) => {
 /** SubCategory Api's End */
 
 
- /**Client Api's start */
+/**Client Api's start */
 /**
  * @api {post} /api/client/add Add New Client
  * @apiName AddClient
@@ -172,16 +172,17 @@ module.exports.getAllSubCategory = async (req, res) => {
  * @apiBody {String} email Client's Email.
  * @apiBody {String} phoneNumber Client's Phone Number.
  * @apiBody {String} address Client's Address.
- * @apiBody {String} city Client's City.
- * @apiBody {String} state Client's State.
- * @apiBody {String} zipCode Client's ZIP Code.
+ * @apiBody {String} company Client's Company.
+ * @apiBody {String} notes Client's Notes.
+ * @apiBody {String} staffId Client's staff Id.
  * @apiBody {Boolean} status (Optional) Client's Status.
+ * @apiHeader {String} Authorization Bearer token
  * @apiDescription API for adding a new client.
  * @apiSampleRequest http://localhost:2001/api/client/add
  */
 module.exports.addClient = async (req, res) => {
     try {
-        const { name, email, phoneNumber, address, city, state, zipCode, status } = req.body;
+        const { name, email, phoneNumber, address, company, notes, staffId, status } = req.body;
         const existingClient = await Client.findOne({ email });
         if (existingClient) {
             resModel.success = false;
@@ -194,18 +195,27 @@ module.exports.addClient = async (req, res) => {
             email: email.toLowerCase(),
             phoneNumber,
             address,
-            city,
-            state,
-            zipCode,
+            company,
+            notes,
             status: status || false
         });
-
         const savedClient = await newClient.save();
-        resModel.success = true;
-        resModel.message = "Client added successfully";
-        resModel.data = savedClient;
-        res.status(200).json(resModel);
-
+        const newAssign = new assignClient({
+            clientId: savedClient._id,
+            staffId,
+        });
+        await newAssign.save();
+        if (savedClient) {
+            resModel.success = true;
+            resModel.message = "Client added successfully";
+            resModel.data = savedClient;
+            res.status(200).json(resModel);
+        } else {
+            resModel.success = true;
+            resModel.message = "Error While Creating Client";
+            resModel.data = savedClient;
+            res.status(400).json(resModel)
+        }
     } catch (error) {
         resModel.success = false;
         resModel.message = "Internal Server Error";
@@ -223,28 +233,39 @@ module.exports.addClient = async (req, res) => {
  * @apiBody {String} email Client's Email.
  * @apiBody {String} phoneNumber Client's Phone Number.
  * @apiBody {String} address Client's Address.
- * @apiBody {String} city Client's City.
- * @apiBody {String} state Client's State.
- * @apiBody {String} zipCode Client's ZIP Code.
+ * @apiBody {String} company Client's Company.
+ * @apiBody {String} notes Client's Notes.
+ * @apiBody {String} staffId Client's staff Id.
  * @apiBody {Boolean} status (Optional) Client's Status.
+ * @apiHeader {String} Authorization Bearer token
  * @apiDescription client Service...
  * @apiSampleRequest http://localhost:2001/api/client/update/:id
  */
 module.exports.updateClient = async (req, res) => {
     try {
         const clientId = req.params.id;
-        const { name, email, phoneNumber, address, city, state, zipCode, status } = req.body;
+        const { name, email, phoneNumber, address, company, notes, staffId, status } = req.body;
         let updatedData = {
             name,
             email: email.toLowerCase(),
             phoneNumber,
             address,
-            city,
-            state,
-            zipCode,
+            company,
+            notes,
             status: status || false
         };
         const updatedClient = await Client.findByIdAndUpdate(clientId, updatedData, { new: true });
+        const existingAssign = await assignClient.findOne({ clientId: clientId });
+        if (existingAssign) {
+            existingAssign.staffId = staffId;
+            await existingAssign.save();
+        } else {
+            const newAssign = new assignClient({
+                clientId: clientId,
+                staffId,
+            });
+            await newAssign.save();
+        }
         if (updatedClient) {
             resModel.success = true;
             resModel.message = "Client updated successfully";
@@ -325,9 +346,9 @@ module.exports.getAllClient = async (req, res) => {
     }
 }
 
- /**Client Api's ends */
+/**Client Api's ends */
 
- /**Templates Api's Start */
+/**Templates Api's Start */
 
 /**
  * @api {post} /api/template/add Add New Template
@@ -364,10 +385,10 @@ module.exports.addTemplate = async (req, res) => {
             active: active !== undefined ? active : true,
             userId: req.userInfo.id
         });
-       
+
         const savedTemplate = await newTemplate.save();
-         // Create subcategory entries (if any)
-         if (Array.isArray(subCategoryId)) {
+        // Create subcategory entries (if any)
+        if (Array.isArray(subCategoryId)) {
             for (const subCatId of subCategoryId) {
                 await DocumentSubCategory.create({
                     templateId: savedTemplate._id,
@@ -504,8 +525,8 @@ module.exports.getAllTemplates = async (req, res) => {
  */
 module.exports.assignClients = async (req, res) => {
     try {
-        const { clientId, staffId} = req.body;
-        const existingClient = await assignClient.findOne({clientId,staffId });
+        const { clientId, staffId } = req.body;
+        const existingClient = await assignClient.findOne({ clientId, staffId });
         if (existingClient) {
             resModel.success = false;
             resModel.message = "Clients Already Assign";

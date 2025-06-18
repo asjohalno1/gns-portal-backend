@@ -26,9 +26,9 @@ module.exports.addClient = joi.object({
   email: joi.string().email().required(),
   phoneNumber: joi.string().required(),
   address: joi.string().required(),
-  city: joi.string().required(),
-  state: joi.string().required(),
-  zipCode: joi.string().required(),
+  company: joi.string().required(),
+  notes: joi.string().allow('').optional(),
+  staffId: joi.string().required(),
   status: joi.boolean(),
 })
 /**Client Model Ends */

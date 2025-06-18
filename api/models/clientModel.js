@@ -16,24 +16,17 @@ const clientSchema = new mongoose.Schema({
     address: {
         type: String,
     },
-    city: {
-        type: String,
-    },
-    state: {
-        type: String,
-    },
-    zipCode: {
+    company: {
         type: String,
     },
     status: {
         type: Boolean,
         default: false,
     },
-    // clientType: {
-    //     type: String,
-    //     enum: ['individual', 'smallBusiness', 'corporation'],
-    //     default: 'pending'
-    // },
+    notes: {
+        type: String,
+    },
+   
     createdAt: {
         type: Date,
         default: Date.now,
