@@ -49,8 +49,9 @@ module.exports.documentRequest = async (req, res) => {
         let templateData = null;
         if (templateId) {
             templateData = await template.findById(templateId);
+            let subcategoryRes = await DocumentSubCategory.find({ template: templateId });
             categoryId = templateData.categoryId || categoryId;
-            subCategoryId = templateData.subCategoryId || subCategoryId;
+            subCategoryId = subcategoryRes.map(quest => quest.subCategory || subCategoryId)
             notifyMethod = templateData.notifyMethod || notifyMethod;
             remainderSchedule = templateData.remainderSchedule || remainderSchedule;
             instructions = templateData.message || instructions;

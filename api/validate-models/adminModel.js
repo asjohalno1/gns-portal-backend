@@ -38,7 +38,7 @@ module.exports.addClient = joi.object({
 module.exports.addTemplate = joi.object({
   name: joi.string().required(),
   categoryId: joi.string().required(),
-  subCategoryId: joi.string().required(),
+  subCategoryId: joi.array().required(),
   notifyMethod: joi.string().required(),
   remainderSchedule: joi.string().required(),
   message: joi.string().allow('').optional(),

@@ -5,6 +5,7 @@ const adminServices = require('../services/admin.services');
 const Client = require('../models/clientModel');
 const Template = require('../models/template');
 const assignClient = require('../models/assignClients')
+const DocumentSubCategory = require('../models/documentSubcategory');
 
 
 /** Category Api's starts */
@@ -334,7 +335,7 @@ module.exports.getAllClient = async (req, res) => {
  * @apiGroup Template
  * @apiBody {String} name Template name.
  * @apiBody {String} categoryId Template category ID.
- * @apiBody {String} subCategoryId Template sub-category ID.
+ * @apiBody {array} subCategoryId Template sub-category ID.
  * @apiBody {String} notifyMethod Notification method (e.g., email, sms).
  * @apiBody {String} remainderSchedule Reminder schedule (e.g., "Weekly", "Monthly").
  * @apiBody {String} [message] Optional message content.
@@ -357,14 +358,24 @@ module.exports.addTemplate = async (req, res) => {
         const newTemplate = new Template({
             name,
             categoryId,
-            subCategoryId,
             notifyMethod,
             remainderSchedule,
             message,
             active: active !== undefined ? active : true,
             userId: req.userInfo.id
         });
+       
         const savedTemplate = await newTemplate.save();
+         // Create subcategory entries (if any)
+         if (Array.isArray(subCategoryId)) {
+            for (const subCatId of subCategoryId) {
+                await DocumentSubCategory.create({
+                    templateId: savedTemplate._id,
+                    category: categoryId,
+                    subCategory: subCatId
+                });
+            }
+        }
         if (!savedTemplate) {
             resModel.success = false;
             resModel.message = "Error while creating Template";
