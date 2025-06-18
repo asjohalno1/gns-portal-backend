@@ -98,10 +98,10 @@ module.exports.documentRequest = async (req, res) => {
 
             const expiresIn = parseInt(expiration);
             const requestLink = await jwt.linkToken(tokenInfo, expiresIn);
-
             // Send via email or SMS
             if (linkMethod === "email") {
-                await mailServices.sendEmail(clientRes?.email, "Document Request", requestLink, clientRes?.name, "shareLink");
+                await DocumentRequest.findByIdAndUpdate(requestRes._id, { requestLink, linkStatus: "sent" });
+                //await mailServices.sendEmail(clientRes?.email, "Document Request", requestLink, clientRes?.name, "shareLink");
             } else {
                 // await twilioServices(clientRes?.phoneNumber, requestLink);
             }

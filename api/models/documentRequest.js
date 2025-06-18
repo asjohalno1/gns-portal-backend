@@ -21,6 +21,7 @@ const documentRequestSchema = new mongoose.Schema({
   expiration:String,
   instructions: String,
   templateId: String,
+  linkStatus: { type: String, enum: ["created","sent","accessed","expired"],default: "created" },
 },
 { timestamps: true }
 );
