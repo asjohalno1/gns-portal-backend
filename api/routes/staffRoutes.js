@@ -14,6 +14,8 @@ module.exports = function (app, validator) {
    app.post('/api/staff/requestDocument', auth, validator.body(staffModel.addDocumentRequest), staffCntrl.documentRequest)
    app.get('/api/staff/dashboard', auth, staffCntrl.staffDashboard)
    app.get('/api/staff/getAllClients', auth, staffCntrl.getAllClientsByStaff)
+   app.post('/api/staff/addFolder', auth, validator.body(staffModel.addFolder), staffCntrl.addFolder)
+   app.get('/api/staff/getAllFolders', auth, staffCntrl.getAllFolder)
 
 
 }

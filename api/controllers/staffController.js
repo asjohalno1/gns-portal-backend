@@ -9,6 +9,7 @@ const twilioServices = require('../services/twilio.services');
 const Client = require('../models/clientModel');
 const DocumentSubCategory = require('../models/documentSubcategory');
 const assignClient = require('../models/assignClients');
+const Folder = require('../models/folder');
 
 
 
@@ -368,6 +369,86 @@ module.exports.getAllClientsByStaff = async (req, res) => {
         };
 
         res.status(200).json(resModel);
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
+
+
+
+/**
+ * @api {post} /api/staff/addFolder Add Folder
+ * @apiName Add Folder
+ * @apiGroup Client
+ * @apiBody {String} name Folder's Name.
+ * @apiBody {String} description Folder's Description.
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription API for adding a new client.
+ * @apiSampleRequest http://localhost:2001/api/staff/addFolder
+ */
+module.exports.addFolder = async (req, res) => {
+    try {
+        const { name, description, } = req.body;
+        const staffId = req.user._id;
+        const existingFolder = await Folder.findOne({ name,staffId});
+        if (existingFolder) {
+            resModel.success = false;
+            resModel.message = "Folder already exists";
+            resModel.data = null;
+            res.status(201).json(resModel);
+        }
+        const newFolder = new Client({
+            name,
+            description,
+            staffId
+        });
+        const savedFolder = await newFolder.save();
+        if (savedFolder) {
+            resModel.success = true;
+            resModel.message = "Folder added successfully";
+            resModel.data = savedFolder;
+            res.status(200).json(resModel);
+        } else {
+            resModel.success = true;
+            resModel.message = "Error While Creating Folder";
+            resModel.data = null;
+            res.status(400).json(resModel)
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
+/**
+ * @api {get} /api/staff/getAllFolder Get All Folder
+ * @apiName Get All Folder
+ * @apiGroup Staff
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription Staff Dashboard Details
+ * @apiSampleRequest http://localhost:2001/api/staff/getAllFolder
+ */
+module.exports.getAllFolder = async (req, res) => {
+    try {
+        const staffId = req.user._id;
+        const folderRes = await Folder.find({ staffId })
+        if (folderRes) {
+            resModel.success = true;
+            resModel.message = "Data Fetched Successfully";
+            resModel.data = data
+            res.status(200).json(resModel);
+        } else {
+            resModel.success = false;
+            resModel.message = "Data Not Found";
+            resModel.data = [];
+            res.status(200).json(resModel)
+        }
     } catch (error) {
         resModel.success = false;
         resModel.message = "Internal Server Error";

@@ -213,7 +213,7 @@ module.exports.addClient = async (req, res) => {
         } else {
             resModel.success = true;
             resModel.message = "Error While Creating Client";
-            resModel.data = savedClient;
+            resModel.data = null;
             res.status(400).json(resModel)
         }
     } catch (error) {
