@@ -34,3 +34,9 @@ module.exports.addReminder = joi.object({
   message: joi.string().required(),
   remainderType: joi.string().required(),
 })
+
+module.exports.automateReminder = joi.object({
+  scheduleDate: joi.string().required(),
+  notifyMethod: joi.string().required(),
+  frequency: joi.string().required(),
+})

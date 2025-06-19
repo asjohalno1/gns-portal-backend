@@ -21,6 +21,7 @@ module.exports = function (app, validator) {
    app.post('/api/staff/getAllReminderTemplates',auth,staffCntrl.getAllReminderTemplates)
    app.put('/api/staff/updateReminderTemplate/:id',auth,validator.params(staffModel.commonId),staffCntrl.updateReminderTemplate)
    app.get('/api/staff/getAllReminder',auth,staffCntrl.getReminderDashboard)
+   app.post('/api/staff/automateReminder',auth,validator.body(staffModel.automateReminder),staffCntrl.addAutomatedReminder)
 
 }
 

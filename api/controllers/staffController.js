@@ -12,6 +12,7 @@ const assignClient = require('../models/assignClients');
 const Folder = require('../models/folder');
 const Remainder = require('../models/remainer');
 const RemainderTemplate = require('../models/remainderTemplate');
+const AutomatedRemainder = require('../models/automatedRemainder');
 
 
 
@@ -684,7 +685,7 @@ module.exports.getReminderDashboard = async (req, res) => {
             staffId,
         });
         const pendingUploads = await DocumentRequest.countDocuments({
-            createdBy:staffId,
+            createdBy: staffId,
             status: "pending",
         });
         const remindersRaw = await Remainder.find({ staffId }).sort({ createdAt: -1 });
@@ -719,6 +720,42 @@ module.exports.getReminderDashboard = async (req, res) => {
             reminders,
         };
         res.status(200).json(resModel);
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
+/**
+ * @api {post} /api/staff/automateReminder Create Automated Reminder
+ * @apiNameCreate Automated Reminder
+ * @apiGroup Staff
+ * @apiBody {Date} scheduleDate Reminder schedule date (required).
+ * @apiBody {String="email","sms","portal","AiCall"} notifyMethod Notification method (required).
+ * @apiBody {String="daily","weekly","monthly"} frequency Reminder frequency (optional).
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription Create Automated Reminder.
+ * @apiSampleRequest http://localhost:2001/api/staff/automateReminder
+ */
+exports.addAutomatedReminder = async (req, res) => {
+    try {
+        const { scheduleDate, notifyMethod, frequency } = req.body;
+        const staffId = req.userInfo.id;
+        const newReminder = new AutomatedRemainder({ staffId, scheduleDate, notifyMethod, frequency });
+        const savedReminder = await newReminder.save();
+        if (!savedReminder) {
+            resModel.success = false;
+            resModel.message = "Error While Creating Automated Reminder";
+            resModel.data = null;
+            res.status(400).json(resModel);
+        } else {
+            resModel.success = true;
+            resModel.message = "Automated reminder created successfully.";
+            resModel.data = savedReminder;
+            res.status(200).json(resModel);
+        }
     } catch (error) {
         resModel.success = false;
         resModel.message = "Internal Server Error";
