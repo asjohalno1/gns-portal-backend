@@ -10,6 +10,8 @@ const Client = require('../models/clientModel');
 const DocumentSubCategory = require('../models/documentSubcategory');
 const assignClient = require('../models/assignClients');
 const Folder = require('../models/folder');
+const Remainder = require('../models/remainer');
+const RemainderTemplate = require('../models/remainderTemplate');
 
 
 
@@ -394,7 +396,7 @@ module.exports.addFolder = async (req, res) => {
     try {
         const { name, description, } = req.body;
         const staffId = req.user._id;
-        const existingFolder = await Folder.findOne({ name,staffId});
+        const existingFolder = await Folder.findOne({ name, staffId });
         if (existingFolder) {
             resModel.success = false;
             resModel.message = "Folder already exists";
@@ -456,5 +458,279 @@ module.exports.getAllFolder = async (req, res) => {
         res.status(500).json(resModel);
     }
 };
+
+
+
+
+/**
+ * @api {post} /api/staff/sendReminder Send Reminder
+ * @apiName SendReminder
+ * @apiGroup Staff
+ * @apiBody {Array} clientId Array of client IDs to notify.
+ * @apiBody {String} templateId Template ID (optional).
+ * @apiBody {String} remainderType Type of reminder.
+ * @apiBody {String} subject Reminder subject.
+ * @apiBody {String} message Reminder message.
+ * @apiBody {String} customMessage Custom message (optional).
+ * @apiBody {Date} scheduleDate Scheduled date for reminder.
+ * @apiBody {String} scheduleTime Scheduled time (e.g., "15:30").
+ * @apiBody {String="email","sms","portal","AiCall"} notifyMethod Notification method.
+ * @apiBody {Boolean} isTemplate is Template.
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription API for sending a scheduled reminder to one or more clients.
+ * @apiSampleRequest http://localhost:2001/api/staff/sendReminder
+ */
+module.exports.sendReminder = async (req, res) => {
+    try {
+        const { isTemplate, clientId, templateId, remainderType, subject, message, customMessage, scheduleDate, scheduleTime, notifyMethod } = req.body;
+        const staffId = req.userInfo.id;
+        let newReminder
+        if (isTemplate) {
+            newReminder = new Remainder({
+                staffId,
+                clientId,
+                templateId,
+                customMessage,
+                scheduleDate,
+                scheduleTime,
+                notifyMethod,
+            });
+        } else {
+            newReminder = new Remainder({
+                staffId,
+                clientId,
+                remainderType,
+                subject,
+                message,
+                customMessage,
+                scheduleDate,
+                scheduleTime,
+                notifyMethod,
+            });
+        }
+        const savedReminder = await newReminder.save();
+        if (!savedReminder) {
+            resModel.success = false;
+            resModel.message = "Error While scheduling Reminder";
+            resModel.data = null;
+            return res.status(400).json(resModel);
+        } else {
+            resModel.success = true;
+            resModel.message = "Reminder scheduled successfully.";
+            resModel.data = savedReminder;
+            res.status(200).json(resModel);
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
+
+/**
+ * @api {post} /api/staff/addReminderTemplate Add Reminder Template
+ * @apiName Add Reminder Template
+ * @apiGroup Staff
+ * @apiBody {String} name Template name (required).
+ * @apiBody {String} message Reminder message.
+ * @apiBody {String} remainderType Type of reminder.
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription API for creating a new reminder template.
+ * @apiSampleRequest http://localhost:2001/api/staff/addReminderTemplate
+ */module.exports.addReminderTemplate = async (req, res) => {
+    try {
+        const { name, message, remainderType } = req.body;
+        const staffId = req.user._id;
+        const existingTemplate = await RemainderTemplate.findOne({ name, staffId });
+        if (existingTemplate) {
+            resModel.success = false;
+            resModel.message = "Template with the same name already exists.";
+            resModel.data = null;
+            res.status(409).json(resModel);
+        } else {
+            const newTemplate = new RemainderTemplate({
+                staffId,
+                name,
+                message,
+                remainderType
+            });
+            const savedTemplate = await newTemplate.save();
+            if (!savedTemplate) {
+                resModel.success = false;
+                resModel.message = "Error While Adding Reminder Template";
+                resModel.data = null;
+                res.status(400).json(resModel);
+            } else {
+                resModel.success = true;
+                resModel.message = "Reminder template added successfully.";
+                resModel.data = savedTemplate;
+                res.status(200).json(resModel);
+            }
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
+
+/**
+ * @api {get} /api/staff/getAllReminderTemplates Get All Reminder Templates
+ * @apiName GetAllReminderTemplates
+ * @apiGroup Staff
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription API for fetching all reminder templates created by the staff user.
+ * @apiSampleRequest http://localhost:2001/api/staff/getAllReminderTemplates
+ */
+module.exports.getAllReminderTemplates = async (req, res) => {
+    try {
+        const staffId = req.user._id;
+        const templates = await RemainderTemplate.find({ staffId, active: true }).sort({ createdAt: -1 });
+        if (!templates) {
+            resModel.success = false;
+            resModel.message = "Templates not found.";
+            resModel.data = [];
+            res.status(200).json(resModel);
+        } else {
+            resModel.success = true;
+            resModel.message = "Templates fetched successfully.";
+            resModel.data = templates;
+            res.status(200).json(resModel);
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
+/**
+ * @api {put} /api/staff/updateReminderTemplate/:id Update Reminder Template
+ * @apiName Update Reminder Template
+ * @apiGroup Staff
+ * @apiParam {String} templateId Template ID to update.
+ * @apiBody {String} name Updated template name (optional).
+ * @apiBody {String} message Updated reminder message (optional).
+ * @apiBody {String} remainderType Updated reminder type (optional).
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription API for updating an existing reminder template.
+ * @apiSampleRequest http://localhost:2001/api/staff/updateReminderTemplate/:id
+ */
+module.exports.updateReminderTemplate = async (req, res) => {
+    try {
+        const { templateId } = req.params;
+        const { name, message, remainderType } = req.body;
+        const staffId = req.user._id;
+        const template = await RemainderTemplate.findOne({ _id: templateId, staffId });
+        if (!template) {
+            resModel.success = false;
+            resModel.message = "Template not found.";
+            resModel.data = null;
+            res.status(404).json(resModel);
+        } else {
+            if (name) template.name = name;
+            if (message) template.message = message;
+            if (remainderType) template.remainderType = remainderType;
+            const updatedTemplate = await template.save();
+            if (!updatedTemplate) {
+                resModel.success = false;
+                resModel.message = "Error While Updating Reminder Template";
+                resModel.data = null;
+                res.status(400).json(resModel);
+            } else {
+                resModel.success = true;
+                resModel.message = "Reminder template updated successfully.";
+                resModel.data = updatedTemplate;
+                res.status(200).json(resModel);
+            }
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
+
+/**
+ * @api {get} /api/staff/getAllReminder Get All Reminder 
+ * @apiName Get All Reminder
+ * @apiGroup Staff
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription API for fetching all reminder created by the staff user.
+ * @apiSampleRequest http://localhost:2001/api/staff/getAllReminder
+ */
+module.exports.getReminderDashboard = async (req, res) => {
+    try {
+        const staffId = req.userInfo.id;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const notifiedClientIds = await Remainder.find({
+            staffId,
+            createdAt: { $gte: today },
+        }).distinct("clientId");
+        const clientNotifiedToday = notifiedClientIds.length;
+        const activeReminders = await Remainder.countDocuments({
+            staffId,
+            active: true,
+        });
+        const templatesCreatedTotal = await RemainderTemplate.countDocuments({
+            staffId,
+        });
+        const pendingUploads = await DocumentRequest.countDocuments({
+            createdBy:staffId,
+            status: "pending",
+        });
+        const remindersRaw = await Remainder.find({ staffId }).sort({ createdAt: -1 });
+        const allClientIds = [...new Set(remindersRaw.flatMap(r => r.clientId))];
+        const clients = await Client.find({ _id: { $in: allClientIds } });
+        const clientMap = {};
+        clients.forEach(c => {
+            clientMap[c._id.toString()] = c.name;
+        });
+        const reminders = [];
+        for (const rem of remindersRaw) {
+            for (const clientId of rem.clientId) {
+                const clientName = clientMap[clientId.toString()] || "Unknown";
+                reminders.push({
+                    clientName,
+                    channel: rem.notifyMethod,
+                    remainderType: rem.remainderType,
+                    date: rem.scheduleDate,
+                    status: rem.status.charAt(0).toUpperCase() + rem.status.slice(1),
+                });
+            }
+        }
+
+
+        resModel.success = true;
+        resModel.message = "Data Found successfully.";
+        resModel.data = {
+            clientNotifiedToday,
+            activeReminders,
+            templatesCreatedTotal,
+            pendingUploads,
+            reminders,
+        };
+        res.status(200).json(resModel);
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
+
+
+
+
+
 
 

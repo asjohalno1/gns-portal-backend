@@ -27,3 +27,10 @@ module.exports.addFolder = joi.object({
 })
 
 /**Add Folder Model Ends */
+
+
+module.exports.addReminder = joi.object({
+  name: joi.string().required(),
+  message: joi.string().required(),
+  remainderType: joi.string().required(),
+})
