@@ -13,6 +13,7 @@ const SubCategory = require('../models/subCategory');
 const uploadDocuments = require('../models/uploadDocuments');
 const notification = require('../models/notification');
 const DocumentSubCategory = require('../models/documentSubcategory');
+const clientModel = require('../models/clientModel.js');
 
 
 
@@ -289,6 +290,8 @@ module.exports.getAllUser = async (req, res) => {
     }
 }
 
+
+const { createClientFolder, listFilesInFolder, uploadFileToFolder } = require('../services/googleDriveService.js');
 /**
  * @api {post} /api/user/uploadDocument  Upload Document
  * @apiName Upload Document
@@ -305,6 +308,10 @@ module.exports.uploadDocument = async (req, res) => {
     try {
         const { categoryId, subCategoryId, notes } = req.body;
         let files = req.files;
+        let clientRes = await clientModel.findOne({ _id: req?.userInfo?.clientId });
+        const client = await createClientFolder(clientRes?.name);
+        await clientModel.findOneAndUpdate({ _id: req?.userInfo?.clientId }, { folderId: client });
+          await uploadFileToFolder(client, files);
         const uploadInfo = {
             request: req?.userInfo?.requestId,
             clientEmail: req?.userInfo?.email.toLowerCase(),
@@ -348,7 +355,7 @@ module.exports.uploadDocument = async (req, res) => {
  * @apiSampleRequest http://localhost:2001/api/user/dashboardDetails
  */
 module.exports.getClientDashboard = async (req, res) => {
-    const requestId =req?.userInfo?.requestId;
+    const requestId = req?.userInfo?.requestId;
 
     try {
         const now = new Date();
@@ -535,6 +542,33 @@ module.exports.getAllNotifications = async (req, res) => {
         res.status(500).json(resModel);
     }
 }
+
+
+
+exports.getClientDocu = async (req, res) => {
+    const { clientId, role } = req.query;
+
+    let clients;
+    if (role === 'admin') {
+        clients = await clientModel.find({ folderId: { $exists: true } });
+    } else {
+        const client = await clientModel.findById({_id:clientId});
+        if (!client || !client.folderId) return res.status(404).json({ message: 'No documents' });
+        clients = [client];
+    }
+
+    const result = await Promise.all(
+        clients.map(async (client) => {
+            const files = await listFilesInFolder(client.folderId);
+            return {
+                client: client.name,
+                documents: files,
+            };
+        })
+    );
+
+    res.status(200).json({ success: true, data: result });
+};
 
 
 

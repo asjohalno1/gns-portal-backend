@@ -1,5 +1,6 @@
 // models/Notification.js
 const mongoose = require('mongoose');
+const folder = require('./folder');
 
 const clientSchema = new mongoose.Schema({
     name: {
@@ -24,6 +25,9 @@ const clientSchema = new mongoose.Schema({
         default: false,
     },
     notes: {
+        type: String,
+    },
+    folderId: {
         type: String,
     },
    
