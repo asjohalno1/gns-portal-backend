@@ -3,6 +3,12 @@
 const adminCntrl = require('../controllers/adminController');
 /* Controller import  ends */
 
+
+/**Multer import starts */
+const {createUpload} = require('../services/multer.services');
+const upload = createUpload('clients'); 
+/**Multer import ends */
+
 /* validate model import starts */
 const adminModel = require('../validate-models/adminModel');
 /* validate model  import  ends */
@@ -26,6 +32,7 @@ module.exports = function (app, validator) {
    app.get('/api/client/getAllClient', adminCntrl.getAllClient)
    app.get('/api/client/details/:id',validator.params(adminModel.commonId),adminCntrl.getclientDetails)
    app.put('/api/client/update/:id',validator.params(adminModel.commonId),adminCntrl.updateClient)
+   app.post('/api/client/uploadCsv',upload.single('file'),adminCntrl.uploadClientCsv)
    /*** Client Routes's ends */
 
    /**Template Routes's starts */

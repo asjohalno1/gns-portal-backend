@@ -1,4 +1,7 @@
 const Client = require("../models/clientModel");
+const fs = require('fs');
+const xlsx = require('xlsx');
+const csvParser = require('csv-parser');
 
 const clientService = () => {
 
@@ -48,9 +51,64 @@ const clientService = () => {
             throw new Error(error.message);
         }
     };
+    function parseCSV(filePath) {
+        return new Promise((resolve, reject) => {
+            const results = [];
+            fs.createReadStream(filePath)
+                .pipe(csvParser())
+                .on('data', (data) => results.push(data))
+                .on('end', () => resolve(results))
+                .on('error', reject);
+        });
+    }
+
+    function parseExcel(filePath) {
+        const workbook = xlsx.readFile(filePath);
+        const sheetName = workbook.SheetNames[0];
+        const data = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+        return data;
+    }
+
+    const parseClients = async (file) => {
+        try {
+            const filePath = file?.path;
+            if (!filePath) throw new Error('No file path found');
+
+            if (filePath.endsWith('.csv')) {
+                return await parseCSV(filePath);
+            } else if (filePath.endsWith('.xlsx')) {
+                return parseExcel(filePath);
+            }
+
+            throw new Error('Unsupported file format');
+        } catch (error) {
+            console.error('parseClients error:', error);
+            throw error;
+        }
+    };
+    const addBulkClients = async (clients) => {
+        try {
+            const emails = clients.map((client) => client.email);
+            const existingClients = await Client.find({ email: { $in: emails } }).select('email');
+            const existingEmails = new Set(existingClients.map((client) => client.email));
+            const newClients = clients.filter((client) => !existingEmails.has(client.email));
+            if (newClients.length === 0) {
+                console.log('No new clients to insert.');
+                return [];
+            }
+            const createdClients = await Client.insertMany(newClients);
+            return createdClients;
+        } catch (error) {
+            console.error('addBulkClients error:', error);
+            throw error;
+        }
+    };
+
 
     return {
-        getAllClients
+        getAllClients,
+        parseClients,
+        addBulkClients
     };
 };
 

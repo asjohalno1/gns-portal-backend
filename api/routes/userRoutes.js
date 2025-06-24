@@ -4,7 +4,7 @@ const userCntrl = require('../controllers/userController');
 /* Controller import  ends */
 
 /**Multer import starts */
-const upload = require('../services/multer.services');
+const {uploadPDF} = require('../services/multer.services');
 /**Multer import ends */
 
 /* validate model import starts */
@@ -20,7 +20,7 @@ module.exports = function (app, validator) {
    app.post('/api/staff/googleLogin',userCntrl.googleWithLogin);
    app.post('/api/admin/signup',validator.body(userModel.signupUser),userCntrl.signupUser);
    app.post('/api/role/add',userCntrl.addRole);
-   app.post('/api/user/uploadDocument',upload.array('files', 10) ,userCntrl.uploadDocument);
+   app.post('/api/user/uploadDocument',uploadPDF.array('files', 10) ,userCntrl.uploadDocument);
    app.get('/api/user/dashboardDetails',auth,userCntrl.getClientDashboard);
    app.get('/api/user/clientDocuments',auth,userCntrl.getClientDocuments);
    app.get('/api/user/getAllNotifications',auth,userCntrl.getAllNotifications);

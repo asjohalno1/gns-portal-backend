@@ -346,6 +346,39 @@ module.exports.getAllClient = async (req, res) => {
     }
 }
 
+/**
+ * @api {post} /api/client/uploadCsv Upload Client Files
+ * @apiName Upload Client Files
+ * @apiGroup Client
+ * @apiBody {String} file Client's CSV File.
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription API for adding a new client.
+ * @apiSampleRequest http://localhost:2001/api/client/uploadCsv
+ */
+module.exports.uploadClientCsv = async (req, res) => {
+    try {
+        const  file = req.file;
+        const savedClient = await adminServices().parseClients(file);
+       const clientRes = await adminServices().addBulkClients(savedClient);
+         if (clientRes) {
+            resModel.success = true;
+            resModel.message = "Files Uploaded successfully";
+            resModel.data = clientRes;
+            res.status(200).json(resModel);
+        } else {
+            resModel.success = true;
+            resModel.message = "Error While Uploading Files";
+            resModel.data = null;
+            res.status(400).json(resModel)
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
 /**Client Api's ends */
 
 /**Templates Api's Start */
