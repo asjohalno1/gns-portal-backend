@@ -311,24 +311,19 @@ module.exports.uploadDocument = async (req, res) => {
         let clientRes = await clientModel.findOne({ _id: req?.userInfo?.clientId });
         const client = await createClientFolder(clientRes?.name);
         await clientModel.findOneAndUpdate({ _id: req?.userInfo?.clientId }, { folderId: client });
-          await uploadFileToFolder(client, files);
+        await uploadFileToFolder(client, files);
         const uploadInfo = {
             request: req?.userInfo?.requestId,
             clientEmail: req?.userInfo?.email.toLowerCase(),
-            category: categoryId,
-            subCategory: subCategoryId,
             notes: notes,
             files: files
 
         };
-
-        const newUpload = new uploadDocument(uploadInfo);
-        let uploadRes = await newUpload.save();
-
-        if (uploadRes) {
+        const newUpload = new uploadDocument.findOneAndUpdate({ request: req?.userInfo?.requestId, subCategory: subCategoryId }, uploadInfo, { upsert: true });
+        if (newUpload) {
             resModel.success = true;
             resModel.message = "Document Upload Successfully";
-            resModel.data = uploadRes
+            resModel.data = newUpload
             res.status(200).json(resModel)
         } else {
             resModel.success = false;
@@ -359,13 +354,11 @@ module.exports.getClientDashboard = async (req, res) => {
 
     try {
         const now = new Date();
-        const allRequests = await DocumentRequest.find({ _id: requestId });
-
-        const totalDocuments = allRequests.length;
-        const pendingCount = allRequests.filter(doc => doc.status === 'pending').length;
-        const overdueCount = allRequests.filter(doc => doc.status === 'pending' && doc.dueDate < now).length;
-
-        const completedCount = await uploadDocument.countDocuments({ request: requestId });
+        const uploadDocument = await uploadDocuments.find({ request: requestId });
+        const totalDocuments = uploadDocument.length;
+        const pendingCount = uploadDocument.filter(doc => doc.status === 'pending').length;
+        const overdueCount = uploadDocument.filter(doc => doc.status === 'pending' && doc.dueDate < now).length;
+        const completedCount = await uploadDocuments.countDocuments({ request: requestId, status: 'completed' });
 
         // Get populated document request with category
         const documentRequests = await DocumentRequest.find({ _id: requestId })
@@ -385,14 +378,14 @@ module.exports.getClientDashboard = async (req, res) => {
         });
 
         // Get uploaded docs (recent activity)
-        const recentActivity = await uploadDocument.find({ request: requestId })
+        const recentActivity = await uploadDocuments.find({ request: requestId })
             .populate('category')
             .populate('subCategory') // still works if subCategory reference is directly in upload model
             .sort({ createdAt: -1 })
             .limit(5);
 
         // Construct upcoming deadlines
-        const upcomingDeadlines = documentRequests
+        const upcomingDeadlines = uploadDocument
             .filter(doc => doc.status === 'pending')
             .flatMap(doc => {
                 const daysLeft = Math.ceil((new Date(doc.dueDate) - now) / (1000 * 60 * 60 * 24));
@@ -552,7 +545,7 @@ exports.getClientDocu = async (req, res) => {
     if (role === 'admin') {
         clients = await clientModel.find({ folderId: { $exists: true } });
     } else {
-        const client = await clientModel.findById({_id:clientId});
+        const client = await clientModel.findById({ _id: clientId });
         if (!client || !client.folderId) return res.status(404).json({ message: 'No documents' });
         clients = [client];
     }

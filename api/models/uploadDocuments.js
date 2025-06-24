@@ -8,6 +8,7 @@ const uploadedDocumentSchema = new mongoose.Schema({
   subCategory: { type: mongoose.Schema.Types.ObjectId, ref: 'subCategory' },
   clientEmail: String,
   files:Array,
+  dueDate: Date,
   notes: String,
   status: {
     type: String,

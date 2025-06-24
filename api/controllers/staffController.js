@@ -13,6 +13,7 @@ const Folder = require('../models/folder');
 const Remainder = require('../models/remainer');
 const RemainderTemplate = require('../models/remainderTemplate');
 const AutomatedRemainder = require('../models/automatedRemainder');
+const uploadDocument = require('../models/uploadDocuments')
 
 
 
@@ -88,6 +89,12 @@ module.exports.documentRequest = async (req, res) => {
                         request: requestRes._id,
                         category: categoryId,
                         subCategory: subCatId
+                    });
+                    await uploadDocument.create({
+                        request: requestRes._id,
+                        category: categoryId,
+                        subCategory: subCatId,
+                        dueDate:dueDate
                     });
                 }
             }
