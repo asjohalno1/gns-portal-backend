@@ -14,7 +14,7 @@ const uploadDocuments = require('../models/uploadDocuments');
 const notification = require('../models/notification');
 const DocumentSubCategory = require('../models/documentSubcategory');
 const clientModel = require('../models/clientModel.js');
-
+const { listFilesInFolderStructure, uploadFileToFolder } = require('../services/googleDriveService.js');
 
 
 
@@ -291,7 +291,7 @@ module.exports.getAllUser = async (req, res) => {
 }
 
 
-const { createClientFolder, listFilesInFolder, uploadFileToFolder } = require('../services/googleDriveService.js');
+
 /**
  * @api {post} /api/user/uploadDocument  Upload Document
  * @apiName Upload Document
@@ -309,9 +309,8 @@ module.exports.uploadDocument = async (req, res) => {
         const { categoryId, subCategoryId, notes } = req.body;
         let files = req.files;
         let clientRes = await clientModel.findOne({ _id: req?.userInfo?.clientId });
-        const client = await createClientFolder(clientRes?.name);
-        await clientModel.findOneAndUpdate({ _id: req?.userInfo?.clientId }, { folderId: client });
-        await uploadFileToFolder(client, files);
+        await uploadFileToFolder(clientRes?.name, files, "Bookkeeping",clientRes?.email);
+        // await clientModel.findOneAndUpdate({ _id: req?.userInfo?.clientId }, { folderId: client });
         const uploadInfo = {
             request: req?.userInfo?.requestId,
             clientEmail: req?.userInfo?.email.toLowerCase(),
@@ -319,7 +318,7 @@ module.exports.uploadDocument = async (req, res) => {
             files: files
 
         };
-        const newUpload = new uploadDocument.findOneAndUpdate({ request: req?.userInfo?.requestId, subCategory: subCategoryId }, uploadInfo, { upsert: true });
+        const newUpload = await uploadDocument.findOneAndUpdate({ request: req?.userInfo?.requestId, subCategory: subCategoryId }, uploadInfo, { upsert: true });
         if (newUpload) {
             resModel.success = true;
             resModel.message = "Document Upload Successfully";
@@ -539,28 +538,16 @@ module.exports.getAllNotifications = async (req, res) => {
 
 
 exports.getClientDocu = async (req, res) => {
-    const { clientId, role } = req.query;
+    const clientId = req?.userInfo?.clientId;
+    const clientRes = await clientModel.findOne({ _id: clientId });
 
-    let clients;
-    if (role === 'admin') {
-        clients = await clientModel.find({ folderId: { $exists: true } });
-    } else {
-        const client = await clientModel.findById({ _id: clientId });
-        if (!client || !client.folderId) return res.status(404).json({ message: 'No documents' });
-        clients = [client];
-    }
+    const data = await listFilesInFolderStructure(clientRes.name);
 
-    const result = await Promise.all(
-        clients.map(async (client) => {
-            const files = await listFilesInFolder(client.folderId);
-            return {
-                client: client.name,
-                documents: files,
-            };
-        })
-    );
-
-    res.status(200).json({ success: true, data: result });
+    res.status(200).json({
+      success: true,
+      message: "Fetched Google Drive documents successfully",
+      data
+    });
 };
 
 

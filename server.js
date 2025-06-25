@@ -36,9 +36,9 @@ app.use((err, req, res, next) => {
     }
     next()
 });
- const { createClientFolder,listFilesInFolder} = require('./api/services/googleDriveService.js');
+ const { deleteAllClientFolders} = require('./api/services/googleDriveService.js');
  //listFilesInFolder("1cMxxr5kn83InV6wtrO515_Jr4tSlRX3B")
-// createClientFolder()
+ //deleteAllClientFolders()
 
 app.listen(process.env.PORT, () => {
     console.log(`app listening on port ${process.env.PORT}!`)

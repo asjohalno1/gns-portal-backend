@@ -1,6 +1,7 @@
 const { google } = require('googleapis');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
+const fs = require('fs');
 const { logger } = require('sequelize/lib/utils/logger');
 const KEYFILEPATH = path.join(__dirname, '../../cpa-project-new-c6a5d789e270.json'); // your service account key
 const SCOPES = ['https://www.googleapis.com/auth/drive'];
@@ -12,45 +13,74 @@ const auth = new google.auth.GoogleAuth({
 
 const drive = google.drive({ version: 'v3', auth });
 
-const createClientFolder = async (clientName) => {
+const createClientFolder = async (name, parentId = null, Email) => {
     try {
-        const folderMetadata = {
-            name: clientName,
-            mimeType: 'application/vnd.google-apps.folder',
-            parents: ["1cMxxr5kn83InV6wtrO515_Jr4tSlRX3B"],
-        };
+        const q = `'${parentId ? parentId : 'root'}' in parents and name = '${name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+        const res = await drive.files.list({ q, fields: 'files(id, name)' });
 
-        const file = await drive.files.create({
-            resource: folderMetadata,
+        if (res.data.files.length > 0) return res.data.files[0].id;
+
+        const fileMetadata = {
+            name,
+            mimeType: 'application/vnd.google-apps.folder',
+            parents: parentId ? [parentId] : [],
+        };
+        const folder = await drive.files.create({
+            resource: fileMetadata,
             fields: 'id',
         });
 
-        return file.data.id;
+        // ✅ Share folder with your Google account (so you can see it)
+        await drive.permissions.create({
+            fileId: folder.data.id,
+            requestBody: {
+                role: 'writer', // or 'reader' if you want read-only access
+                type: 'user',
+                emailAddress: Email, // 🔁 Replace with your actual Gmail address
+            },
+        });
+
+        return folder.data.id;
     } catch (error) {
         console.error('Error creating folder:', error);
     }
-
 };
 
-const uploadFileToFolder = async (folderId, fileArray) => {
+
+const uploadFileToFolder = async (clientName, files, category, email) => {
     try {
+        const staticRootId = await createClientFolder("NewCPA", "", email);
+        const clientsRootId = await createClientFolder("Users", staticRootId, email);
+        const clientFolderId = await createClientFolder(clientName, clientsRootId, email);
+        const categoryFolderId = await createClientFolder(category, clientFolderId, email);
         const uploadedFiles = [];
+        for (const file of files) {
+            const fileMetadata = {
+                name: file.originalname,
+                parents: [categoryFolderId],
+            };
+            const media = {
+                mimeType: file.mimetype,
+                body: fs.createReadStream(file.path),
+            };
 
-        for (const file of fileArray) {
-            const { originalname, buffer, mimetype } = file;
+            const uploaded = await drive.files.create({
+                resource: fileMetadata,
+                media,
+                fields: 'id, name, webViewLink',
+            });
 
-            const response = await drive.files.create({
+            // ✅ Make the file publicly viewable (anyone with the link can view)
+            await drive.permissions.create({
+                fileId: uploaded.data.id,
                 requestBody: {
-                    name: originalname,
-                    parents: [folderId],
-                },
-                media: {
-                    mimeType: mimetype,
-                    body: buffer,
+                    role: 'reader',
+                    type: 'anyone',  // <-- this is the key fix
                 },
             });
 
-            uploadedFiles.push(response.data);
+            fs.unlinkSync(file.path); // cleanup temp file
+            uploadedFiles.push(uploaded.data);
         }
 
         return uploadedFiles;
@@ -61,17 +91,40 @@ const uploadFileToFolder = async (folderId, fileArray) => {
 };
 
 
-const listFilesInFolder = async (folderId) => {
-    const res = await drive.files.list({
-        q: `'${folderId}' in parents and trashed=false`,
-        fields: 'files(id, name, mimeType, webViewLink)',
+const listFilesInFolderStructure = async (clientName) => {
+    const staticRootId = await createClientFolder("CPA");
+    const clientsRootId = await createClientFolder("Clients", staticRootId);
+    const clientFolderId = await createClientFolder(clientName, clientsRootId);
+
+    const categoryFolders = await drive.files.list({
+        q: `'${clientFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+        fields: 'files(id, name)',
     });
 
-    return res.data.files;
+    const result = [];
+
+    for (const folder of categoryFolders.data.files) {
+        const filesRes = await drive.files.list({
+            q: `'${folder.id}' in parents and trashed = false`,
+            fields: 'files(id, name, webViewLink)',
+        });
+
+        result.push({
+            category: folder.name,
+            files: filesRes.data.files || [],
+        });
+    }
+
+    return {
+        clientName,
+        folders: result,
+    };
 };
 
+
+
+
 module.exports = {
-    createClientFolder,
     uploadFileToFolder,
-    listFilesInFolder,
+    listFilesInFolderStructure,
 };
