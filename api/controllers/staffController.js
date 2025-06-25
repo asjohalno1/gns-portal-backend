@@ -14,6 +14,7 @@ const Remainder = require('../models/remainer');
 const RemainderTemplate = require('../models/remainderTemplate');
 const AutomatedRemainder = require('../models/automatedRemainder');
 const uploadDocument = require('../models/uploadDocuments')
+const uploadDocuments = require('../models/uploadDocuments');
 
 
 
@@ -94,7 +95,9 @@ module.exports.documentRequest = async (req, res) => {
                         request: requestRes._id,
                         category: categoryId,
                         subCategory: subCatId,
-                        dueDate:dueDate
+                        dueDate: dueDate,
+                        clientId: client
+
                     });
                 }
             }
@@ -178,7 +181,7 @@ module.exports.staffDashboard = async (req, res) => {
 
             summary.activeClients += 1;
 
-            const docs = await DocumentRequest.find({ clientId: client._id }).sort({ updatedAt: -1 });
+            const docs = await uploadDocuments.find({ clientId: client._id }).sort({ updatedAt: -1 });
 
             const totalRequests = docs.length;
             const completed = docs.filter(doc => doc.status === 'accepted').length;
@@ -254,14 +257,26 @@ module.exports.staffDashboard = async (req, res) => {
                 email: client.email,
                 documentRequest: totalRequests
                     ? `Document remaining (${completed}/${totalRequests})`
-                    : 'All Uploaded',
+                    : 'Not Assign Any Document',
                 taskDeadline,
                 taskDeadlineColor: color,
                 statusUpdate,
                 lastActivity: docs[0]?.updatedAt || client.createdAt
             });
         }
-
+        const documentCompletion = [
+            {
+                category: "individual",
+                percentage: 80
+            },
+            {
+                category: "Business tax",
+                percentage: 20
+            },
+            {
+                category: "others",
+                percentage: 0
+            }]
         // 🔍 Apply search only to final output
         const filteredClients = search
             ? fullDashboardData.filter(client =>
@@ -272,6 +287,7 @@ module.exports.staffDashboard = async (req, res) => {
         resModel.success = true;
         resModel.message = filteredClients.length > 0 ? "Dashboard data fetched successfully" : "No clients found";
         resModel.data = {
+            documentCompletion,
             summary,
             urgentTasks,
             clients: filteredClients
@@ -326,7 +342,7 @@ module.exports.getAllClientsByStaff = async (req, res) => {
                 !client.email.toLowerCase().includes(searchLower)
             ) continue;
 
-            const documentRequests = await DocumentRequest.find({ clientId: client._id });
+            const documentRequests = await uploadDocuments.find({ clientId: client._id });
 
             for (const doc of documentRequests) {
                 // Date filter
@@ -335,7 +351,7 @@ module.exports.getAllClientsByStaff = async (req, res) => {
                 if (dateTo && created > new Date(dateTo)) continue;
 
                 // Populate category and subCategory
-                const subCatLink = await DocumentSubCategory.findOne({ request: doc._id })
+                const subCatLink = await DocumentSubCategory.findOne({ request: doc.request })
                     .populate('category')
                     .populate('subCategory');
 
@@ -379,6 +395,38 @@ module.exports.getAllClientsByStaff = async (req, res) => {
         };
 
         res.status(200).json(resModel);
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
+/**
+ * @api {get} /api/staff/getAllTracking Get All Staff Tracking
+ * @apiName Get All Staff Tracking
+ * @apiGroup Staff
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription Staff Tracking List Service...
+ * @apiSampleRequest http://localhost:2001/api/staff/getAllTracking
+ */
+module.exports.getAllTrackingByStaff = async (req, res) => {
+    try {
+        const staffId = req.user._id;
+        const tracking = await uploadDocuments.find({ staffId });
+        if (tracking) {
+            resModel.success = true;
+            resModel.message = "Data Found Successfully";
+            resModel.data = tracking
+            res.status(200).json(resModel);
+        } else {
+            resModel.success = false;
+            resModel.message = "Data Not Found";
+            resModel.data = [];
+            res.status(200).json(resModel)
+        }
+      
     } catch (error) {
         resModel.success = false;
         resModel.message = "Internal Server Error";
@@ -547,7 +595,8 @@ module.exports.sendReminder = async (req, res) => {
  * @apiHeader {String} Authorization Bearer token
  * @apiDescription API for creating a new reminder template.
  * @apiSampleRequest http://localhost:2001/api/staff/addReminderTemplate
- */module.exports.addReminderTemplate = async (req, res) => {
+ */
+module.exports.addReminderTemplate = async (req, res) => {
     try {
         const { name, message, remainderType } = req.body;
         const staffId = req.user._id;
