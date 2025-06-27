@@ -879,44 +879,44 @@ exports.addAutomatedReminder = async (req, res) => {
  */
 module.exports.updateDocument = async (req, res) => {
     try {
-      const { id } = req.params;
-      const { status, subCategoryId, folderId, tags, comments } = req.body;
-      const staffId = req.userInfo.id;
-  
-      const documentRes = await uploadDocuments.findOne({ _id: id });
-      if (!documentRes) {
-        resModel.success = false;
-        resModel.message = "Uploaded document not found.";
-        res.status(404).json(resModel);
-      }
-      if (status) documentRes.status = status;
-      if (subCategoryId) documentRes.subCategory = subCategoryId;
-      if (folderId) documentRes.folderId = folderId;
-      if (tags) documentRes.tags = tags;
-      if (comments) documentRes.comments = comments;
-  
-      // Optional: track who reviewed it
-      documentRes.reviewedBy = staffId;
-      documentRes.reviewedAt = new Date();
-  
-      const updatedDoc = await documentRes.save();
-      if (!updatedDoc) {
-        resModel.success = false;
-        resModel.message = "Error while updating uploaded document.";
-        return res.status(400).json(resModel);
-      }
-  
-      resModel.success = true;
-      resModel.message = "Uploaded document updated successfully.";
-      resModel.data = updatedDoc;
-      return res.status(200).json(resModel);
-  
+        const { id } = req.params;
+        const { status, subCategoryId, folderId, tags, comments } = req.body;
+        const staffId = req.userInfo.id;
+
+        const documentRes = await uploadDocuments.findOne({ _id: id });
+        if (!documentRes) {
+            resModel.success = false;
+            resModel.message = "Uploaded document not found.";
+            res.status(404).json(resModel);
+        }
+        if (status) documentRes.status = status;
+        if (subCategoryId) documentRes.subCategory = subCategoryId;
+        if (folderId) documentRes.folderId = folderId;
+        if (tags) documentRes.tags = tags;
+        if (comments) documentRes.comments = comments;
+
+        // Optional: track who reviewed it
+        documentRes.reviewedBy = staffId;
+        documentRes.reviewedAt = new Date();
+
+        const updatedDoc = await documentRes.save();
+        if (!updatedDoc) {
+            resModel.success = false;
+            resModel.message = "Error while updating uploaded document.";
+            res.status(400).json(resModel);
+        }
+
+        resModel.success = true;
+        resModel.message = "Uploaded document updated successfully.";
+        resModel.data = updatedDoc;
+        return res.status(200).json(resModel);
+
     } catch (error) {
-      resModel.success = false;
-      resModel.message = "Internal Server Error";
-      res.status(500).json(resModel);
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        res.status(500).json(resModel);
     }
-  };
+};
 
 
 

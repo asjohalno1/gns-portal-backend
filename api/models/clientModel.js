@@ -24,13 +24,17 @@ const clientSchema = new mongoose.Schema({
         type: Boolean,
         default: false,
     },
+    isGoogleDrive: {
+        type: Boolean,
+        default: false,
+    },
     notes: {
         type: String,
     },
     folderId: {
         type: String,
     },
-   
+
     createdAt: {
         type: Date,
         default: Date.now,

@@ -237,6 +237,7 @@ module.exports.addClient = async (req, res) => {
  * @apiBody {String} notes Client's Notes.
  * @apiBody {String} staffId Client's staff Id.
  * @apiBody {Boolean} status (Optional) Client's Status.
+ * @apiBody {Boolean} isGoogleDrive (Optional) Client's isGoogleDrive.
  * @apiHeader {String} Authorization Bearer token
  * @apiDescription client Service...
  * @apiSampleRequest http://localhost:2001/api/client/update/:id
@@ -244,7 +245,7 @@ module.exports.addClient = async (req, res) => {
 module.exports.updateClient = async (req, res) => {
     try {
         const clientId = req.params.id;
-        const { name, email, phoneNumber, address, company, notes, staffId, status } = req.body;
+        const { isGoogleDrive,name, email, phoneNumber, address, company, notes, staffId, status } = req.body;
         let updatedData = {
             name,
             email: email.toLowerCase(),
@@ -252,7 +253,8 @@ module.exports.updateClient = async (req, res) => {
             address,
             company,
             notes,
-            status: status || false
+            status: status || false,
+            isGoogleDrive
         };
         const updatedClient = await Client.findByIdAndUpdate(clientId, updatedData, { new: true });
         const existingAssign = await assignClient.findOne({ clientId: clientId });
