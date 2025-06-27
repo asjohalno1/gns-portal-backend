@@ -9,6 +9,8 @@ const uploadedDocumentSchema = new mongoose.Schema({
   clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client' },
   clientEmail: String,
   files:Array,
+  tags:Array,
+  folderId:{ type: mongoose.Schema.Types.ObjectId, ref: 'folder' },
   dueDate: Date,
   notes: String,
   status: {
@@ -18,7 +20,7 @@ const uploadedDocumentSchema = new mongoose.Schema({
   },
   reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   reviewedAt: { type: Date },
-  rejectionReason: String // Optional
+  comments: String // Optional
 },
 { timestamps: true });
 

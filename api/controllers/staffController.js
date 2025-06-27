@@ -413,20 +413,63 @@ module.exports.getAllClientsByStaff = async (req, res) => {
  */
 module.exports.getAllTrackingByStaff = async (req, res) => {
     try {
-        const staffId = req.user._id;
-        const tracking = await uploadDocuments.find({ staffId });
-        if (tracking) {
-            resModel.success = true;
-            resModel.message = "Data Found Successfully";
-            resModel.data = tracking
+        const staffId = req.userInfo.id;
+        const { search, status, sort = 'desc' } = req.query;
+
+        // Fetch all document requests by staff
+        const requests = await DocumentRequest.find({ createdBy: staffId })
+            .populate('clientId')
+            .populate('category')
+            .populate('subCategory')
+            .sort({ createdAt: sort === 'asc' ? 1 : -1 });
+
+        const results = await Promise.all(requests.map(async (request) => {
+            const totalExpectedDocs = 1;
+
+            const uploadedDocs = await uploadDocuments.find({
+                request: request._id
+            });
+
+            const uploadedCount = uploadedDocs.filter(doc => doc.status === 'accepted').length;
+            const progress = totalExpectedDocs > 0 ? Math.floor((uploadedCount / totalExpectedDocs) * 100) : 0;
+
+            let computedStatus = 'Pending';
+            if (progress === 100) computedStatus = 'Completed';
+            else if (progress > 30) computedStatus = 'Partially fulfilled';
+
+            return {
+                requestId: request._id.toString().slice(-6).toUpperCase(),
+                clientName: request.clientId?.name || 'N/A',
+                clientEmail: request.clientId?.email || 'N/A',
+                type: request.category?.name || 'N/A',
+                created: request.createdAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                progress: `${progress}%`,
+                status: computedStatus,
+                dueDate: request.dueDate ? request.dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A',
+            };
+        }));
+
+        // Filter by search term and status (if provided)
+        const filteredResults = results.filter(item => {
+            const matchesSearch =
+                item.clientName.toLowerCase().includes(search.toLowerCase()) ||
+                item.clientEmail.toLowerCase().includes(search.toLowerCase());
+
+            const matchesStatus = status ? item.status === status : true;
+
+            return matchesSearch && matchesStatus;
+        });
+        if (filteredResults.length === 0) {
+            resModel.success = false;
+            resModel.message = "Tracking Data Not Found";
+            resModel.data = [];
             res.status(200).json(resModel);
         } else {
-            resModel.success = false;
-            resModel.message = "Data Not Found";
-            resModel.data = [];
-            res.status(200).json(resModel)
+            resModel.success = true;
+            resModel.message = "Tracking data fetched successfully";
+            resModel.data = filteredResults;
+            res.status(200).json(resModel);
         }
-      
     } catch (error) {
         resModel.success = false;
         resModel.message = "Internal Server Error";
@@ -819,6 +862,61 @@ exports.addAutomatedReminder = async (req, res) => {
         res.status(500).json(resModel);
     }
 };
+
+
+/**
+ * @api {put} /api/staff/updateDocument/:id Update Documents
+ * @apiName Update Documents
+ * @apiGroup Staff
+ * @apiParam {String} status Status of the document.
+ * @apiBody {String} subCategoryId Updated Sub Category ID (optional).
+ * @apiBody {String} folderId Updated folder ID (optional).
+ * @apiBody {Array} tags Updated tags (optional).
+ * @apiBody {String} comments Updated comments (optional).
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription API for updating an existing document.
+ * @apiSampleRequest http://localhost:2001/api/staff/updateDocument/:id
+ */
+module.exports.updateDocument = async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status, subCategoryId, folderId, tags, comments } = req.body;
+      const staffId = req.userInfo.id;
+  
+      const documentRes = await uploadDocuments.findOne({ _id: id });
+      if (!documentRes) {
+        resModel.success = false;
+        resModel.message = "Uploaded document not found.";
+        res.status(404).json(resModel);
+      }
+      if (status) documentRes.status = status;
+      if (subCategoryId) documentRes.subCategory = subCategoryId;
+      if (folderId) documentRes.folderId = folderId;
+      if (tags) documentRes.tags = tags;
+      if (comments) documentRes.comments = comments;
+  
+      // Optional: track who reviewed it
+      documentRes.reviewedBy = staffId;
+      documentRes.reviewedAt = new Date();
+  
+      const updatedDoc = await documentRes.save();
+      if (!updatedDoc) {
+        resModel.success = false;
+        resModel.message = "Error while updating uploaded document.";
+        return res.status(400).json(resModel);
+      }
+  
+      resModel.success = true;
+      resModel.message = "Uploaded document updated successfully.";
+      resModel.data = updatedDoc;
+      return res.status(200).json(resModel);
+  
+    } catch (error) {
+      resModel.success = false;
+      resModel.message = "Internal Server Error";
+      res.status(500).json(resModel);
+    }
+  };
 
 
 
