@@ -5,15 +5,34 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, `.env.${process.env.NODE_ENV}`) })
 const app = express();
-app.use(cors());
 
+// ✅ Allowed frontend origins
+const allowedOrigins = [
+    "http://localhost:5173", // dev frontend
+    "https://your-frontend-domain.com" // production frontend domain
+];
 
-app.use(function (req, res, next) {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+// ✅ CORS setup
+app.use(cors({
+    origin: function (origin, callback) {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error("Not allowed by CORS"));
+        }
+    },
+    credentials: true
+}));
+
+// ✅ Headers middleware
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+    res.header("Access-Control-Allow-Credentials", "true");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
     next();
 });
+
 
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json({limit :'100mb'}))

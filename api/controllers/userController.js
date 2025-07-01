@@ -185,7 +185,7 @@ module.exports.addRole = async (req, res) => {
 
 module.exports.googleWithLogin = async (req, res) => {
     try {
-        const { name, email, picture } = req.body;
+        const { name, email, image } = req.body;
         const [firstName, lastName] = name.split(" ");
         const userCheck = await User.findOne({ email });
         if (userCheck) {
@@ -198,7 +198,7 @@ module.exports.googleWithLogin = async (req, res) => {
             let userInfo = {
                 first_name: firstName,
                 last_name: lastName,
-                profile: picture,
+                profile: image,
                 email: email.toLowerCase(),
                 password: "",
                 role_id: 2
