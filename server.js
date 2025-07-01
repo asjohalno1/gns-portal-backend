@@ -9,7 +9,7 @@ const app = express();
 // ✅ Allowed frontend origins
 const allowedOrigins = [
     "http://localhost:5173", // dev frontend
-    "https://your-frontend-domain.com" // production frontend domain
+    "http://localhost:2001" // production frontend domain
 ];
 
 // ✅ CORS setup
@@ -32,7 +32,6 @@ app.use((req, res, next) => {
     res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
     next();
 });
-
 
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json({limit :'100mb'}))
