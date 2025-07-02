@@ -156,10 +156,18 @@ module.exports.staffDashboard = async (req, res) => {
     try {
         const staffId = req.userInfo?.id;
         const search = req.query.search?.toLowerCase() || '';
+        const clientStatus = req.query.status || 'all';
+
+
+        // Get pagination parameters
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const startIndex = (page - 1) * limit;
+        const endIndex = page * limit;
 
         const assignedClients = await assignClient.find({ staffId }).populate('clientId');
 
-        let fullDashboardData = []; // for all clients
+        let fullDashboardData = [];
         let summary = {
             activeClients: 0,
             pendingRequests: 0,
@@ -250,7 +258,6 @@ module.exports.staffDashboard = async (req, res) => {
                 }
             }
 
-            // Add all client dashboard entries (before search filtering)
             fullDashboardData.push({
                 clientId: client._id,
                 name: client.name,
@@ -264,37 +271,49 @@ module.exports.staffDashboard = async (req, res) => {
                 lastActivity: docs[0]?.updatedAt || client.createdAt
             });
         }
+
         const documentCompletion = [
-            {
-                category: "individual",
-                percentage: 80
-            },
-            {
-                category: "Business tax",
-                percentage: 20
-            },
-            {
-                category: "others",
-                percentage: 0
-            }]
-        // 🔍 Apply search only to final output
-        const filteredClients = search
-            ? fullDashboardData.filter(client =>
-                client.name.toLowerCase().includes(search) ||
-                client.email.toLowerCase().includes(search))
-            : fullDashboardData;
+            { category: "individual", percentage: 80 },
+            { category: "Business tax", percentage: 20 },
+            { category: "corporate", percentage: 10 },
+            { category: "others", percentage: 5 }
+        ];
+
+        const filteredClients = fullDashboardData.filter(client => {
+            const matchesSearch = search
+                ? client.name.toLowerCase().includes(search) ||
+                client.email.toLowerCase().includes(search)
+                : true;
+            const matchesStatus = clientStatus === 'all'
+                ? true
+                : client.statusUpdate.toLowerCase() === clientStatus.toLowerCase();
+
+            return matchesSearch && matchesStatus;
+        });
+
+
+
+        const paginatedClients = filteredClients.slice(startIndex, endIndex);
 
         resModel.success = true;
-        resModel.message = filteredClients.length > 0 ? "Dashboard data fetched successfully" : "No clients found";
+        resModel.message = paginatedClients.length > 0 ? "Dashboard data fetched successfully" : "No clients found";
         resModel.data = {
             documentCompletion,
             summary,
             urgentTasks,
-            clients: filteredClients
+            clients: paginatedClients,
+            pagination: {
+                total: filteredClients.length,
+                page,
+                limit,
+                totalPages: Math.ceil(filteredClients.length / limit),
+
+            }
         };
         res.status(200).json(resModel);
 
     } catch (error) {
+        console.error(error);
         resModel.success = false;
         resModel.message = "Internal Server Error";
         resModel.data = null;
