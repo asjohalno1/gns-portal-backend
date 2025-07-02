@@ -28,7 +28,7 @@ const uploadDocuments = require('../models/uploadDocuments');
  * @apiBody {Array} subCategoryId  SubCategoryId.
  * @apiBody {String} dueDate  DueDate.
  * @apiBody {String} instructions  Instructions.
- * @apiBody {String} expiration  Expiration.
+ * @apiBody {String} expiration  Expiration method (e.g., Days).
  * @apiBody {String} linkMethod  Link Method.
  * @apiBody {String} templateId  Template Id.
  * @apiBody {String} notifyMethod Notification method (e.g., email, sms).
@@ -64,7 +64,8 @@ module.exports.documentRequest = async (req, res) => {
         }
 
         let requestRes;
-
+        const currentDate = new Date();
+        const expiryDate = new Date(currentDate.getTime() + expiration * 24 * 60 * 60 * 1000);
         for (const client of clientId) {
             const requestInfo = {
                 createdBy: req.userInfo.id,
@@ -75,7 +76,7 @@ module.exports.documentRequest = async (req, res) => {
                 notifyMethod,
                 remainderSchedule,
                 templateId: templateId || null,
-                expiration,
+                expiration: expiryDate,
                 linkMethod
             };
 

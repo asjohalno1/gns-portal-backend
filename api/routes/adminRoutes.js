@@ -44,8 +44,12 @@ module.exports = function (app, validator) {
 
    /**Assign Clients Routes Start */
    app.post('/api/client/assign',auth,validator.body(adminModel.assignClients),adminCntrl.assignClients)
+  /**Assign Clients Routes Ends */
 
-    /**Assign Clients Routes Ends */
+
+  /**Admin Routes's starts */
+app.get('/api/admin/dashboard',adminCntrl.getAdminDashboard);
+  /**Admin Routes's ends */
  
    
 }

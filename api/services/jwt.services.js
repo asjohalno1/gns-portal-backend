@@ -9,7 +9,8 @@ module.exports = {
     return jwt.verify(token, secret_key, cb);
   },
   async linkToken(payload,expiresIn) {
-    const token = jwt.sign(payload, secret_key, {expiresIn: `${expiresIn}h`});
+    const expiresInHours = expiresIn * 24;
+    const token = jwt.sign(payload, secret_key, {expiresIn: `${expiresInHours}h`});
     
     return `http://localhost:5173/?token=${token}` 
   },

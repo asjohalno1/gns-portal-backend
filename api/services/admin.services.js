@@ -2,6 +2,10 @@ const Client = require("../models/clientModel");
 const fs = require('fs');
 const xlsx = require('xlsx');
 const csvParser = require('csv-parser');
+let Category = require("../models/category");
+const assignClient = require('../models/assignClients');
+const uploadDocuments = require('../models/uploadDocuments');
+const userModel = require('../models/userModel');
 
 const clientService = () => {
 
@@ -104,11 +108,199 @@ const clientService = () => {
         }
     };
 
+    const getAdminDashboard = async (query) => {
+        try {
+            const search = query.search?.toLowerCase() || '';
+            const page = parseInt(query.page) || 1;
+            const limit = parseInt(query.limit) || 10;
+            const skip = (page - 1) * limit;
+    
+            const assignedClients = await assignClient.find();
+            const userRes = await userModel.find({});
+            let fullDashboardData = [];
+            let summary = {
+                totalClients: assignedClients?.length,
+                totalStaff: userRes?.length,
+                activeSecureLink: 0,
+                completedDocumentsRequest: 0,
+                overdue: 0,
+                completedToday: 0,
+                activeAssigments: 0
+            };
+    
+            let urgentTasks = {
+                overdue: [],
+                today: [],
+                tomorrow: []
+            };
+    
+            const now = new Date();
+    
+            for (const assignment of assignedClients) {
+                const client = assignment.clientId;
+                if (!client) continue;
+    
+                const docs = await uploadDocuments.find({ clientId: client._id }).sort({ updatedAt: -1 });
+                const totalRequests = docs.length;
+                const completed = docs.filter(doc => doc.status === 'accepted').length;
+                const pending = docs.filter(doc => doc.status === 'pending').length;
+                const overdue = docs.filter(doc => doc.dueDate && new Date(doc.dueDate) < now && doc.status === 'pending').length;
+                const notExpiredLinks = docs.filter(doc => doc.linkExpire && new Date(doc.linkExpire) > now && doc.status === 'pending').length;
+    
+                summary.completedDocumentsRequest += completed;
+                summary.activeSecureLink += notExpiredLinks;
+                summary.activeAssigments += notExpiredLinks;
+                summary.overdue += overdue;
+    
+                const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    
+                summary.completedToday += docs.filter(doc =>
+                    doc.status === 'accepted' &&
+                    doc.reviewedAt &&
+                    new Date(doc.reviewedAt) >= startOfDay &&
+                    new Date(doc.reviewedAt) < endOfDay
+                ).length;
+    
+                let statusUpdate = 'Completed';
+                if (overdue > 0) statusUpdate = 'Overdue';
+                else if (pending > 0) statusUpdate = 'Pending';
+    
+                let taskDeadline = '—';
+                let color = 'gray';
+    
+                const futureDueDocs = docs
+                    .filter(doc => doc.dueDate)
+                    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+    
+                if (futureDueDocs.length) {
+                    const nextDoc = futureDueDocs[0];
+                    const daysLeft = Math.ceil((new Date(nextDoc.dueDate) - now) / (1000 * 60 * 60 * 24));
+                    if (daysLeft < 0) {
+                        taskDeadline = 'Overdue';
+                    } else if (daysLeft === 0) {
+                        taskDeadline = 'Today';
+                    } else if (daysLeft === 1) {
+                        taskDeadline = 'Tomorrow';
+                    } else {
+                        taskDeadline = `${daysLeft} Days`;
+                    }
+                }
+    
+                for (const doc of docs) {
+                    if (doc.status !== 'pending' || !doc.dueDate) continue;
+    
+                    const dueDate = new Date(doc.dueDate);
+                    const diffInDays = Math.floor((dueDate - now) / (1000 * 60 * 60 * 24));
+                    let categoryName = 'Unnamed Document';
+    
+                    if (doc.category) {
+                        const categoryDoc = await Category.findById(doc.category);
+                        if (categoryDoc) {
+                            categoryName = categoryDoc.name;
+                        }
+                    }
+    
+                    const taskEntry = {
+                        clientName: client.name,
+                        category: categoryName,
+                    };
+    
+                    if (diffInDays < 0) {
+                        taskEntry.daysOverdue = Math.abs(diffInDays);
+                        urgentTasks.overdue.push(taskEntry);
+                    } else if (diffInDays === 0) {
+                        urgentTasks.today.push(taskEntry);
+                    } else if (diffInDays === 1) {
+                        urgentTasks.tomorrow.push(taskEntry);
+                    }
+                }
+    
+                // Determine main category for this client from the most recent document
+                let categoryName = 'Unnamed Document';
+                if (docs[0]?.category) {
+                    const categoryDoc = await Category.findById(docs[0].category);
+                    if (categoryDoc) {
+                        categoryName = categoryDoc.name;
+                    }
+                }
+    
+                fullDashboardData.push({
+                    title: categoryName,
+                    name: client.name,
+                    email: client.email,
+                    documentRequest: totalRequests
+                        ? `Document remaining (${completed}/${totalRequests})`
+                        : 'Not Assign Any Document',
+                    taskDeadline,
+                    statusUpdate,
+                    lastActivity: docs[0]?.updatedAt || client.createdAt
+                });
+            }
+    
+            const recentActivity = [
+                {
+                    title: "tax Return successfully",
+                    message: "shakti saini -Q3 2023"
+                },
+                {
+                    title: "new client added",
+                    message: "smart data Inc"
+                },
+                {
+                    title: "document approved",
+                    message: "shakti approved the ankit a\tax documents"
+                }
+            ];
+
+            const teamWork = [
+                {
+                    name: "shakti saini",
+                    percentage: 60
+                },
+                {
+                    name: "John Doe",
+                    percentage: 80
+                },
+                {
+                    name: "Smith Doe",
+                    percentage: 40
+                }
+            ];
+    
+            // 🔍 Filter by search
+            let filteredClients = search
+                ? fullDashboardData.filter(client =>
+                    client.name.toLowerCase().includes(search) ||
+                    client.email.toLowerCase().includes(search))
+                : fullDashboardData;
+    
+            // ✨ Apply pagination
+            const paginatedClients = filteredClients.slice(skip, skip + limit);
+    
+            return {
+                recentActivity,
+                teamWork,
+                summary,
+                urgentTasks,
+                clients: paginatedClients,
+                totalPages: Math.ceil(filteredClients.length / limit),
+                currentPage: page,
+                totalClients: filteredClients.length
+            };
+        } catch (error) {
+            console.log("Error", error);
+            throw error;
+        }
+    };
+    
+
 
     return {
         getAllClients,
         parseClients,
-        addBulkClients
+        addBulkClients,
+        getAdminDashboard
     };
 };
 

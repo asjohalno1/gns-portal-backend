@@ -18,7 +18,7 @@ const documentRequestSchema = new mongoose.Schema({
   remainderSchedule: { type: String, enum: ["ThreeDays", "OneDays","overDue"], required: true },
   linkMethod: String,
   requestLink: String,
-  expiration:String,
+  expiration:Date,
   instructions: String,
   templateId: String,
   linkStatus: { type: String, enum: ["created","sent","accessed","expired"],default: "created" },

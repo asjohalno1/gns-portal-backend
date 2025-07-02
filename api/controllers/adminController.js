@@ -245,7 +245,7 @@ module.exports.addClient = async (req, res) => {
 module.exports.updateClient = async (req, res) => {
     try {
         const clientId = req.params.id;
-        const { isGoogleDrive,name, email, phoneNumber, address, company, notes, staffId, status } = req.body;
+        const { isGoogleDrive, name, email, phoneNumber, address, company, notes, staffId, status } = req.body;
         let updatedData = {
             name,
             email: email.toLowerCase(),
@@ -359,10 +359,10 @@ module.exports.getAllClient = async (req, res) => {
  */
 module.exports.uploadClientCsv = async (req, res) => {
     try {
-        const  file = req.file;
+        const file = req.file;
         const savedClient = await adminServices().parseClients(file);
-       const clientRes = await adminServices().addBulkClients(savedClient);
-         if (clientRes) {
+        const clientRes = await adminServices().addBulkClients(savedClient);
+        if (clientRes) {
             resModel.success = true;
             resModel.message = "Files Uploaded successfully";
             resModel.data = clientRes;
@@ -596,3 +596,33 @@ module.exports.assignClients = async (req, res) => {
 
 
 
+
+
+/**
+ * @api {get} /api/admin/dashboard Get Admin Dashboard
+ * @apiName GetAdminDashboard
+ * @apiGroup Admin
+ * @apiDescription API to fetch Admin Dashboard.
+ * @apiSampleRequest http://localhost:2001/api/admin/dashboard
+ */
+module.exports.getAdminDashboard = async (req, res) => {
+    try {
+        const adminRes = await adminServices().getAdminDashboard(req.query);
+        if (!adminRes) {
+            resModel.success = false;
+            resModel.message = "Data not found";
+            resModel.data = [];
+            res.status(404).json(resModel);
+        } else {
+            resModel.success = true;
+            resModel.message = "Data Found Successfully";
+            resModel.data = adminRes;
+            res.status(200).json(resModel);
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
