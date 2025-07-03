@@ -20,7 +20,8 @@ const uploadedDocumentSchema = new mongoose.Schema({
   },
   reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   reviewedAt: { type: Date },
-  comments: String // Optional
+  comments: String,// Optional
+  isUploaded: { type: Boolean, default: false },
 },
 { timestamps: true });
 

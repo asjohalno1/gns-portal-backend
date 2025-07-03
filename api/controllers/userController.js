@@ -309,7 +309,7 @@ module.exports.uploadDocument = async (req, res) => {
         const { categoryId, subCategoryId, notes } = req.body;
         let files = req.files;
         let clientRes = await clientModel.findOne({ _id: req?.userInfo?.clientId });
-        await uploadFileToFolder(clientRes?.name, files, "Bookkeeping",clientRes?.email);
+        await uploadFileToFolder(clientRes?.name, files, "Bookkeeping", clientRes?.email);
         // await clientModel.findOneAndUpdate({ _id: req?.userInfo?.clientId }, { folderId: client });
         const uploadInfo = {
             request: req?.userInfo?.requestId,
@@ -452,20 +452,45 @@ module.exports.getClientDashboard = async (req, res) => {
 module.exports.getClientDocuments = async (req, res) => {
     try {
         const requestId = req?.userInfo?.requestId;
+
         const documents = await uploadDocuments.find({ request: requestId })
-            .populate('category', 'name') // category still direct
-            .populate('request', 'status'); // get request status
+            .populate('category', 'name') // Populate category name
+            .populate('request', 'status'); // Populate request status
+
         const subCategoryLinks = await DocumentSubCategory.find({ request: requestId })
             .populate('subCategory', 'name')
             .populate('category', 'name');
-        const subCatMap = {};
+
+        const subCatMap = {}; // categoryId -> subCategory object
+        const categoryMap = new Map(); // categoryId -> { _id, name }
+        const subCatStatusMap = new Map(); // subCategoryId -> { _id, name, uploaded }
+
         subCategoryLinks.forEach(link => {
             const catId = link.category?._id?.toString();
-            const subCatName = link.subCategory?.name || 'N/A';
-            if (catId) {
-                subCatMap[catId] = subCatName;
+            const catName = link.category?.name;
+            const subCatId = link.subCategory?._id?.toString();
+            const subCatName = link.subCategory?.name;
+
+            if (catId && subCatId && subCatName) {
+                subCatMap[catId] = {
+                    _id: subCatId,
+                    name: subCatName
+                };
+            }
+
+            if (catId && catName) {
+                categoryMap.set(catId, { _id: catId, name: catName });
+            }
+
+            if (subCatId && subCatName) {
+                subCatStatusMap.set(subCatId, {
+                    _id: subCatId,
+                    name: subCatName,
+                    uploaded: false
+                });
             }
         });
+
         const grouped = {
             all: [],
             accepted: [],
@@ -474,10 +499,15 @@ module.exports.getClientDocuments = async (req, res) => {
         };
 
         documents.forEach(doc => {
+            const catId = doc.category?._id?.toString();
+            const subCat = subCatMap[catId] || { _id: null, name: 'N/A' };
+
             const docData = {
                 documentName: doc.fileName,
                 documentType: doc.category?.name || 'N/A',
-                subCategory: subCatMap[doc.category?._id?.toString()] || 'N/A', // New subCategory info
+                documentTypeId: doc.category?._id || null,
+                subCategory: subCat.name,
+                subCategoryId: subCat._id,
                 uploadedDate: doc.createdAt,
                 status: doc.request?.status || 'pending',
                 comments: doc.rejectionReason || null,
@@ -488,11 +518,26 @@ module.exports.getClientDocuments = async (req, res) => {
             if (docData.status === 'accepted') grouped.accepted.push(docData);
             else if (docData.status === 'pending') grouped.pending.push(docData);
             else if (docData.status === 'rejected') grouped.rejected.push(docData);
+
+            if (subCat._id && subCatStatusMap.has(subCat._id)) {
+                const prev = subCatStatusMap.get(subCat._id);
+                subCatStatusMap.set(subCat._id, { ...prev, uploaded: true });
+            }
         });
+
+        const categories = Array.from(categoryMap.values());
+        const subCategories = Array.from(subCatStatusMap.values());
 
         resModel.success = true;
         resModel.message = "Client documents fetched successfully";
-        resModel.data = grouped;
+        resModel.data = {
+            ...grouped,
+            extraInfo: {
+                categories,     // now includes _id and name
+                subCategories   // now includes _id, name, uploaded
+            }
+        };
+
         res.status(200).json(resModel);
     } catch (error) {
         resModel.success = false;
@@ -500,7 +545,11 @@ module.exports.getClientDocuments = async (req, res) => {
         resModel.data = null;
         res.status(500).json(resModel);
     }
-}
+};
+
+
+
+
 
 
 /**
@@ -544,11 +593,17 @@ exports.getClientDocu = async (req, res) => {
     const data = await listFilesInFolderStructure(clientRes.name);
 
     res.status(200).json({
-      success: true,
-      message: "Fetched Google Drive documents successfully",
-      data
+        success: true,
+        message: "Fetched Google Drive documents successfully",
+        data
     });
 };
+
+
+
+
+
+
 
 
 

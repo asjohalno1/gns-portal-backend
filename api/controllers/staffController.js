@@ -117,7 +117,7 @@ module.exports.documentRequest = async (req, res) => {
             // Send via email or SMS
             if (linkMethod === "email") {
                 await DocumentRequest.findByIdAndUpdate(requestRes._id, { requestLink, linkStatus: "sent" });
-                //await mailServices.sendEmail(clientRes?.email, "Document Request", requestLink, clientRes?.name, "shareLink");
+                await mailServices.sendEmail(clientRes?.email, "Document Request", requestLink, clientRes?.name, "shareLink");
             } else {
                 // await twilioServices(clientRes?.phoneNumber, requestLink);
             }
