@@ -39,8 +39,10 @@ const uploadDocuments = require('../models/uploadDocuments');
  */
 module.exports.documentRequest = async (req, res) => {
     try {
+
         let {
             templateId,
+            doctitle,
             clientId,
             categoryId,
             subCategoryId,
@@ -52,39 +54,47 @@ module.exports.documentRequest = async (req, res) => {
             linkMethod
         } = req.body;
 
+
         let templateData = null;
+
         if (templateId) {
             templateData = await template.findById(templateId);
+
             let subcategoryRes = await DocumentSubCategory.find({ template: templateId });
+
             categoryId = templateData.categoryId || categoryId;
-            subCategoryId = subcategoryRes.map(quest => quest.subCategory || subCategoryId)
+            subCategoryId = subcategoryRes.map(quest => quest.subCategory || subCategoryId);
             notifyMethod = templateData.notifyMethod || notifyMethod;
             remainderSchedule = templateData.remainderSchedule || remainderSchedule;
             instructions = templateData.message || instructions;
         }
 
-        let requestRes;
         const currentDate = new Date();
         const expiryDate = new Date(currentDate.getTime() + expiration * 24 * 60 * 60 * 1000);
+
+        let requestRes;
+
         for (const client of clientId) {
+
             const requestInfo = {
                 createdBy: req.userInfo.id,
                 clientId: client,
                 category: categoryId,
+                subCategory: subCategoryId,
                 dueDate,
                 instructions,
                 notifyMethod,
                 remainderSchedule,
                 templateId: templateId || null,
                 expiration: expiryDate,
-                linkMethod
+                linkMethod,
+                doctitle
             };
 
-            // Save main document request
+
             const newRequest = new DocumentRequest(requestInfo);
             requestRes = await newRequest.save();
 
-            // Create subcategory entries (if any)
             if (Array.isArray(subCategoryId)) {
                 for (const subCatId of subCategoryId) {
                     await DocumentSubCategory.create({
@@ -92,19 +102,20 @@ module.exports.documentRequest = async (req, res) => {
                         category: categoryId,
                         subCategory: subCatId
                     });
+
                     await uploadDocument.create({
                         request: requestRes._id,
                         category: categoryId,
                         subCategory: subCatId,
                         dueDate: dueDate,
-                        clientId: client
-
+                        clientId: client,
+                        doctitle: doctitle
                     });
                 }
             }
 
-            // Generate token + link
             const clientRes = await Client.findById(client);
+
             const tokenInfo = {
                 clientId: client,
                 userId: req.userInfo.id,
@@ -114,16 +125,16 @@ module.exports.documentRequest = async (req, res) => {
 
             const expiresIn = parseInt(expiration);
             const requestLink = await jwt.linkToken(tokenInfo, expiresIn);
-            // Send via email or SMS
+
             if (linkMethod === "email") {
                 await DocumentRequest.findByIdAndUpdate(requestRes._id, { requestLink, linkStatus: "sent" });
-                //await mailServices.sendEmail(clientRes?.email, "Document Request", requestLink, clientRes?.name, "shareLink");
+
+                mailServices.sendEmail(clientRes?.email, "Document Request", requestLink, clientRes?.name, "shareLink");
             } else {
                 // await twilioServices(clientRes?.phoneNumber, requestLink);
             }
         }
 
-        // Final response
         if (requestRes) {
             resModel.success = true;
             resModel.message = "Request Added Successfully";
@@ -386,11 +397,14 @@ module.exports.getAllClientsByStaff = async (req, res) => {
                 if (status && docStatus.toLowerCase() !== status.toLowerCase()) continue;
 
                 allDocs.push({
+                    documentRequiredTitle: doc.title,
                     clientName: client.name,
                     document: subCategoryName,
                     type: categoryName,
                     status: docStatus,
                     dateRequested: doc.createdAt,
+                    doctitle: doc.doctitle,
+
                 });
             }
         }

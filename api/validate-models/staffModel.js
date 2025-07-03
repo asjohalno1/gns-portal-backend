@@ -6,13 +6,14 @@ module.exports.addDocumentRequest = joi.object({
   clientId: joi.array().items(joi.string()).required(),
   categoryId: joi.string().required(),
   subCategoryId: joi.array().required(),
-  dueDate: joi.string().required(), 
-  expiration: joi.string().required(), 
-  linkMethod: joi.string().required(), 
-  notifyMethod: joi.string().required(), 
-  remainderSchedule: joi.string().required(), 
+  dueDate: joi.string().required(),
+  expiration: joi.string().required(),
+  linkMethod: joi.string().required(),
+  notifyMethod: joi.string().required(),
+  remainderSchedule: joi.string().required(),
   instructions: joi.string().allow('').optional(),
   templateId: joi.string().allow('').optional(),
+  doctitle: joi.string().allow('').optional(),
 });
 /** Document Request Model Ends */
 
