@@ -66,7 +66,6 @@ function createUpload(folder = '') {
   }
 }
 
-// ✅ Export both
 module.exports = {
   uploadPDF: uploadFiles, // Renamed to be more accurate
   createUpload,

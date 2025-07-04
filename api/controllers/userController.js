@@ -305,20 +305,32 @@ module.exports.getAllUser = async (req, res) => {
  * @apiSampleRequest http://localhost:2001/api/user/uploadDocument 
  */
 module.exports.uploadDocument = async (req, res) => {
+
     try {
         const { categoryId, subCategoryId, notes } = req.body;
         let files = req.files;
         let clientRes = await clientModel.findOne({ _id: req?.userInfo?.clientId });
-        await uploadFileToFolder(clientRes?.name, files, "Bookkeeping", clientRes?.email);
+        // await uploadFileToFolder(clientRes?.name, files, "Bookkeeping", clientRes?.email);
         // await clientModel.findOneAndUpdate({ _id: req?.userInfo?.clientId }, { folderId: client });
         const uploadInfo = {
             request: req?.userInfo?.requestId,
             clientEmail: req?.userInfo?.email.toLowerCase(),
             notes: notes,
-            files: files
+            files: files.map(file => ({
+                filename: file.filename,
+                originalname: file.originalname,
+                path: file.path,
+                size: file.size,
+
+
+
+            })),
+            isUploaded: true
 
         };
+
         const newUpload = await uploadDocument.findOneAndUpdate({ request: req?.userInfo?.requestId, subCategory: subCategoryId }, uploadInfo, { upsert: true });
+        console.log(newUpload);
         if (newUpload) {
             resModel.success = true;
             resModel.message = "Document Upload Successfully";
@@ -455,7 +467,8 @@ module.exports.getClientDocuments = async (req, res) => {
 
         const documents = await uploadDocuments.find({ request: requestId })
             .populate('category', 'name') // Populate category name
-            .populate('request', 'status'); // Populate request status
+            .populate('request', 'status') // Populate request status
+            .populate('subCategory', 'name');
 
         const subCategoryLinks = await DocumentSubCategory.find({ request: requestId })
             .populate('subCategory', 'name')
@@ -503,15 +516,18 @@ module.exports.getClientDocuments = async (req, res) => {
             const subCat = subCatMap[catId] || { _id: null, name: 'N/A' };
 
             const docData = {
+                documentTitle: doc.doctitle,
                 documentName: doc.fileName,
                 documentType: doc.category?.name || 'N/A',
                 documentTypeId: doc.category?._id || null,
-                subCategory: subCat.name,
-                subCategoryId: subCat._id,
+                // subCategory: subCat.name,
+                // subCategoryId: subCat._id,
                 uploadedDate: doc.createdAt,
                 status: doc.request?.status || 'pending',
                 comments: doc.rejectionReason || null,
-                requestId: doc.request?._id
+                requestId: doc.request?._id,
+                subCategory: doc.subCategory?.name,
+                subCategoryId: doc.subCategory?._id,
             };
 
             grouped.all.push(docData);
@@ -519,10 +535,17 @@ module.exports.getClientDocuments = async (req, res) => {
             else if (docData.status === 'pending') grouped.pending.push(docData);
             else if (docData.status === 'rejected') grouped.rejected.push(docData);
 
-            if (subCat._id && subCatStatusMap.has(subCat._id)) {
-                const prev = subCatStatusMap.get(subCat._id);
-                subCatStatusMap.set(subCat._id, { ...prev, uploaded: true });
+            if (doc.subCategory?._id && subCatStatusMap.has(doc.subCategory._id.toString())) {
+                const prev = subCatStatusMap.get(doc.subCategory._id.toString());
+
+                // Include isUploaded from document
+                subCatStatusMap.set(doc.subCategory._id.toString(), {
+                    ...prev,
+                    uploaded: true,
+                    isUploaded: doc.isUploaded ?? false // fallback to false if undefined
+                });
             }
+
         });
 
         const categories = Array.from(categoryMap.values());
