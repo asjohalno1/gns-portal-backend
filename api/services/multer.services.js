@@ -8,7 +8,7 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// 🔹 1. Default PDF Upload Middleware
+// 🔹 1. Default File Upload Middleware (for PDF, JPG, PNG)
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
@@ -18,45 +18,56 @@ const storage = multer.diskStorage({
   },
 });
 
+// Updated file filter for multiple types
 const fileFilter = (req, file, cb) => {
-  if (file.mimetype === 'application/pdf') {
+  const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+  if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Only PDF files are allowed'), false);
+    cb(new Error('Only PDF, JPG, and PNG files are allowed'), false);
   }
 };
 
-const uploadPDF = multer({ storage, fileFilter });
+const uploadFiles = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
 
-// 🔹 2. Optional: CreateUpload Function (for CSV/XLSX)
+// 🔹 2. Specialized Upload for CSV/XLSX
 function createUpload(folder = '') {
-  try{
-  const uploadPath = path.join(__dirname, '..', 'uploads', folder);
-  fs.mkdirSync(uploadPath, { recursive: true });
+  try {
+    const uploadPath = path.join(__dirname, '..', 'uploads', folder);
+    fs.mkdirSync(uploadPath, { recursive: true });
 
-  const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, uploadPath),
-    filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname),
-  });
+    const storage = multer.diskStorage({
+      destination: (req, file, cb) => cb(null, uploadPath),
+      filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname),
+    });
 
-  const fileFilter = (req, file, cb) => {
-    const allowedTypes = ['.csv', '.xlsx'];
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (allowedTypes.includes(ext)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only .csv and .xlsx files are allowed!'));
-    }
-  };
+    const fileFilter = (req, file, cb) => {
+      const allowedTypes = ['.csv', '.xlsx'];
+      const ext = path.extname(file.originalname).toLowerCase();
+      if (allowedTypes.includes(ext)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only .csv and .xlsx files are allowed!'));
+      }
+    };
 
-  return multer({ storage, fileFilter });
-}catch(err){
-  console.log(err)
-}
+    return multer({
+      storage,
+      fileFilter,
+      limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit for these files too
+    });
+  } catch (err) {
+    console.error('Error creating upload:', err);
+    throw err; // Re-throw to handle at calling level
+  }
 }
 
 // ✅ Export both
 module.exports = {
-  uploadPDF,
+  uploadPDF: uploadFiles, // Renamed to be more accurate
   createUpload,
 };
