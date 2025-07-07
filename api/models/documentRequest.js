@@ -6,7 +6,7 @@ const documentRequestSchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Staff
   clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client' },
   // clientEmail: String, // Client
-  category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
+  category: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category' }],
   subCategory: [{ type: mongoose.Schema.Types.ObjectId, ref: 'subCategory' }],
   dueDate: Date,
   status: {
