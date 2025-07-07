@@ -351,7 +351,8 @@ module.exports.getAllClientsByStaff = async (req, res) => {
             status,
             dateFrom,
             dateTo,
-            sortByDate = 'desc' // new param
+            sortByDate = 'desc',
+            keyword = ''
         } = req.query;
 
         const page = parseInt(req.query.page) || 1;
@@ -372,6 +373,7 @@ module.exports.getAllClientsByStaff = async (req, res) => {
                 !client.name.toLowerCase().includes(searchLower) &&
                 !client.email.toLowerCase().includes(searchLower)
             ) continue;
+
 
             const documentRequests = await uploadDocuments.find({ clientId: client._id });
 
@@ -395,6 +397,18 @@ module.exports.getAllClientsByStaff = async (req, res) => {
                 // Filter by status
                 const docStatus = doc.status?.charAt(0).toUpperCase() + doc.status?.slice(1) || '—';
                 if (status && docStatus.toLowerCase() !== status.toLowerCase()) continue;
+
+                // ✅ Keyword search (match in title, doctitle, clientName, categoryName, subCategoryName)
+                const keywordLower = keyword.toLowerCase();
+
+                if (
+                    keyword &&
+                    !doc.title?.toLowerCase().includes(keywordLower) &&
+                    !doc.doctitle?.toLowerCase().includes(keywordLower) &&
+                    !client.name?.toLowerCase().includes(keywordLower) &&
+                    !categoryName?.toLowerCase().includes(keywordLower) &&
+                    !subCategoryName?.toLowerCase().includes(keywordLower)
+                ) continue;
 
                 allDocs.push({
                     documentRequiredTitle: doc.title,
