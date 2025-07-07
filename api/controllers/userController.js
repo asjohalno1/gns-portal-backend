@@ -425,7 +425,15 @@ module.exports.getClientDashboard = async (req, res) => {
                 }));
             });
         const activeAssignments = await logModel.find({ clientId: clientId });
-        let documentRequest;
+        documentRequests: documentRequests.flatMap(doc => {
+            const subCategories = subCatMap[doc._id] || [];
+            return subCategories.map(subCat => ({
+                document: subCat?.name || '',
+                type: doc.category?.name || '',
+                status: doc.status,
+                dueDate: doc.dueDate
+            }));
+        }),
         res.status(200).json({
             success: true,
             message: "Client Dashboard Data Found successfully",
@@ -437,15 +445,7 @@ module.exports.getClientDashboard = async (req, res) => {
                     overdue: overdueCount
                 },
                 recentAssignments: activeAssignments,
-                documentRequest: documentRequests.flatMap(doc => {
-                    const subCategories = subCatMap[doc._id] || [];
-                    return subCategories.map(subCat => ({
-                        document: subCat?.name || '',
-                        type: doc.category?.name || '',
-                        status: doc.status,
-                        dueDate: doc.dueDate
-                    }));
-                }),
+                documentRequests,
                 upcomingDeadlines: recentActivity.map(doc => ({
                     document: doc.subCategory?.name || '',
                     type: doc.category?.name || '',
