@@ -2,6 +2,7 @@ const { request } = require('http');
 const resModel = require('../lib/resModel');
 let Category = require("../models/category");
 let DocumentRequest = require("../models/documentRequest");
+const SubCategory = require('../models/subCategory');
 const template = require('../models/template');
 const jwt = require('../services/jwt.services');
 const mailServices = require('../services/mail.services');
@@ -39,7 +40,6 @@ const uploadDocuments = require('../models/uploadDocuments');
  */
 module.exports.documentRequest = async (req, res) => {
     try {
-
         let {
             templateId,
             doctitle,
@@ -54,16 +54,20 @@ module.exports.documentRequest = async (req, res) => {
             linkMethod
         } = req.body;
 
+        // if (!Array.isArray(categoryId)) categoryId = [categoryId];
+        // if (!Array.isArray(subCategoryId)) subCategoryId = [subCategoryId];
+        // if (!Array.isArray(clientId)) clientId = [clientId];
 
         let templateData = null;
 
         if (templateId) {
             templateData = await template.findById(templateId);
-
             let subcategoryRes = await DocumentSubCategory.find({ template: templateId });
 
-            categoryId = templateData.categoryId || categoryId;
-            subCategoryId = subcategoryRes.map(quest => quest.subCategory || subCategoryId);
+            categoryId = templateData.categoryId ? [templateData.categoryId] : categoryId;
+            subCategoryId = subcategoryRes.length > 0
+                ? subcategoryRes.map(quest => quest.subCategory)
+                : subCategoryId;
             notifyMethod = templateData.notifyMethod || notifyMethod;
             remainderSchedule = templateData.remainderSchedule || remainderSchedule;
             instructions = templateData.message || instructions;
@@ -75,7 +79,6 @@ module.exports.documentRequest = async (req, res) => {
         let requestRes;
 
         for (const client of clientId) {
-
             const requestInfo = {
                 createdBy: req.userInfo.id,
                 clientId: client,
@@ -91,28 +94,34 @@ module.exports.documentRequest = async (req, res) => {
                 doctitle
             };
 
-
             const newRequest = new DocumentRequest(requestInfo);
             requestRes = await newRequest.save();
 
-            if (Array.isArray(subCategoryId)) {
-                for (const subCatId of subCategoryId) {
+            for (const catId of categoryId) {
+                // Fetch only those subcategories which match the current category
+                const validSubCats = await SubCategory.find({
+                    _id: { $in: subCategoryId },
+                    categoryId: catId
+                });
+
+                for (const subCat of validSubCats) {
                     await DocumentSubCategory.create({
                         request: requestRes._id,
-                        category: categoryId,
-                        subCategory: subCatId
+                        category: catId,
+                        subCategory: subCat._id
                     });
 
                     await uploadDocument.create({
                         request: requestRes._id,
-                        category: categoryId,
-                        subCategory: subCatId,
+                        category: catId,
+                        subCategory: subCat._id,
                         dueDate: dueDate,
                         clientId: client,
                         doctitle: doctitle
                     });
                 }
             }
+
 
             const clientRes = await Client.findById(client);
 
@@ -128,7 +137,6 @@ module.exports.documentRequest = async (req, res) => {
 
             if (linkMethod === "email") {
                 await DocumentRequest.findByIdAndUpdate(requestRes._id, { requestLink, linkStatus: "sent" });
-
                 mailServices.sendEmail(clientRes?.email, "Document Request", requestLink, clientRes?.name, "shareLink");
             } else {
                 // await twilioServices(clientRes?.phoneNumber, requestLink);
@@ -147,6 +155,7 @@ module.exports.documentRequest = async (req, res) => {
             res.status(400).json(resModel);
         }
     } catch (error) {
+        console.error(error);
         resModel.success = false;
         resModel.message = "Internal Server Error";
         resModel.data = null;
