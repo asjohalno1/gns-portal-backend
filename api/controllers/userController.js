@@ -14,6 +14,9 @@ const uploadDocuments = require('../models/uploadDocuments');
 const notification = require('../models/notification');
 const DocumentSubCategory = require('../models/documentSubcategory');
 const clientModel = require('../models/clientModel.js');
+const userLog = require('../models/userLog');
+const subCategoryModel = require('../models/subCategory');
+const logModel = require('../models/userLog');
 const { listFilesInFolderStructure, uploadFileToFolder } = require('../services/googleDriveService.js');
 
 
@@ -328,6 +331,14 @@ module.exports.uploadDocument = async (req, res) => {
             isUploaded: true
 
         };
+        const subCategory = await subCategoryModel.findOne({ _id: subCategoryId });
+        let logInfo = {
+            clientId: req?.userInfo?.clientId,
+            title: "Document Uploaded",
+            description: `Uploaded a new document in the "${subCategory?.name}" section.`
+        }
+        const newLog = new userLog(logInfo)
+        await newLog.save();
 
         const newUpload = await uploadDocument.findOneAndUpdate({ request: req?.userInfo?.requestId, subCategory: subCategoryId }, uploadInfo, { upsert: true });
         console.log(newUpload);
@@ -361,23 +372,22 @@ module.exports.uploadDocument = async (req, res) => {
  * @apiSampleRequest http://localhost:2001/api/user/dashboardDetails
  */
 module.exports.getClientDashboard = async (req, res) => {
-    const requestId = req?.userInfo?.requestId;
+    const clientId = req?.userInfo?.clientId;
 
     try {
         const now = new Date();
-        const uploadDocument = await uploadDocuments.find({ request: requestId });
+        const uploadDocument = await uploadDocuments.find({ clientId: clientId });
         const totalDocuments = uploadDocument.length;
         const pendingCount = uploadDocument.filter(doc => doc.status === 'pending').length;
         const overdueCount = uploadDocument.filter(doc => doc.status === 'pending' && doc.dueDate < now).length;
-        const completedCount = await uploadDocuments.countDocuments({ request: requestId, status: 'completed' });
-
+        const completedCount = await uploadDocuments.countDocuments({ clientId: clientId, status: 'completed' });
         // Get populated document request with category
-        const documentRequests = await DocumentRequest.find({ _id: requestId })
+        const documentRequests = await DocumentRequest.find({ clientId: clientId })
             .populate('category')
             .sort({ createdAt: -1 });
 
         // Get related subCategories
-        const subCategoryLinks = await DocumentSubCategory.find({ request: requestId })
+        const subCategoryLinks = await DocumentSubCategory.find({ clientId: clientId })
             .populate('subCategory')
             .populate('category'); // optional, if needed
 
@@ -389,7 +399,7 @@ module.exports.getClientDashboard = async (req, res) => {
         });
 
         // Get uploaded docs (recent activity)
-        const recentActivity = await uploadDocuments.find({ request: requestId })
+        const recentActivity = await uploadDocuments.find({ clientId: clientId })
             .populate('category')
             .populate('subCategory') // still works if subCategory reference is directly in upload model
             .sort({ createdAt: -1 })
@@ -414,7 +424,8 @@ module.exports.getClientDashboard = async (req, res) => {
                     daysLeft
                 }));
             });
-
+        const activeAssignments = await logModel.find({ clientId: clientId });
+        let documentRequest;
         res.status(200).json({
             success: true,
             message: "Client Dashboard Data Found successfully",
@@ -425,7 +436,8 @@ module.exports.getClientDashboard = async (req, res) => {
                     pending: pendingCount,
                     overdue: overdueCount
                 },
-                documentRequests: documentRequests.flatMap(doc => {
+                recentAssignments: activeAssignments,
+                documentRequest: documentRequests.flatMap(doc => {
                     const subCategories = subCatMap[doc._id] || [];
                     return subCategories.map(subCat => ({
                         document: subCat?.name || '',
@@ -434,8 +446,7 @@ module.exports.getClientDashboard = async (req, res) => {
                         dueDate: doc.dueDate
                     }));
                 }),
-                upcomingDeadlines,
-                recentActivity: recentActivity.map(doc => ({
+                upcomingDeadlines: recentActivity.map(doc => ({
                     document: doc.subCategory?.name || '',
                     type: doc.category?.name || '',
                     uploadedAt: doc.createdAt
