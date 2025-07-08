@@ -400,21 +400,23 @@ module.exports.getAllClientsByStaff = async (req, res) => {
                 const categoryName = subCatLink?.category?.name || '—';
                 const subCategoryName = subCatLink?.subCategory?.name || 'Unnamed Document';
 
-                if (documentType && categoryName.toLowerCase() !== documentType.toLowerCase()) continue;
+                // if (documentType && categoryName.toLowerCase() !== documentType.toLowerCase()) continue;
 
                 const docStatus = doc.status?.charAt(0).toUpperCase() + doc.status?.slice(1) || '—';
                 if (status && docStatus.toLowerCase() !== status.toLowerCase()) continue;
 
                 const keywordLower = keyword.toLowerCase();
-
                 if (
                     keyword &&
-                    !doc.title?.toLowerCase().includes(keywordLower) &&
-                    !doc.doctitle?.toLowerCase().includes(keywordLower) &&
-                    !client.name?.toLowerCase().includes(keywordLower) &&
-                    !categoryName?.toLowerCase().includes(keywordLower) &&
-                    !subCategoryName?.toLowerCase().includes(keywordLower)
+                    ![
+                        doc.title,
+                        doc.doctitle,
+                        client.name,
+                        categoryName,
+                        subCategoryName
+                    ].some(field => field?.toLowerCase().includes(keywordLower))
                 ) continue;
+
 
                 allDocs.push({
                     documentRequiredTitle: doc.title,
