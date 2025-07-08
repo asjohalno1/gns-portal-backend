@@ -376,64 +376,62 @@ module.exports.getClientDashboard = async (req, res) => {
 
     try {
         const now = new Date();
-        const uploadDocument = await uploadDocuments.find({ clientId: clientId });
-        const totalDocuments = uploadDocument.length;
-        const pendingCount = uploadDocument.filter(doc => doc.status === 'pending').length;
-        const overdueCount = uploadDocument.filter(doc => doc.status === 'pending' && doc.dueDate < now).length;
-        const completedCount = await uploadDocuments.countDocuments({ clientId: clientId, status: 'completed' });
-        // Get populated document request with category
-        const documentRequests = await DocumentRequest.find({ clientId: clientId })
-            .populate('category')
+        const uploadedDocs = await uploadDocuments
+            .find({ clientId })
+            .populate("category")
+            .populate("subCategory");
+
+        const totalDocuments = uploadedDocs.length;
+        const pendingCount = uploadedDocs.filter((doc) => doc.status === "pending").length;
+        const overdueCount = uploadedDocs.filter(
+            (doc) => doc.status === "pending" && new Date(doc.dueDate) < now
+        ).length;
+        const completedCount = await uploadDocuments.countDocuments({ clientId, status: "completed" });
+
+        // Get document requests
+        const documentRequests = await DocumentRequest.find({ clientId })
+            .populate("category")
             .sort({ createdAt: -1 });
 
-        // Get related subCategories
-        const subCategoryLinks = await DocumentSubCategory.find({ clientId: clientId })
-            .populate('subCategory')
-            .populate('category'); // optional, if needed
+        // Subcategories for document requests
+        const subCategoryLinks = await DocumentSubCategory.find({ clientId })
+            .populate("subCategory")
+            .populate("category"); // optional
 
-        // Group subcategories by request ID
+        // Map subcategories to request ID
         const subCatMap = {};
-        subCategoryLinks.forEach(link => {
-            if (!subCatMap[link.request]) subCatMap[link.request] = [];
-            subCatMap[link.request].push(link.subCategory);
+        subCategoryLinks.forEach((link) => {
+            const requestId = String(link.request);
+            if (!subCatMap[requestId]) subCatMap[requestId] = [];
+            subCatMap[requestId].push(link.subCategory);
         });
 
-        // Get uploaded docs (recent activity)
-        const recentActivity = await uploadDocuments.find({ clientId: clientId })
-            .populate('category')
-            .populate('subCategory') // still works if subCategory reference is directly in upload model
-            .sort({ createdAt: -1 })
-            .limit(5);
+        // Recent activity (last 5 uploads)
+        const recentActivity = uploadedDocs
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+            .slice(0, 5);
 
-        // Construct upcoming deadlines
-        const upcomingDeadlines = uploadDocument
-            .filter(doc => doc.status === 'pending')
-            .flatMap(doc => {
+        // Upcoming deadlines
+        const upcomingDeadlines = uploadedDocs
+            .filter((doc) => doc.status === "pending" && doc.dueDate)
+            .map((doc) => {
                 const daysLeft = Math.ceil((new Date(doc.dueDate) - now) / (1000 * 60 * 60 * 24));
-                let priority = 'Low';
-                if (daysLeft <= 1) priority = 'High';
-                else if (daysLeft <= 3) priority = 'Medium';
+                let priority = "Low";
+                if (daysLeft <= 1) priority = "High";
+                else if (daysLeft <= 3) priority = "Medium";
 
-                const subCategories = subCatMap[doc._id] || [];
-
-                return subCategories.map(subCat => ({
-                    document: subCat?.name || 'Unnamed',
-                    type: doc.category?.name || '',
+                return {
+                    document: doc.subCategory?.name || "Unnamed Document",
+                    type: doc.category?.name || "Unknown",
                     dueDate: doc.dueDate,
                     priority,
-                    daysLeft
-                }));
+                    daysLeft,
+                };
             });
-        const activeAssignments = await logModel.find({ clientId: clientId });
-        documentRequests: documentRequests.flatMap(doc => {
-            const subCategories = subCatMap[doc._id] || [];
-            return subCategories.map(subCat => ({
-                document: subCat?.name || '',
-                type: doc.category?.name || '',
-                status: doc.status,
-                dueDate: doc.dueDate
-            }));
-        }),
+
+        // Recent assignments/logs
+        const activeAssignments = await logModel.find({ clientId }).sort({ createdAt: -1 });
+
         res.status(200).json({
             success: true,
             message: "Client Dashboard Data Found successfully",
@@ -442,23 +440,21 @@ module.exports.getClientDashboard = async (req, res) => {
                     totalDocuments,
                     completed: completedCount,
                     pending: pendingCount,
-                    overdue: overdueCount
+                    overdue: overdueCount,
                 },
+                upcomingDeadlines,
                 recentAssignments: activeAssignments,
-                documentRequests,
-                upcomingDeadlines: recentActivity.map(doc => ({
-                    document: doc.subCategory?.name || '',
-                    type: doc.category?.name || '',
-                    uploadedAt: doc.createdAt
-                }))
-            }
-        });
+                documentRequest: recentActivity,
 
+            },
+        });
     } catch (error) {
-        resModel.success = false;
-        resModel.message = "Internal Server Error";
-        resModel.data = null;
-        res.status(500).json(resModel);
+        console.error("Dashboard Error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null,
+        });
     }
 };
 
