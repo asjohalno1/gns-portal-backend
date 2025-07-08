@@ -545,11 +545,11 @@ module.exports.getClientDocuments = async (req, res) => {
             if (doc.subCategory?._id && subCatStatusMap.has(doc.subCategory._id.toString())) {
                 const prev = subCatStatusMap.get(doc.subCategory._id.toString());
 
-                // Include isUploaded from document
                 subCatStatusMap.set(doc.subCategory._id.toString(), {
                     ...prev,
                     uploaded: true,
-                    isUploaded: doc.isUploaded ?? false // fallback to false if undefined
+                    isUploaded: doc.isUploaded ?? false,
+                    categoryId: catId,
                 });
             }
 
