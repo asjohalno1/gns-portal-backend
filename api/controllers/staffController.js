@@ -375,7 +375,6 @@ module.exports.getAllClientsByStaff = async (req, res) => {
             const client = assignment.clientId;
             if (!client) continue;
 
-            // Search by name or email
             const searchLower = search.toLowerCase();
             if (
                 search &&
@@ -383,31 +382,29 @@ module.exports.getAllClientsByStaff = async (req, res) => {
                 !client.email.toLowerCase().includes(searchLower)
             ) continue;
 
-
             const documentRequests = await uploadDocuments.find({ clientId: client._id });
 
             for (const doc of documentRequests) {
-                // Date filter
                 const created = new Date(doc.createdAt);
                 if (dateFrom && created < new Date(dateFrom)) continue;
                 if (dateTo && created > new Date(dateTo)) continue;
 
-                // Populate category and subCategory
-                const subCatLink = await DocumentSubCategory.findOne({ request: doc.request })
-                    .populate('category')
-                    .populate('subCategory');
+                const subCatLink = await DocumentSubCategory.findOne({
+                    request: doc.request,
+                    category: doc.category,
+                    subCategory: doc.subCategory
+                }).populate('category').populate('subCategory');
+
+                if (!subCatLink) continue;
 
                 const categoryName = subCatLink?.category?.name || '—';
                 const subCategoryName = subCatLink?.subCategory?.name || 'Unnamed Document';
 
-                // Filter by document type
                 if (documentType && categoryName.toLowerCase() !== documentType.toLowerCase()) continue;
 
-                // Filter by status
                 const docStatus = doc.status?.charAt(0).toUpperCase() + doc.status?.slice(1) || '—';
                 if (status && docStatus.toLowerCase() !== status.toLowerCase()) continue;
 
-                // ✅ Keyword search (match in title, doctitle, clientName, categoryName, subCategoryName)
                 const keywordLower = keyword.toLowerCase();
 
                 if (
@@ -427,19 +424,16 @@ module.exports.getAllClientsByStaff = async (req, res) => {
                     status: docStatus,
                     dateRequested: doc.createdAt,
                     doctitle: doc.doctitle,
-
                 });
             }
         }
 
-        // Sort manually since filtering is done in-memory
         allDocs.sort((a, b) => {
             const dateA = new Date(a.dateRequested);
             const dateB = new Date(b.dateRequested);
             return sortByDate === 'asc' ? dateA - dateB : dateB - dateA;
         });
 
-        // Pagination
         const paginatedDocs = allDocs.slice(skip, skip + limit);
 
         resModel.success = true;

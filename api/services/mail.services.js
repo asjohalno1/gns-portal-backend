@@ -22,17 +22,15 @@ const sendEmail = async (email, subject, link, name = "User") => {
       subject: subject,
       html: htmlContent,
     });
-
-    console.log("Message sent: %s", info.messageId);
   } catch (error) {
     console.error("Error sending email:", error);
   }
 };
 
 
-const sendEmailRemainder = async (email,subject,link,name = "User",msg) => {
+const sendEmailRemainder = async (email, subject, link, name = "User", msg) => {
   try {
-    const htmlContent = reminderTemplate({ name,link,msg});
+    const htmlContent = reminderTemplate({ name, link, msg });
 
     const info = await transporter.sendMail({
       from: 'shaktisainisd@gmail.com',
@@ -49,4 +47,4 @@ const sendEmailRemainder = async (email,subject,link,name = "User",msg) => {
 
 
 
-module.exports = {sendEmail,sendEmailRemainder};
+module.exports = { sendEmail, sendEmailRemainder };
