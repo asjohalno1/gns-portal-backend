@@ -39,6 +39,12 @@ const uploadDocuments = require('../models/uploadDocuments');
  * @apiSampleRequest http://localhost:2001/api/staff/requestDocument 
  */
 module.exports.documentRequest = async (req, res) => {
+    const resModel = {
+        success: false,
+        message: "",
+        data: null
+    };
+
     try {
         let {
             templateId,
@@ -51,19 +57,38 @@ module.exports.documentRequest = async (req, res) => {
             notifyMethod,
             remainderSchedule,
             expiration,
-            linkMethod
+            linkMethod,
+            subcategoryPriorities = {} // Default empty object if not provided
         } = req.body;
 
-        // if (!Array.isArray(categoryId)) categoryId = [categoryId];
-        // if (!Array.isArray(subCategoryId)) subCategoryId = [subCategoryId];
-        // if (!Array.isArray(clientId)) clientId = [clientId];
+        // Validate required arrays
+        if (!Array.isArray(clientId) || !Array.isArray(categoryId) || !Array.isArray(subCategoryId)) {
+            resModel.message = "clientId, categoryId and subCategoryId must be arrays";
+            return res.status(400).json(resModel);
+        }
+
+        // Validate priorities
+        const validPriorities = ['low', 'medium', 'high'];
+        for (const [subCatId, priority] of Object.entries(subcategoryPriorities)) {
+            if (!subCategoryId.includes(subCatId)) {
+                resModel.message = `Subcategory ${subCatId} in priorities not found in request`;
+                return res.status(400).json(resModel);
+            }
+            if (!validPriorities.includes(priority)) {
+                resModel.message = `Invalid priority '${priority}' for subcategory ${subCatId}`;
+                return res.status(400).json(resModel);
+            }
+        }
 
         let templateData = null;
-
         if (templateId) {
             templateData = await template.findById(templateId);
-            let subcategoryRes = await DocumentSubCategory.find({ template: templateId });
+            if (!templateData) {
+                resModel.message = "Template not found";
+                return res.status(404).json(resModel);
+            }
 
+            const subcategoryRes = await DocumentSubCategory.find({ template: templateId });
             categoryId = templateData.categoryId ? [templateData.categoryId] : categoryId;
             subCategoryId = subcategoryRes.length > 0
                 ? subcategoryRes.map(quest => quest.subCategory)
@@ -77,13 +102,21 @@ module.exports.documentRequest = async (req, res) => {
         const expiryDate = new Date(currentDate.getTime() + expiration * 24 * 60 * 60 * 1000);
 
         let requestRes;
+        const results = [];
 
         for (const client of clientId) {
+            // Create complete priorities map with defaults
+            const prioritiesMap = {};
+            subCategoryId.forEach(subCatId => {
+                prioritiesMap[subCatId] = subcategoryPriorities[subCatId] || 'medium';
+            });
+
             const requestInfo = {
                 createdBy: req.userInfo.id,
                 clientId: client,
                 category: categoryId,
                 subCategory: subCategoryId,
+                subcategoryPriorities: prioritiesMap,
                 dueDate,
                 instructions,
                 notifyMethod,
@@ -96,70 +129,87 @@ module.exports.documentRequest = async (req, res) => {
 
             const newRequest = new DocumentRequest(requestInfo);
             requestRes = await newRequest.save();
+            results.push(requestRes);
 
+            // Process categories and subcategories
             for (const catId of categoryId) {
-                // Fetch only those subcategories which match the current category
                 const validSubCats = await SubCategory.find({
                     _id: { $in: subCategoryId },
                     categoryId: catId
-                });
+                }).lean();
 
-                for (const subCat of validSubCats) {
+                const subCatCreationPromises = validSubCats.map(async (subCat) => {
+                    const priority = prioritiesMap[subCat._id.toString()] || 'medium';
+
                     await DocumentSubCategory.create({
                         request: requestRes._id,
                         category: catId,
-                        subCategory: subCat._id
+                        subCategory: subCat._id,
+                        priority
                     });
 
                     await uploadDocument.create({
                         request: requestRes._id,
                         category: catId,
                         subCategory: subCat._id,
-                        dueDate: dueDate,
+                        dueDate,
                         clientId: client,
-                        doctitle: doctitle
+                        doctitle,
+                        priority
                     });
-                }
+                });
+
+                await Promise.all(subCatCreationPromises);
             }
 
-
+            // Send notification
             const clientRes = await Client.findById(client);
+            if (!clientRes) {
+                console.warn(`Client ${client} not found`);
+                continue;
+            }
 
             const tokenInfo = {
                 clientId: client,
                 userId: req.userInfo.id,
                 requestId: requestRes._id,
-                email: clientRes?.email
+                email: clientRes.email
             };
 
             const expiresIn = parseInt(expiration);
             const requestLink = await jwt.linkToken(tokenInfo, expiresIn);
 
             if (linkMethod === "email") {
-                await DocumentRequest.findByIdAndUpdate(requestRes._id, { requestLink, linkStatus: "sent" });
-                mailServices.sendEmail(clientRes?.email, "Document Request", requestLink, clientRes?.name, "shareLink");
-            } else {
-                // await twilioServices(clientRes?.phoneNumber, requestLink);
+                await DocumentRequest.findByIdAndUpdate(
+                    requestRes._id,
+                    { requestLink, linkStatus: "sent" }
+                );
+                await mailServices.sendEmail(
+                    clientRes.email,
+                    "Document Request",
+                    requestLink,
+                    clientRes.name,
+                    "shareLink"
+                );
+            } else if (linkMethod === "sms" && clientRes.phoneNumber) {
+                // await twilioServices(clientRes.phoneNumber, requestLink);
             }
         }
 
-        if (requestRes) {
+        if (results.length > 0) {
             resModel.success = true;
-            resModel.message = "Request Added Successfully";
-            resModel.data = requestRes;
-            res.status(200).json(resModel);
+            resModel.message = `Successfully created ${results.length} document request(s)`;
+            resModel.data = results.length === 1 ? results[0] : results;
+            return res.status(200).json(resModel);
         } else {
-            resModel.success = false;
-            resModel.message = "Error while creating Request";
-            resModel.data = null;
-            res.status(400).json(resModel);
+            resModel.message = "No document requests were created";
+            return res.status(400).json(resModel);
         }
     } catch (error) {
-        console.error(error);
-        resModel.success = false;
+        console.error("Error in documentRequest:", error);
         resModel.message = "Internal Server Error";
-        resModel.data = null;
-        res.status(500).json(resModel);
+        resModel.error = process.env.NODE_ENV === 'development' ? error.message : undefined;
+        return res.status(500).json(resModel);
     }
 };
 

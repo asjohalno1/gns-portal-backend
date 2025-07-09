@@ -384,7 +384,8 @@ module.exports.getClientDashboard = async (req, res) => {
         const uploadedDocs = await uploadDocuments
             .find({ clientId })
             .populate("category")
-            .populate("subCategory");
+            .populate("subCategory")
+            .populate("request");
 
         const totalDocuments = uploadedDocs.length;
         const pendingCount = uploadedDocs.filter((doc) => doc.status === "pending").length;
@@ -393,7 +394,6 @@ module.exports.getClientDashboard = async (req, res) => {
         ).length;
         const completedCount = await uploadDocuments.countDocuments({ clientId, status: "completed" });
 
-        // Filter and Search
         let filteredDocs = [...uploadedDocs];
 
         if (status && status !== 'all') {
@@ -413,14 +413,25 @@ module.exports.getClientDashboard = async (req, res) => {
         const totalFiltered = filteredDocs.length;
         const paginatedDocs = filteredDocs.slice((page - 1) * limit, page * limit);
 
-        // Upcoming deadlines
+        // Upcoming deadlines - Updated to use stored priority
         const upcomingDeadlines = uploadedDocs
             .filter((doc) => doc.status === "pending" && doc.dueDate)
             .map((doc) => {
                 const daysLeft = Math.ceil((new Date(doc.dueDate) - now) / (1000 * 60 * 60 * 24));
-                let priority = "Low";
-                if (daysLeft <= 1) priority = "High";
-                else if (daysLeft <= 3) priority = "Medium";
+
+                let priority = "-";
+                if (doc.request && doc.request.subcategoryPriorities && doc.subCategory && doc.subCategory._id) {
+                    const subCategoryId = doc.subCategory._id.toString();
+                    let storedPriority;
+                    if (doc.request.subcategoryPriorities instanceof Map) {
+                        storedPriority = doc.request.subcategoryPriorities.get(subCategoryId);
+                    } else {
+                        storedPriority = doc.request.subcategoryPriorities?.[subCategoryId];
+                    }
+                    if (storedPriority) {
+                        priority = storedPriority.charAt(0).toUpperCase() + storedPriority.slice(1).toLowerCase();
+                    }
+                }
 
                 return {
                     document: doc.subCategory?.name || "Unnamed Document",
