@@ -470,105 +470,87 @@ module.exports.getClientDashboard = async (req, res) => {
  */
 module.exports.getClientDocuments = async (req, res) => {
     try {
-        const requestId = req?.userInfo?.requestId;
+        const clientId = req?.userInfo?.clientId
+        const { page = 1, limit = 10, search = '' } = req.query;
+        const pageNumber = parseInt(page);
+        const limitNumber = parseInt(limit);
+        const skip = (pageNumber - 1) * limitNumber;
+        const searchRegex = new RegExp(search, 'i'); // case-insensitive
+        const filter = {
+            clientId: clientId,
+            $or: [
+                { doctitle: { $regex: searchRegex } },
+            ]
+        };
 
-        const documents = await uploadDocuments.find({ request: requestId })
-            .populate('category', 'name') // Populate category name
-            .populate('request', 'status') // Populate request status
-            .populate('subCategory', 'name');
-
-        const subCategoryLinks = await DocumentSubCategory.find({ request: requestId })
+        // Fetch documents
+        const documents = await uploadDocuments.find(filter)
+            .populate('category', 'name')
+            .populate('request', 'status dueDate')
             .populate('subCategory', 'name')
-            .populate('category', 'name');
+            .populate('clientId', 'fullName')
+            .sort({ createdAt: -1 }) // latest first
+            .skip(skip)
+            .limit(limitNumber);
 
-        const subCatMap = {}; // categoryId -> subCategory object
-        const categoryMap = new Map(); // categoryId -> { _id, name }
-        const subCatStatusMap = new Map(); // subCategoryId -> { _id, name, uploaded }
-
-        subCategoryLinks.forEach(link => {
-            const catId = link.category?._id?.toString();
-            const catName = link.category?.name;
-            const subCatId = link.subCategory?._id?.toString();
-            const subCatName = link.subCategory?.name;
-
-            if (catId && subCatId && subCatName) {
-                subCatMap[catId] = {
-                    _id: subCatId,
-                    name: subCatName
-                };
-            }
-
-            if (catId && catName) {
-                categoryMap.set(catId, { _id: catId, name: catName });
-            }
-
-            if (subCatId && subCatName) {
-                subCatStatusMap.set(subCatId, {
-                    _id: subCatId,
-                    name: subCatName,
-                    uploaded: false
-                });
-            }
-        });
+        // Count total documents for pagination
+        const totalCount = await uploadDocuments.countDocuments(filter);
 
         const grouped = {
-            all: [],
+            data: [],
             accepted: [],
             pending: [],
-            rejected: []
+            rejected: [],
+            overdue: [],
         };
 
         documents.forEach(doc => {
-            const catId = doc.category?._id?.toString();
-            const subCat = subCatMap[catId] || { _id: null, name: 'N/A' };
+            const uploadedDate = doc.createdAt;
+            const dueDate = doc.request?.dueDate;
+            const status = doc.request?.status || 'pending';
+
+            // Additional filter: search in populated category name
+            const categoryName = doc.category?.name || '';
+            if (search && !searchRegex.test(categoryName) && !searchRegex.test(doc.doctitle)) {
+                return; // skip this document if it doesn’t match either
+            }
 
             const docData = {
                 documentTitle: doc.doctitle,
                 documentName: doc.fileName,
-                documentType: doc.category?.name || 'N/A',
+                documentType: categoryName,
                 documentTypeId: doc.category?._id || null,
-                // subCategory: subCat.name,
-                // subCategoryId: subCat._id,
-                uploadedDate: doc.createdAt,
-                status: doc.request?.status || 'pending',
+                uploadedDate,
+                dueDate,
+                status,
                 comments: doc.rejectionReason || null,
                 requestId: doc.request?._id,
                 subCategory: doc.subCategory?.name,
                 subCategoryId: doc.subCategory?._id,
             };
 
-            grouped.all.push(docData);
-            if (docData.status === 'accepted') grouped.accepted.push(docData);
-            else if (docData.status === 'pending') grouped.pending.push(docData);
-            else if (docData.status === 'rejected') grouped.rejected.push(docData);
+            grouped.data.push(docData);
 
-            if (doc.subCategory?._id && subCatStatusMap.has(doc.subCategory._id.toString())) {
-                const prev = subCatStatusMap.get(doc.subCategory._id.toString());
-
-                subCatStatusMap.set(doc.subCategory._id.toString(), {
-                    ...prev,
-                    uploaded: true,
-                    isUploaded: doc.isUploaded ?? false,
-                    categoryId: catId,
-                });
-            }
-
+            const lowerStatus = status.toLowerCase();
+            if (lowerStatus === 'accepted') grouped.accepted.push(docData);
+            else if (lowerStatus === 'pending') grouped.pending.push(docData);
+            else if (lowerStatus === 'rejected') grouped.rejected.push(docData);
+            else if (lowerStatus === 'overdue') grouped.overdue.push(docData);
         });
-
-        const categories = Array.from(categoryMap.values());
-        const subCategories = Array.from(subCatStatusMap.values());
-
+        let data = grouped.data;
         resModel.success = true;
         resModel.message = "Client documents fetched successfully";
         resModel.data = {
-            ...grouped,
-            extraInfo: {
-                categories,     // now includes _id and name
-                subCategories   // now includes _id, name, uploaded
+            data,
+            pagination: {
+                total: totalCount,
+                page: pageNumber,
+                limit: limitNumber,
+                totalPages: Math.ceil(totalCount / limitNumber),
             }
         };
-
         res.status(200).json(resModel);
+
     } catch (error) {
         resModel.success = false;
         resModel.message = "Internal Server Error";
@@ -576,6 +558,8 @@ module.exports.getClientDocuments = async (req, res) => {
         res.status(500).json(resModel);
     }
 };
+
+
 
 
 
