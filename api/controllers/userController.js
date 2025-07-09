@@ -21,7 +21,6 @@ const { listFilesInFolderStructure, uploadFileToFolder } = require('../services/
 
 
 
-
 /**
  * @api {post} /api/admin/signup Signup User
  * @apiName Signup User
@@ -656,3 +655,84 @@ exports.getClientDocu = async (req, res) => {
 
 
 
+exports.getAllUploadedDocuments = async (req, res) => {
+    try {
+        const clientId = req?.userInfo?.clientId;
+        const { search = '', status = 'all', page = 1, limit = 10 } = req.query;
+        const skip = (page - 1) * limit;
+
+        let query = { clientId };
+
+        if (status !== 'all') {
+            query.status = status.toLowerCase();
+        }
+
+        if (search) {
+            const [matchingCategories, matchingSubCategories] = await Promise.all([
+                Category.find({
+                    name: { $regex: search, $options: 'i' }
+                }).select('_id').lean(),
+                SubCategory.find({
+                    name: { $regex: search, $options: 'i' }
+                }).select('_id').lean(),
+            ]);
+
+            const matchingCategoryIds = matchingCategories.map(cat => String(cat._id));
+            const matchingSubCategoryIds = matchingSubCategories.map(sub => String(sub._id));
+
+            query.$or = [
+                { category: { $in: matchingCategoryIds } },
+                { subCategory: { $in: matchingSubCategoryIds } },
+                { status: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        const totalDocuments = await uploadDocument.countDocuments(query);
+
+        const uploadedDocuments = await uploadDocument.find(query)
+            .skip(skip)
+            .limit(parseInt(limit))
+            .sort({ createdAt: -1 })
+            .lean();
+
+        const categoryIds = [...new Set(uploadedDocuments.map(doc => String(doc.category)))];
+        const subCategoryIds = [...new Set(uploadedDocuments.map(doc => String(doc.subCategory)))];
+
+        const [categories, subCategories] = await Promise.all([
+            Category.find({ _id: { $in: categoryIds } }).lean(),
+            SubCategory.find({ _id: { $in: subCategoryIds } }).lean(),
+        ]);
+
+        const categoryMap = Object.fromEntries(categories.map(cat => [String(cat._id), cat.name]));
+        const subCategoryMap = Object.fromEntries(subCategories.map(sub => [String(sub._id), sub.name]));
+
+        const formattedDocs = uploadedDocuments.map(doc => ({
+            id: doc._id,
+            DocumentName: categoryMap[String(doc.category)] || "N/A",
+            DocumentType: subCategoryMap[String(doc.subCategory)] || "N/A",
+            uploadedAt: doc.createdAt,
+            dueDate: doc.dueDate,
+            status: doc.status,
+            documentPath: doc.documentPath
+        }));
+
+        res.status(200).json({
+            success: true,
+            message: "Fetched documents successfully",
+            data: formattedDocs,
+            pagination: {
+                total: totalDocuments,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                totalPages: Math.ceil(totalDocuments / limit)
+            }
+        });
+    } catch (error) {
+        console.error("Error in getAllUploadedDocuments:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null,
+        });
+    }
+};
