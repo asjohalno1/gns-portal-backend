@@ -14,6 +14,10 @@ module.exports.addDocumentRequest = joi.object({
   instructions: joi.string().allow('').optional(),
   templateId: joi.string().allow('').optional(),
   doctitle: joi.string().allow('').optional(),
+  subcategoryPriorities: joi.object().pattern(
+    joi.string(), // subCategoryId as key
+    joi.string().valid('low', 'medium', 'high').default('medium') // priority as value
+  ).optional(),
 });
 /** Document Request Model Ends */
 

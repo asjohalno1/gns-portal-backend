@@ -14,6 +14,15 @@ const documentRequestSchema = new mongoose.Schema({
     enum: ['pending', 'accepted', 'rejected'],
     default: 'pending'
   },
+  subcategoryPriorities: {  // New field to store priorities as a map
+    type: Map,
+    of: {
+      type: String,
+      enum: ['low', 'medium', 'high'],
+      default: 'medium'
+    },
+    default: {}
+  },
   notifyMethod: { type: String, enum: ["email", "sms", "portal"], required: true },
   remainderSchedule: { type: String, enum: ["ThreeDays", "OneDays", "overDue"], required: true },
   linkMethod: String,

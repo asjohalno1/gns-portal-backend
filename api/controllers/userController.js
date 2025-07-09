@@ -373,13 +373,19 @@ module.exports.uploadDocument = async (req, res) => {
  */
 module.exports.getClientDashboard = async (req, res) => {
     const clientId = req?.userInfo?.clientId;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search?.trim().toLowerCase() || '';
+    const status = req.query.status?.trim().toLowerCase();
 
     try {
         const now = new Date();
+
         const uploadedDocs = await uploadDocuments
             .find({ clientId })
             .populate("category")
-            .populate("subCategory");
+            .populate("subCategory")
+            .populate("request");
 
         const totalDocuments = uploadedDocs.length;
         const pendingCount = uploadedDocs.filter((doc) => doc.status === "pending").length;
@@ -388,37 +394,44 @@ module.exports.getClientDashboard = async (req, res) => {
         ).length;
         const completedCount = await uploadDocuments.countDocuments({ clientId, status: "completed" });
 
-        // Get document requests
-        const documentRequests = await DocumentRequest.find({ clientId })
-            .populate("category")
-            .sort({ createdAt: -1 });
+        let filteredDocs = [...uploadedDocs];
 
-        // Subcategories for document requests
-        const subCategoryLinks = await DocumentSubCategory.find({ clientId })
-            .populate("subCategory")
-            .populate("category"); // optional
+        if (status && status !== 'all') {
+            filteredDocs = filteredDocs.filter((doc) => doc.status.toLowerCase() === status);
+        }
 
-        // Map subcategories to request ID
-        const subCatMap = {};
-        subCategoryLinks.forEach((link) => {
-            const requestId = String(link.request);
-            if (!subCatMap[requestId]) subCatMap[requestId] = [];
-            subCatMap[requestId].push(link.subCategory);
-        });
+        if (search) {
+            filteredDocs = filteredDocs.filter((doc) => {
+                const subCat = doc.subCategory?.name?.toLowerCase() || '';
+                const cat = doc.category?.name?.toLowerCase() || '';
+                return subCat.includes(search) || cat.includes(search);
+            });
+        }
 
-        // Recent activity (last 5 uploads)
-        const recentActivity = uploadedDocs
-            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-            .slice(0, 5);
+        // Sort and paginate
+        filteredDocs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        const totalFiltered = filteredDocs.length;
+        const paginatedDocs = filteredDocs.slice((page - 1) * limit, page * limit);
 
-        // Upcoming deadlines
+        // Upcoming deadlines - Updated to use stored priority
         const upcomingDeadlines = uploadedDocs
             .filter((doc) => doc.status === "pending" && doc.dueDate)
             .map((doc) => {
                 const daysLeft = Math.ceil((new Date(doc.dueDate) - now) / (1000 * 60 * 60 * 24));
-                let priority = "Low";
-                if (daysLeft <= 1) priority = "High";
-                else if (daysLeft <= 3) priority = "Medium";
+
+                let priority = "-";
+                if (doc.request && doc.request.subcategoryPriorities && doc.subCategory && doc.subCategory._id) {
+                    const subCategoryId = doc.subCategory._id.toString();
+                    let storedPriority;
+                    if (doc.request.subcategoryPriorities instanceof Map) {
+                        storedPriority = doc.request.subcategoryPriorities.get(subCategoryId);
+                    } else {
+                        storedPriority = doc.request.subcategoryPriorities?.[subCategoryId];
+                    }
+                    if (storedPriority) {
+                        priority = storedPriority.charAt(0).toUpperCase() + storedPriority.slice(1).toLowerCase();
+                    }
+                }
 
                 return {
                     document: doc.subCategory?.name || "Unnamed Document",
@@ -429,9 +442,9 @@ module.exports.getClientDashboard = async (req, res) => {
                 };
             });
 
-        // Recent assignments/logs
         const activeAssignments = await logModel.find({ clientId }).sort({ createdAt: -1 });
 
+        // ✅ Final response (fully compatible with frontend)
         res.status(200).json({
             success: true,
             message: "Client Dashboard Data Found successfully",
@@ -444,8 +457,13 @@ module.exports.getClientDashboard = async (req, res) => {
                 },
                 upcomingDeadlines,
                 recentAssignments: activeAssignments,
-                documentRequest: recentActivity,
-
+                documentRequest: paginatedDocs,
+                pagination: {
+                    total: totalFiltered,
+                    page,
+                    limit,
+                    totalPages: Math.ceil(totalFiltered / limit),
+                },
             },
         });
     } catch (error) {
@@ -457,6 +475,7 @@ module.exports.getClientDashboard = async (req, res) => {
         });
     }
 };
+
 
 
 
