@@ -25,6 +25,7 @@ module.exports = function (app, validator) {
    app.get('/api/user/clientDocuments', auth, userCntrl.getClientDocuments);
    app.get('/api/user/getAllNotifications', auth, userCntrl.getAllNotifications);
    app.get('/api/user/getGoogleDocs', auth, userCntrl.getClientDocu);
+   app.get('/api/user/getAllUploadedDocuments', auth, userCntrl.getAllUploadedDocuments);
 }
 
 
