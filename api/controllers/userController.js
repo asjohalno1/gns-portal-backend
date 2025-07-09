@@ -416,7 +416,8 @@ module.exports.getClientDashboard = async (req, res) => {
         const upcomingDeadlines = uploadedDocs
             .filter((doc) => doc.status === "pending" && doc.dueDate)
             .map((doc) => {
-                const daysLeft = Math.ceil((new Date(doc.dueDate) - now) / (1000 * 60 * 60 * 24));
+                const diffDays = Math.ceil((new Date(doc.dueDate) - now) / (1000 * 60 * 60 * 24));
+                const daysLeft = diffDays < 0 ? "Expired" : diffDays;
 
                 let priority = "-";
                 if (doc.request && doc.request.subcategoryPriorities && doc.subCategory && doc.subCategory._id) {
@@ -441,9 +442,9 @@ module.exports.getClientDashboard = async (req, res) => {
                 };
             });
 
+
         const activeAssignments = await logModel.find({ clientId }).sort({ createdAt: -1 });
 
-        // ✅ Final response (fully compatible with frontend)
         res.status(200).json({
             success: true,
             message: "Client Dashboard Data Found successfully",
@@ -661,12 +662,14 @@ exports.getAllUploadedDocuments = async (req, res) => {
         const { search = '', status = 'all', page = 1, limit = 10 } = req.query;
         const skip = (page - 1) * limit;
 
-        let query = { clientId };
+        let query = {
+            clientId,
+            isUploaded: true
+        };
 
         if (status !== 'all') {
             query.status = status.toLowerCase();
         }
-
         if (search) {
             const [matchingCategories, matchingSubCategories] = await Promise.all([
                 Category.find({
@@ -710,7 +713,7 @@ exports.getAllUploadedDocuments = async (req, res) => {
             id: doc._id,
             DocumentName: categoryMap[String(doc.category)] || "N/A",
             DocumentType: subCategoryMap[String(doc.subCategory)] || "N/A",
-            uploadedAt: doc.createdAt,
+            uploadedAt: doc.createdAt, //FUTURE UPDATE 
             dueDate: doc.dueDate,
             status: doc.status,
             documentPath: doc.documentPath
