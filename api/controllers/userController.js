@@ -669,7 +669,6 @@ exports.getAllUploadedDocuments = async (req, res) => {
         if (status !== 'all') {
             query.status = status.toLowerCase();
         }
-        x
         if (search) {
             const [matchingCategories, matchingSubCategories] = await Promise.all([
                 Category.find({
