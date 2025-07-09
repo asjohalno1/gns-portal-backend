@@ -661,12 +661,15 @@ exports.getAllUploadedDocuments = async (req, res) => {
         const { search = '', status = 'all', page = 1, limit = 10 } = req.query;
         const skip = (page - 1) * limit;
 
-        let query = { clientId };
+        let query = {
+            clientId,
+            isUploaded: true
+        };
 
         if (status !== 'all') {
             query.status = status.toLowerCase();
         }
-
+        x
         if (search) {
             const [matchingCategories, matchingSubCategories] = await Promise.all([
                 Category.find({
