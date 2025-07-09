@@ -661,17 +661,13 @@ exports.getAllUploadedDocuments = async (req, res) => {
         const { search = '', status = 'all', page = 1, limit = 10 } = req.query;
         const skip = (page - 1) * limit;
 
-        // Step 1: Build the base query
         let query = { clientId };
 
-        // Step 2: Apply status filter if not 'all'
         if (status !== 'all') {
             query.status = status.toLowerCase();
         }
 
-        // Step 3: Apply search filter if provided
         if (search) {
-            // First fetch all relevant categories/subcategories that match the search
             const [matchingCategories, matchingSubCategories] = await Promise.all([
                 Category.find({
                     name: { $regex: search, $options: 'i' }
@@ -691,17 +687,14 @@ exports.getAllUploadedDocuments = async (req, res) => {
             ];
         }
 
-        // Step 4: Get total count for pagination
         const totalDocuments = await uploadDocument.countDocuments(query);
 
-        // Step 5: Fetch paginated documents
         const uploadedDocuments = await uploadDocument.find(query)
             .skip(skip)
             .limit(parseInt(limit))
             .sort({ createdAt: -1 })
             .lean();
 
-        // Step 6: Fetch related categories and subcategories
         const categoryIds = [...new Set(uploadedDocuments.map(doc => String(doc.category)))];
         const subCategoryIds = [...new Set(uploadedDocuments.map(doc => String(doc.subCategory)))];
 
@@ -710,21 +703,19 @@ exports.getAllUploadedDocuments = async (req, res) => {
             SubCategory.find({ _id: { $in: subCategoryIds } }).lean(),
         ]);
 
-        // Step 7: Create lookup maps
         const categoryMap = Object.fromEntries(categories.map(cat => [String(cat._id), cat.name]));
         const subCategoryMap = Object.fromEntries(subCategories.map(sub => [String(sub._id), sub.name]));
 
-        // Step 8: Format the output
         const formattedDocs = uploadedDocuments.map(doc => ({
             id: doc._id,
             DocumentName: categoryMap[String(doc.category)] || "N/A",
             DocumentType: subCategoryMap[String(doc.subCategory)] || "N/A",
             uploadedAt: doc.createdAt,
             dueDate: doc.dueDate,
-            status: doc.status
+            status: doc.status,
+            documentPath: doc.documentPath
         }));
 
-        // Step 9: Respond with paginated data
         res.status(200).json({
             success: true,
             message: "Fetched documents successfully",
