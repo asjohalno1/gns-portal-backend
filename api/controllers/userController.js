@@ -328,6 +328,7 @@ module.exports.uploadDocument = async (req, res) => {
 
             })),
             isUploaded: true
+
         };
         const subCategory = await subCategoryModel.findOne({ _id: subCategoryId });
         let logInfo = {
@@ -374,6 +375,9 @@ module.exports.getClientDashboard = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const search = req.query.search?.trim().toLowerCase() || '';
     const status = req.query.status?.trim().toLowerCase();
+    const statusRecentActivity = req.query.statusRecentActivity?.trim().toLowerCase();
+
+
 
     try {
         const now = new Date();
@@ -395,7 +399,10 @@ module.exports.getClientDashboard = async (req, res) => {
 
         if (status && status !== 'all') {
             filteredDocs = filteredDocs.filter((doc) => doc.status.toLowerCase() === status);
+
+
         }
+
 
         if (search) {
             filteredDocs = filteredDocs.filter((doc) => {
@@ -411,8 +418,15 @@ module.exports.getClientDashboard = async (req, res) => {
         const paginatedDocs = filteredDocs.slice((page - 1) * limit, page * limit);
 
         // Upcoming deadlines - Updated to use stored priority
-        const upcomingDeadlines = uploadedDocs
-            .filter((doc) => doc.status === "pending" && doc.dueDate)
+        let upcomingDeadlines = uploadedDocs
+            .filter((doc) => doc.dueDate) // first filter dueDate exists
+            .filter((doc) => {
+                // Then apply optional status filter
+                if (statusRecentActivity && statusRecentActivity !== 'all') {
+                    return doc.status?.toLowerCase() === statusRecentActivity;
+                }
+                return true; // no filter if 'all' or not provided
+            })
             .map((doc) => {
                 const diffDays = Math.ceil((new Date(doc.dueDate) - now) / (1000 * 60 * 60 * 24));
                 const daysLeft = diffDays < 0 ? "Expired" : diffDays;
