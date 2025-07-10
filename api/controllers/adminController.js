@@ -626,3 +626,34 @@ module.exports.getAdminDashboard = async (req, res) => {
         res.status(500).json(resModel);
     }
 };
+
+
+/**
+ * @api {get} /api/client/getAllStaff Get All Staff
+ * @apiName GetAllStaff
+ * @apiGroup Client
+ * @apiDescription API to fetch all staff members.
+ * @apiSampleRequest http://localhost:2001/api/client/getAllStaff
+ */
+
+module.exports.getAllStaff = async (req, res) => {
+    try {
+        const staffMembers = await adminServices().getAllStaff();
+        if (!staffMembers) {
+            resModel.success = false;
+            resModel.message = "Staff not found";
+            resModel.data = [];
+            res.status(404).json(resModel);
+        } else {
+            resModel.success = true;
+            resModel.message = "Staff Found Successfully";
+            resModel.data = staffMembers;
+            res.status(200).json(resModel);
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+}
