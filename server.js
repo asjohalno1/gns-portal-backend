@@ -34,7 +34,7 @@ app.use((req, res, next) => {
 });
 
 app.use(bodyParser.urlencoded({ extended: true }))
-app.use(bodyParser.json({limit :'100mb'}))
+app.use(bodyParser.json({ limit: '100mb' }))
 console.log("NODE_ENV:", process.env.NODE_ENV);
 
 app.use('/apidoc', express.static(path.join(__dirname, '/apidoc/doc')));
@@ -54,9 +54,9 @@ app.use((err, req, res, next) => {
     }
     next()
 });
- const { deleteAllClientFolders} = require('./api/services/googleDriveService.js');
- //listFilesInFolder("1cMxxr5kn83InV6wtrO515_Jr4tSlRX3B")
- //deleteAllClientFolders()
+const { deleteAllClientFolders } = require('./api/services/googleDriveService.js');
+//listFilesInFolder("1cMxxr5kn83InV6wtrO515_Jr4tSlRX3B")
+//deleteAllClientFolders()
 
 app.listen(process.env.PORT, () => {
     console.log(`app listening on port ${process.env.PORT}!`)
