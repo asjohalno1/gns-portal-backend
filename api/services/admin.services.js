@@ -253,7 +253,7 @@ const clientService = () => {
                 }
 
                 // Determine main category for this client from the most recent document
-                let categoryName = 'Unnamed Document';
+                let categoryName = '-';
                 if (docs[0]?.category) {
                     const categoryDoc = await Category.findById(docs[0].category);
                     if (categoryDoc) {

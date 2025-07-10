@@ -328,7 +328,6 @@ module.exports.uploadDocument = async (req, res) => {
 
             })),
             isUploaded: true
-
         };
         const subCategory = await subCategoryModel.findOne({ _id: subCategoryId });
         let logInfo = {
@@ -340,7 +339,6 @@ module.exports.uploadDocument = async (req, res) => {
         await newLog.save();
 
         const newUpload = await uploadDocument.findOneAndUpdate({ request: req?.userInfo?.requestId, subCategory: subCategoryId }, uploadInfo, { upsert: true });
-        console.log(newUpload);
         if (newUpload) {
             resModel.success = true;
             resModel.message = "Document Upload Successfully";
@@ -391,7 +389,7 @@ module.exports.getClientDashboard = async (req, res) => {
         const overdueCount = uploadedDocs.filter(
             (doc) => doc.status === "pending" && new Date(doc.dueDate) < now
         ).length;
-        const completedCount = await uploadDocuments.countDocuments({ clientId, status: "completed" });
+        const completedCount = await uploadDocuments.countDocuments({ clientId, isUploaded: true });
 
         let filteredDocs = [...uploadedDocs];
 
