@@ -9,6 +9,7 @@ const app = express();
 // ✅ Allowed frontend origins
 const allowedOrigins = [
     "http://localhost:5173", // dev frontend
+    "http://localhost:5174", // dev frontend
     "http://localhost:2001" // production frontend domain
 ];
 
