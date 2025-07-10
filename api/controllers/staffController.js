@@ -16,6 +16,8 @@ const RemainderTemplate = require('../models/remainderTemplate');
 const AutomatedRemainder = require('../models/automatedRemainder');
 const uploadDocument = require('../models/uploadDocuments')
 const uploadDocuments = require('../models/uploadDocuments');
+const subCategory = require('../models/subCategory');
+const staffService = require('../services/staff.services');
 
 
 
@@ -155,7 +157,8 @@ module.exports.documentRequest = async (req, res) => {
                         dueDate,
                         clientId: client,
                         doctitle,
-                        priority
+                        priority,
+                        staffId: req.userInfo.id
                     });
                 });
 
@@ -342,14 +345,7 @@ module.exports.staffDashboard = async (req, res) => {
                 lastActivity: docs[0]?.updatedAt || client.createdAt
             });
         }
-
-        const documentCompletion = [
-            { category: "individual", percentage: 80 },
-            { category: "Business tax", percentage: 20 },
-            { category: "corporate", percentage: 10 },
-            { category: "others", percentage: 5 }
-        ];
-
+        let documentCompletion = await staffService().getCategoryLogs(staffId)
         const filteredClients = fullDashboardData.filter(client => {
             const matchesSearch = search
                 ? client.name.toLowerCase().includes(search) ||

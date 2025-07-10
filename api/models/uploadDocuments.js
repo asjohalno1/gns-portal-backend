@@ -20,6 +20,7 @@ const uploadedDocumentSchema = new mongoose.Schema({
   },
   doctitle: String, // Optional
   reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  staffId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   reviewedAt: { type: Date },
   comments: String,// Optional
   isUploaded: { type: Boolean, default: false },
