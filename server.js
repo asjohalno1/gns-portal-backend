@@ -3,14 +3,16 @@ const bodyParser = require('body-parser')
 const validator = require('express-joi-validation').createValidator({ passError: true })
 const cors = require('cors');
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, `.env.${process.env.NODE_ENV}`) })
+let dotenv = require('dotenv')
+dotenv.config({ path: path.resolve(__dirname, `.env.${process.env.NODE_ENV}`) });
 const app = express();
 
 // ✅ Allowed frontend origins
 const allowedOrigins = [
     "http://localhost:5173", // dev frontend
     "http://localhost:5174", // dev frontend
-    "http://localhost:2001" // production frontend domain
+    "http://localhost:2001",// production frontend domain
+    "http://44.211.113.36:8075"
 ];
 
 // ✅ CORS setup

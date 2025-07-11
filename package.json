@@ -4,9 +4,11 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "dev": "NODE_ENV=dev nodemon server.js",
-    "staging": "NODE_ENV=staging node server.js",
-    "apiDoc": "apidoc -i ./api/controllers -o ./apidoc/doc"
+    "start": "cross-env NODE_ENV=dev nodemon server.js",
+    "staging": "cross-env NODE_ENV=staging node server.js",
+    "dev": "cross-env NODE_ENV=development nodemon server.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "mkdir -p dist && cp -r src/* dist/"
   },
   "author": "",
   "license": "ISC",
