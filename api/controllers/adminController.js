@@ -184,12 +184,15 @@ module.exports.addClient = async (req, res) => {
     try {
         const { name, email, phoneNumber, address, company, notes, staffId, status } = req.body;
         const existingClient = await Client.findOne({ email });
+
+
         if (existingClient) {
             resModel.success = false;
             resModel.message = "Client already exists";
             resModel.data = null;
-            res.status(201).json(resModel);
+            return res.status(400).json(resModel);
         }
+
         const newClient = new Client({
             name,
             email: email.toLowerCase(),
