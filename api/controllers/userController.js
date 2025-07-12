@@ -17,6 +17,7 @@ const clientModel = require('../models/clientModel.js');
 const userLog = require('../models/userLog');
 const subCategoryModel = require('../models/subCategory');
 const logModel = require('../models/userLog');
+
 const { listFilesInFolderStructure, uploadFileToFolder } = require('../services/googleDriveService.js');
 
 
@@ -748,6 +749,59 @@ exports.getAllUploadedDocuments = async (req, res) => {
             success: false,
             message: "Internal Server Error",
             data: null,
+        });
+    }
+};
+
+
+module.exports.getDocumentById = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!id) {
+            return res.status(400).json({
+                success: false,
+                message: "Document ID is required"
+            });
+        }
+
+        const document = await uploadDocument.findById(id).select('files doctitle');
+
+        if (!document) {
+            return res.status(404).json({
+                success: false,
+                message: "Document not found"
+            });
+        }
+
+        // Check if files array exists and has at least one file
+        if (!document.files || document.files.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "No files found in this document"
+            });
+        }
+
+        // Get the first file in the array (you might want to modify this if there are multiple files)
+        const file = document.files[0];
+
+        res.status(200).json({
+            success: true,
+            message: "Document found",
+            data: {
+                title: document.doctitle,
+                fileName: file.filename,
+                originalName: file.originalname,
+                filePath: file.path,
+                fileSize: file.size
+            }
+        });
+    } catch (error) {
+        console.error("Error in getDocumentById:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null
         });
     }
 };

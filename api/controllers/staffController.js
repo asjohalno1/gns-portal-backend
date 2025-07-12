@@ -256,7 +256,7 @@ module.exports.staffDashboard = async (req, res) => {
 
         for (const assignment of assignedClients) {
             const client = assignment.clientId;
-            if (!client) continue;
+            if (!client || client.status !== true) continue;
 
             summary.activeClients += 1;
 
