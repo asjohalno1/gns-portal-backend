@@ -666,52 +666,39 @@ module.exports.getAllFolder = async (req, res) => {
  * @apiGroup Staff
  * @apiBody {Array} clientId Array of client IDs to notify.
  * @apiBody {String} templateId Template ID (optional).
- * @apiBody {String} remainderType Type of reminder.
- * @apiBody {String} subject Reminder subject.
- * @apiBody {String} message Reminder message.
  * @apiBody {String} customMessage Custom message (optional).
- * @apiBody {Date} scheduleDate Scheduled date for reminder.
+ * @apiBody {String} frequency Frequency.
+ * @apiBody {String} documentId Document ID.
  * @apiBody {String} scheduleTime Scheduled time (e.g., "15:30").
  * @apiBody {String="email","sms","portal","AiCall"} notifyMethod Notification method.
- * @apiBody {Boolean} isTemplate is Template.
+ * @apiBody {Boolean} isDefault is Default.
  * @apiHeader {String} Authorization Bearer token
  * @apiDescription API for sending a scheduled reminder to one or more clients.
  * @apiSampleRequest http://localhost:2001/api/staff/sendReminder
  */
 module.exports.sendReminder = async (req, res) => {
     try {
-        const { isTemplate, clientId, templateId, remainderType, subject, message, customMessage, scheduleDate, scheduleTime, notifyMethod } = req.body;
+        const { isDefault, clientId, templateId, customMessage, scheduleTime, frequency, notifyMethod, documentId } = req.body;
         const staffId = req.userInfo.id;
-        let newReminder
-        if (isTemplate) {
-            newReminder = new Remainder({
-                staffId,
-                clientId,
-                templateId,
-                customMessage,
-                scheduleDate,
-                scheduleTime,
-                notifyMethod,
-            });
-        } else {
-            newReminder = new Remainder({
-                staffId,
-                clientId,
-                remainderType,
-                subject,
-                message,
-                customMessage,
-                scheduleDate,
-                scheduleTime,
-                notifyMethod,
-            });
-        }
+        const newReminder = new Remainder({
+            staffId,
+            clientId,
+            templateId,
+            customMessage,
+            scheduleTime,
+            frequency,
+            notifyMethod,
+            documentId,
+            active: true,
+            isDefault,
+            status: "scheduled",
+        });
         const savedReminder = await newReminder.save();
         if (!savedReminder) {
             resModel.success = false;
-            resModel.message = "Error While scheduling Reminder";
+            resModel.message = "Error while scheduling reminder";
             resModel.data = null;
-            return res.status(400).json(resModel);
+            res.status(400).json(resModel)
         } else {
             resModel.success = true;
             resModel.message = "Reminder scheduled successfully.";
@@ -725,6 +712,7 @@ module.exports.sendReminder = async (req, res) => {
         res.status(500).json(resModel);
     }
 };
+
 
 
 /**

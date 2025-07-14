@@ -11,9 +11,10 @@ const app = express();
 const allowedOrigins = [
     "http://localhost:5173",
     "http://localhost:8076",
-    "http://localhost:5174", // dev frontend
-    "http://localhost:2001",// production frontend domain
-    "http://44.211.113.36:8075"
+    "http://localhost:5174", 
+    "http://localhost:8077",
+    "http://localhost:2001",
+    "http://44.211.113.36:8076"
 ];
 
 // ✅ CORS setup
