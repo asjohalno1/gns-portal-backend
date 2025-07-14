@@ -322,11 +322,8 @@ module.exports.uploadDocument = async (req, res) => {
             files: files.map(file => ({
                 filename: file.filename,
                 originalname: file.originalname,
-                path: file.path,
+                path: `/uploads/${file.filename}`,
                 size: file.size,
-
-
-
             })),
             isUploaded: true
 
@@ -387,7 +384,8 @@ module.exports.getClientDashboard = async (req, res) => {
             .find({ clientId })
             .populate("category")
             .populate("subCategory")
-            .populate("request");
+            .populate("request")
+            .populate("isUploaded")
 
         const totalDocuments = uploadedDocs.length;
         const pendingCount = uploadedDocs.filter((doc) => doc.status === "pending").length;
