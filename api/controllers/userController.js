@@ -763,7 +763,7 @@ module.exports.getDocumentById = async (req, res) => {
             });
         }
 
-        const document = await uploadDocument.findById(id).select('files doctitle isUploaded status');
+        const document = await uploadDocument.findById(id).select('files doctitle isUploaded status comments');
 
         if (!document) {
             return res.status(404).json({
@@ -792,6 +792,7 @@ module.exports.getDocumentById = async (req, res) => {
                 fileSize: file.size,
                 isUploaded: document.isUploaded,
                 status: document.status,
+                comments: document.comments
             }
         });
     } catch (error) {
