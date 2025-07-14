@@ -763,7 +763,7 @@ module.exports.getDocumentById = async (req, res) => {
             });
         }
 
-        const document = await uploadDocument.findById(id).select('files doctitle');
+        const document = await uploadDocument.findById(id).select('files doctitle isUploaded status');
 
         if (!document) {
             return res.status(404).json({
@@ -772,7 +772,6 @@ module.exports.getDocumentById = async (req, res) => {
             });
         }
 
-        // Check if files array exists and has at least one file
         if (!document.files || document.files.length === 0) {
             return res.status(404).json({
                 success: false,
@@ -780,7 +779,6 @@ module.exports.getDocumentById = async (req, res) => {
             });
         }
 
-        // Get the first file in the array (you might want to modify this if there are multiple files)
         const file = document.files[0];
 
         res.status(200).json({
@@ -791,7 +789,9 @@ module.exports.getDocumentById = async (req, res) => {
                 fileName: file.filename,
                 originalName: file.originalname,
                 filePath: file.path,
-                fileSize: file.size
+                fileSize: file.size,
+                isUploaded: document.isUploaded,
+                status: document.status,
             }
         });
     } catch (error) {
