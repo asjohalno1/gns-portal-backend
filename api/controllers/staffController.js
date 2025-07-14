@@ -775,7 +775,7 @@ module.exports.addReminderTemplate = async (req, res) => {
  */
 module.exports.getAllReminderTemplates = async (req, res) => {
     try {
-        const staffId = req.user._id;
+        const staffId = req.userInfo.id;
         const templates = await RemainderTemplate.find({ staffId, active: true }).sort({ createdAt: -1 });
         if (!templates) {
             resModel.success = false;
@@ -1004,6 +1004,69 @@ module.exports.updateDocument = async (req, res) => {
         res.status(500).json(resModel);
     }
 };
+
+
+/**
+ * @api {get} /api/staff/getActiveClients  Get All Active Clients
+ * @apiName Get All Active Clients
+ * @apiGroup Staff
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription Get All Active Clients Service...
+ * @apiSampleRequest http://localhost:2001/api/staff/getActiveClients
+ */
+module.exports.getAllActiveClients = async (req, res) => {
+    try {
+        const staffId = req.userInfo?.id;
+        const assigned = await assignClient.find({ staffId }).select('clientId');
+        const clientIds = assigned.map(a => a.clientId);
+        const clients = await Client.find({
+            _id: { $in: clientIds },
+            status: true
+        }).select('name email');
+        resModel.message = "Data Found Successfully";
+        resModel.data = clients;
+        res.status(200).json(resModel);
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
+
+/**
+ * @api {get} /api/document/title  Get All Document Title
+ * @apiName Get All Document Title
+ * @apiGroup Staff
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription Get All Document Title Service...
+ * @apiSampleRequest http://localhost:2001/api/document/title
+ */
+module.exports.getAllDocumentTitle = async (req, res) => {
+    try {
+        const createdBy = req.userInfo?.id;
+        const dataRes = await DocumentRequest.find({ createdBy }).select('doctitle');
+        if (dataRes) {
+            resModel.success = true;
+            resModel.message = "Data Found Successfully";
+            resModel.data = dataRes;
+            res.status(200).json(resModel);
+        } else {
+            resModel.success = false;
+            resModel.message = "Data Not Found";
+            resModel.data = [];
+            res.status(200).json(resModel);
+        }
+
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
 
 
 
