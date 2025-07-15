@@ -18,6 +18,7 @@ const uploadDocument = require('../models/uploadDocuments')
 const uploadDocuments = require('../models/uploadDocuments');
 const subCategory = require('../models/subCategory');
 const staffService = require('../services/staff.services');
+const DefaultSettingRemainder = require('../models/defaultRemainder');
 
 
 
@@ -1161,6 +1162,51 @@ module.exports.getAllReminders = async (req, res) => {
         res.status(500).json(resModel)
     }
 };
+
+/**
+ * @api {post} /api/staff/defaultSettingReminder Create Default Setting Reminder
+ * @apiName CreateDefaultSettingReminder
+ * @apiGroup Staff
+ * @apiBody {String} scheduleTime Reminder time (optional, e.g., "09:00 AM").
+ * @apiBody {String="daily","weekly"} frequency Reminder frequency (required).
+ * @apiBody {String[]} days Applicable days for weekly frequency (optional).
+ * @apiBody {String="email","sms","portal","AiCall"} notifyMethod Notification method (required).
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription Create a default setting reminder for staff.
+ * @apiSampleRequest http://localhost:2001/api/staff/defaultSettingReminder
+ */
+exports.addDefaultSettingReminder = async (req, res) => {
+    try {
+        const { scheduleTime, frequency, days, notifyMethod } = req.body;
+        const staffId = req.userInfo.id;
+        const newReminder = new DefaultSettingRemainder({
+            staffId,
+            scheduleTime,
+            frequency,
+            days,
+            notifyMethod
+        });
+
+        const savedReminder = await newReminder.save();
+        if (!savedReminder) {
+            resModel.success = false;
+            resModel.message = "Error while creating default setting reminder.";
+            resModel.data = null;
+            res.status(400).json(resModel);
+        }
+
+        resModel.success = true;
+        resModel.message = "Default setting reminder created successfully.";
+        resModel.data = savedReminder;
+        res.status(200).json(resModel);
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
 
 
 
