@@ -1110,31 +1110,103 @@ module.exports.getAllUploadedDocuments = async (req, res) => {
     try {
         const staffId = req.userInfo?.id;
 
-        const dataRes = await uploadDocuments
-            .find({ staffId })
-            .select('doctitle category clientId comments status tags folderId files.filename files.path')
-            .populate({
-                path: 'clientId',
-                select: 'name email'
-            })
-            .populate({
-                path: 'category',
-                select: 'name'
-            });
+        // Extract query parameters
+        const {
+            page = 1,
+            limit = 10,
+            search = "",
+            status = "all",
+            category = "",
 
-        if (dataRes?.length) {
+        } = req.query;
+
+        const pageNum = parseInt(page, 10);
+        const limitNum = parseInt(limit, 10);
+        const skip = (pageNum - 1) * limitNum;
+
+        const filter = {
+            staffId,
+            isUploaded: true
+        };
+
+        if (status !== "all") {
+            filter.status = status;
+        }
+
+        if (category) {
+            filter.category = category;
+        }
+        if (search) {
+            filter.$or = [
+                { doctitle: { $regex: search, $options: "i" } },
+                { comments: { $regex: search, $options: "i" } },
+                { tags: { $regex: search, $options: "i" } }
+            ];
+        }
+
+        const [documents, totalCount] = await Promise.all([
+            uploadDocuments
+                .find(filter)
+                .select('doctitle category clientId comments status tags folderId files.filename files.path createdAt updatedAt')
+                .populate({
+                    path: 'clientId',
+                    select: 'name email'
+                })
+                .populate({
+                    path: 'category',
+                    select: 'name'
+                })
+                .skip(skip)
+                .limit(limitNum)
+                .lean(),
+
+            uploadDocuments.countDocuments(filter)
+        ]);
+
+        let filteredDocuments = documents;
+        if (search) {
+            filteredDocuments = documents.filter(doc => {
+                const clientName = doc.clientId?.name?.toLowerCase() || "";
+                const clientEmail = doc.clientId?.email?.toLowerCase() || "";
+                const searchTerm = search.toLowerCase();
+
+                return (
+                    doc.doctitle?.toLowerCase().includes(searchTerm) ||
+                    doc.comments?.toLowerCase().includes(searchTerm) ||
+                    doc.tags?.toLowerCase().includes(searchTerm) ||
+                    clientName.includes(searchTerm) ||
+                    clientEmail.includes(searchTerm)
+                );
+            });
+        }
+        const totalPages = Math.ceil(totalCount / limitNum);
+        const hasNextPage = pageNum < totalPages;
+        const hasPrevPage = pageNum > 1;
+
+        const pagination = {
+            currentPage: pageNum,
+            totalPages,
+            totalCount,
+            hasNextPage,
+            hasPrevPage,
+            limit: limitNum
+        };
+
+        if (filteredDocuments?.length || totalCount > 0) {
             resModel.success = true;
             resModel.message = "Data Found Successfully";
-            resModel.data = dataRes;
+            resModel.data = filteredDocuments;
+            resModel.pagination = pagination;
         } else {
             resModel.success = false;
-            resModel.message = "Data Not Found";
+            resModel.message = "No documents found matching your criteria";
             resModel.data = [];
+            resModel.pagination = pagination;
         }
 
         return res.status(200).json(resModel);
     } catch (error) {
-        console.error("Error in getAllRequestedDocuments:", error);
+        console.error("Error in getAllUploadedDocuments:", error);
         resModel.success = false;
         resModel.message = "Internal Server Error";
         resModel.data = null;
