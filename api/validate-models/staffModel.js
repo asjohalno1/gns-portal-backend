@@ -37,7 +37,7 @@ module.exports.addFolder = joi.object({
 module.exports.addReminder = joi.object({
   name: joi.string().required(),
   message: joi.string().required(),
-  remainderType: joi.string().required(),
+  remainderType:joi.string().allow('').optional(),
 })
 
 module.exports.automateReminder = joi.object({

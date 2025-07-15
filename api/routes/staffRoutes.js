@@ -20,6 +20,7 @@ module.exports = function (app, validator) {
    app.post('/api/staff/addFolder', auth, validator.body(staffModel.addFolder), staffCntrl.addFolder)
    app.get('/api/staff/getAllFolders', auth, staffCntrl.getAllFolder)
    app.post('/api/staff/sendReminder', auth, staffCntrl.sendReminder)
+   app.get('/api/reminder/all', auth, staffCntrl.getAllReminders)
    app.post('/api/staff/addReminderTemplate', auth, validator.body(staffModel.addReminder), staffCntrl.addReminderTemplate)
    app.get('/api/staff/getAllReminderTemplates', auth, staffCntrl.getAllReminderTemplates)
    app.put('/api/staff/updateReminderTemplate/:id', auth, validator.params(staffModel.commonId), staffCntrl.updateReminderTemplate)

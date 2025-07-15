@@ -672,13 +672,14 @@ module.exports.getAllFolder = async (req, res) => {
  * @apiBody {String} scheduleTime Scheduled time (e.g., "15:30").
  * @apiBody {String="email","sms","portal","AiCall"} notifyMethod Notification method.
  * @apiBody {Boolean} isDefault is Default.
+ * @apiBody {Array} days Days.
  * @apiHeader {String} Authorization Bearer token
  * @apiDescription API for sending a scheduled reminder to one or more clients.
  * @apiSampleRequest http://localhost:2001/api/staff/sendReminder
  */
 module.exports.sendReminder = async (req, res) => {
     try {
-        const { isDefault, clientId, templateId, customMessage, scheduleTime, frequency, notifyMethod, documentId } = req.body;
+        const { days, isDefault, clientId, templateId, customMessage, scheduleTime, frequency, notifyMethod, documentId } = req.body;
         const staffId = req.userInfo.id;
         const newReminder = new Remainder({
             staffId,
@@ -692,6 +693,7 @@ module.exports.sendReminder = async (req, res) => {
             active: true,
             isDefault,
             status: "scheduled",
+            days
         });
         const savedReminder = await newReminder.save();
         if (!savedReminder) {
@@ -810,10 +812,10 @@ module.exports.getAllReminderTemplates = async (req, res) => {
  */
 module.exports.updateReminderTemplate = async (req, res) => {
     try {
-        const { templateId } = req.params;
+        const { id } = req.params;
         const { name, message, remainderType } = req.body;
-        const staffId = req.user._id;
-        const template = await RemainderTemplate.findOne({ _id: templateId, staffId });
+        const staffId = req.userInfo.id;
+        const template = await RemainderTemplate.findOne({ _id: id, staffId });
         if (!template) {
             resModel.success = false;
             resModel.message = "Template not found.";
@@ -1017,15 +1019,22 @@ module.exports.updateDocument = async (req, res) => {
 module.exports.getAllActiveClients = async (req, res) => {
     try {
         const staffId = req.userInfo?.id;
+        const { search } = req.query.search
+
         const assigned = await assignClient.find({ staffId }).select('clientId');
         const clientIds = assigned.map(a => a.clientId);
+
         const clients = await Client.find({
             _id: { $in: clientIds },
-            status: true
+            status: true,
+            name: { $regex: search, $options: "i" } // case-insensitive name search
         }).select('name email');
+
+        resModel.success = true;
         resModel.message = "Data Found Successfully";
         resModel.data = clients;
         res.status(200).json(resModel);
+
     } catch (error) {
         resModel.success = false;
         resModel.message = "Internal Server Error";
@@ -1033,6 +1042,7 @@ module.exports.getAllActiveClients = async (req, res) => {
         res.status(500).json(resModel);
     }
 };
+
 
 
 /**
@@ -1099,6 +1109,56 @@ module.exports.getReminderTemplateById = async (req, res) => {
         resModel.message = "Internal Server Error";
         resModel.data = null;
         res.status(500).json(resModel);
+    }
+};
+
+/**
+ * @api {get} /api/reminder/all  Get All Reminders
+ * @apiName GetAllReminders
+ * @apiGroup Staff
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription Get all automated reminders for logged-in staff
+ * @apiSampleRequest http://localhost:2001/api/reminder/all
+ */
+module.exports.getAllReminders = async (req, res) => {
+    try {
+        const staffId = req.userInfo?.id;
+        const reminders = await Remainder.find({ staffId })
+            .populate({
+                path: "clientId",
+                select: "name email",
+                model: "Client",
+            })
+            .populate({
+                path: "documentId",
+                select: "doctitle",
+                model: "DocumentRequest",
+            })
+            .select("clientId documentId notifyMethod scheduleTime status");
+
+        // Transform to simplified response
+        const formattedData = reminders.map((reminder) => {
+            return {
+                clientName: Array.isArray(reminder.clientId)
+                    ? reminder.clientId.map((c) => c.name).join(", ")
+                    : reminder.clientId?.name || "Unknown",
+                docTitle: reminder.documentId?.doctitle || "Untitled",
+                notifyMethod: reminder.notifyMethod,
+                scheduleTime: reminder.scheduleTime,
+                status: reminder.status,
+            };
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: "Reminders fetched successfully",
+            data: formattedData,
+        });
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel)
     }
 };
 
