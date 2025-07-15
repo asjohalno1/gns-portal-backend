@@ -7,7 +7,8 @@ const staffCntrl = require('../controllers/staffController');
 const staffModel = require('../validate-models/staffModel');
 /* validate model  import  ends */
 const auth = require('../middleware/auth');
-
+/* validate model  import  ends */
+const UploadedDocument = require('../models/uploadDocuments');
 
 module.exports = function (app, validator) {
 
@@ -15,6 +16,7 @@ module.exports = function (app, validator) {
    app.get('/api/staff/dashboard', auth, staffCntrl.staffDashboard)
    app.get('/api/staff/getAllClients', auth, staffCntrl.getAllClientsByStaff)
    app.get('/api/staff/getActiveClients', auth, staffCntrl.getAllActiveClients)
+   app.get('/api/staff/getAllUploadedDocuments', auth, staffCntrl.getAllUploadedDocuments)//staff 
    app.get('/api/document/title', auth, staffCntrl.getAllDocumentTitle)
    app.get('/api/staff/getAllTracking', auth, staffCntrl.getAllTrackingByStaff)
    app.post('/api/staff/addFolder', auth, validator.body(staffModel.addFolder), staffCntrl.addFolder)
@@ -27,8 +29,8 @@ module.exports = function (app, validator) {
    app.get('/api/staff/getReminderTemplate/:id', auth, validator.params(staffModel.commonId), staffCntrl.getReminderTemplateById)
    app.get('/api/staff/getAllReminder', auth, staffCntrl.getReminderDashboard)
    app.post('/api/staff/automateReminder', auth, validator.body(staffModel.automateReminder), staffCntrl.addAutomatedReminder)
-   app.post('/api/staff/defaultSettingReminder', auth, validator.body(staffModel.addReminderSetting),staffCntrl.addDefaultSettingReminder)
-
+   app.post('/api/staff/defaultSettingReminder', auth, validator.body(staffModel.addReminderSetting), staffCntrl.addDefaultSettingReminder)
+   app.patch('/api/staff/updateUploadedDocument/:id', auth, staffCntrl.updateUploadedDocument)
 }
 
 

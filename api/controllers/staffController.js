@@ -19,6 +19,7 @@ const uploadDocuments = require('../models/uploadDocuments');
 const subCategory = require('../models/subCategory');
 const staffService = require('../services/staff.services');
 const DefaultSettingRemainder = require('../models/defaultRemainder');
+const mongoose = require('mongoose');
 
 
 
@@ -1209,9 +1210,178 @@ exports.addDefaultSettingReminder = async (req, res) => {
 
 
 
+// GET ALL UPLOADED DOCUMENT API CALL 
 
+module.exports.getAllUploadedDocuments = async (req, res) => {
+    try {
+        const staffId = req.userInfo?.id;
 
+        // Extract query parameters
+        const {
+            page = 1,
+            limit = 10,
+            search = "",
+            status = "all",
+            category = "",
 
+        } = req.query;
+
+        const pageNum = parseInt(page, 10);
+        const limitNum = parseInt(limit, 10);
+        const skip = (pageNum - 1) * limitNum;
+
+        const filter = {
+            staffId,
+            isUploaded: true
+        };
+
+        if (status !== "all") {
+            filter.status = status;
+        }
+
+        if (category) {
+            filter.category = category;
+        }
+        if (search) {
+            filter.$or = [
+                { doctitle: { $regex: search, $options: "i" } },
+                { comments: { $regex: search, $options: "i" } },
+                { tags: { $regex: search, $options: "i" } }
+            ];
+        }
+
+        const [documents, totalCount] = await Promise.all([
+            uploadDocuments
+                .find({ ...filter, isUploaded: true })
+                .select('doctitle category clientId comments status tags folderId files.filename files.path createdAt updatedAt')
+                .populate({
+                    path: 'clientId',
+                    select: 'name email'
+                })
+                .populate({
+                    path: 'category',
+                    select: 'name'
+                })
+                .skip(skip)
+                .limit(limitNum)
+                .lean(),
+
+            uploadDocuments.countDocuments(filter)
+        ]);
+
+        let filteredDocuments = documents;
+        if (search) {
+            filteredDocuments = documents.filter(doc => {
+                const clientName = doc.clientId?.name?.toLowerCase() || "";
+                const clientEmail = doc.clientId?.email?.toLowerCase() || "";
+                const searchTerm = search.toLowerCase();
+
+                return (
+                    doc.doctitle?.toLowerCase().includes(searchTerm) ||
+                    doc.comments?.toLowerCase().includes(searchTerm) ||
+                    doc.tags?.toLowerCase().includes(searchTerm) ||
+                    clientName.includes(searchTerm) ||
+                    clientEmail.includes(searchTerm)
+                );
+            });
+        }
+        const totalPages = Math.ceil(totalCount / limitNum);
+        const hasNextPage = pageNum < totalPages;
+        const hasPrevPage = pageNum > 1;
+
+        const pagination = {
+            currentPage: pageNum,
+            totalPages,
+            totalCount,
+            hasNextPage,
+            hasPrevPage,
+            limit: limitNum
+        };
+
+        if (filteredDocuments?.length || totalCount > 0) {
+            resModel.success = true;
+            resModel.message = "Data Found Successfully";
+            resModel.data = filteredDocuments;
+            resModel.pagination = pagination;
+        } else {
+            resModel.success = false;
+            resModel.message = "No documents found matching your criteria";
+            resModel.data = [];
+            resModel.pagination = pagination;
+        }
+
+        return res.status(200).json(resModel);
+    } catch (error) {
+        console.error("Error in getAllUploadedDocuments:", error);
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        return res.status(500).json(resModel);
+    }
+};
+
+// update Requested document 
+
+module.exports.updateUploadedDocument = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status, tags = [], comments
+            , subCategory } = req.body;
+        const staffId = req.userInfo?.id;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid document ID",
+                data: null
+            });
+        }
+
+        const updateQuery = {};
+
+        if (status || subCategory || comments
+        ) {
+            updateQuery.$set = {};
+            if (status) updateQuery.$set.status = status;
+            if (subCategory) updateQuery.$set.subCategory = subCategory;
+            if (comments
+            ) updateQuery.$set.comments = comments
+                    ;
+        }
+
+        if (tags && tags.length >= 0) {
+            updateQuery.$set.tags = tags;
+        }
+
+        const dataRes = await uploadDocuments.findOneAndUpdate(
+            { _id: id, staffId },
+            updateQuery,
+            { new: true }
+        );
+
+        if (!dataRes) {
+            return res.status(404).json({
+                success: false,
+                message: "Document not found",
+                data: null
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Document updated successfully",
+            data: dataRes
+        });
+
+    } catch (error) {
+        console.error("Error in updateUploadedDocument:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null
+        });
+    }
+};
 
 
 

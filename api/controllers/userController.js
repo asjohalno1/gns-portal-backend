@@ -18,6 +18,7 @@ const userLog = require('../models/userLog');
 const subCategoryModel = require('../models/subCategory');
 const logModel = require('../models/userLog');
 
+
 const { listFilesInFolderStructure, uploadFileToFolder } = require('../services/googleDriveService.js');
 
 
@@ -802,5 +803,32 @@ module.exports.getDocumentById = async (req, res) => {
             message: "Internal Server Error",
             data: null
         });
+    }
+};
+
+
+module.exports.getUserProfile = async (req, res) => {
+    try {
+        const clientId = req.userInfo?.clientId;
+        const user = await clientModel.findById(clientId).select("-password");
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User Not Found",
+                data: null,
+            });
+        }
+
+        resModel.success = true;
+        resModel.message = "User Profile Found Successfully";
+        resModel.data = user;
+        res.status(200).json(resModel);
+    } catch (error) {
+        console.error("Error in getUserProfile:", error);
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
     }
 };
