@@ -34,6 +34,14 @@ const clientSchema = new mongoose.Schema({
     folderId: {
         type: String,
     },
+    profilePicture: {
+        type: String,
+        default: 'default-profile.png',
+    },
+    dateOfBirth: {
+        type: Date,
+        default: null,
+    },
 
     createdAt: {
         type: Date,
