@@ -18,6 +18,7 @@ const uploadDocument = require('../models/uploadDocuments')
 const uploadDocuments = require('../models/uploadDocuments');
 const subCategory = require('../models/subCategory');
 const staffService = require('../services/staff.services');
+const mongoose = require('mongoose');
 
 
 
@@ -1103,9 +1104,106 @@ module.exports.getReminderTemplateById = async (req, res) => {
 };
 
 
+// GET ALL UPLOADED DOCUMENT API CALL 
 
+module.exports.getAllUploadedDocuments = async (req, res) => {
+    try {
+        const staffId = req.userInfo?.id;
 
+        const dataRes = await uploadDocuments
+            .find({ staffId })
+            .select('doctitle category clientId comments status tags folderId files.filename files.path')
+            .populate({
+                path: 'clientId',
+                select: 'name email'
+            })
+            .populate({
+                path: 'category',
+                select: 'name'
+            });
 
+        if (dataRes?.length) {
+            resModel.success = true;
+            resModel.message = "Data Found Successfully";
+            resModel.data = dataRes;
+        } else {
+            resModel.success = false;
+            resModel.message = "Data Not Found";
+            resModel.data = [];
+        }
+
+        return res.status(200).json(resModel);
+    } catch (error) {
+        console.error("Error in getAllRequestedDocuments:", error);
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        return res.status(500).json(resModel);
+    }
+};
+
+// update Requested document 
+
+module.exports.updateUploadedDocument = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status, tags = [], comments
+            , subCategory } = req.body;
+        const staffId = req.userInfo?.id;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid document ID",
+                data: null
+            });
+        }
+
+        const updateQuery = {};
+
+        if (status || subCategory || comments
+        ) {
+            updateQuery.$set = {};
+            if (status) updateQuery.$set.status = status;
+            if (subCategory) updateQuery.$set.subCategory = subCategory;
+            if (comments
+            ) updateQuery.$set.comments = comments
+                    ;
+        }
+
+        if (tags && tags.length >= 0) {
+            updateQuery.$set.tags = tags;
+        }
+
+        const dataRes = await uploadDocuments.findOneAndUpdate(
+            { _id: id, staffId },
+            updateQuery,
+            { new: true }
+        );
+
+        if (!dataRes) {
+            return res.status(404).json({
+                success: false,
+                message: "Document not found",
+                data: null
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Document updated successfully",
+            data: dataRes
+        });
+
+    } catch (error) {
+        console.error("Error in updateUploadedDocument:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null
+        });
+    }
+};
 
 
 
