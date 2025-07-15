@@ -1146,7 +1146,7 @@ module.exports.getAllUploadedDocuments = async (req, res) => {
 
         const [documents, totalCount] = await Promise.all([
             uploadDocuments
-                .find(filter)
+                .find({ ...filter, isUploaded: true })
                 .select('doctitle category clientId comments status tags folderId files.filename files.path createdAt updatedAt')
                 .populate({
                     path: 'clientId',
