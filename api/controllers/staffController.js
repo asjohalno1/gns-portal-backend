@@ -1128,7 +1128,16 @@ module.exports.getReminderTemplateById = async (req, res) => {
 module.exports.getAllReminders = async (req, res) => {
     try {
         const staffId = req.userInfo?.id;
+      
+        const page = parseInt(req.query.page) || 1; // Default page = 1
+        const limit = parseInt(req.query.limit) || 10; // Default limit = 10
+        const skip = (page - 1) * limit;
+      
+        const totalCount = await Remainder.countDocuments({ staffId });
+      
         const reminders = await Remainder.find({ staffId })
+          .skip(skip)
+          .limit(limit)
           .populate({
             path: "clientId", // handles array
             select: "name email",
@@ -1144,7 +1153,7 @@ module.exports.getAllReminders = async (req, res) => {
         const formattedData = reminders.map((reminder) => ({
           clientName: Array.isArray(reminder.clientId)
             ? reminder.clientId.map((client) => client?.name || "Unknown").join(", ")
-            : "Unknown", // fallback if not an array
+            : "Unknown",
           docTitle: reminder.documentId?.doctitle || "Untitled",
           notifyMethod: reminder.notifyMethod,
           scheduleTime: reminder.scheduleTime,
@@ -1155,6 +1164,11 @@ module.exports.getAllReminders = async (req, res) => {
           success: true,
           message: "Reminders fetched successfully",
           data: formattedData,
+          pagination: {
+            totalCount,
+            currentPage: page,
+            totalPages: Math.ceil(totalCount / limit),
+          },
         });
       } catch (error) {
         return res.status(500).json({
@@ -1163,6 +1177,7 @@ module.exports.getAllReminders = async (req, res) => {
           data: null,
         });
       }
+      
       
 };
 
