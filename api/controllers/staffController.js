@@ -546,7 +546,10 @@ module.exports.getAllTrackingByStaff = async (req, res) => {
                 created: request.createdAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
                 progress: `${progress}%`,
                 status: computedStatus,
+                title: request.doctitle,
                 dueDate: request.dueDate ? request.dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A',
+                subCategory: request.subCategory,
+                findByrequest: request._id,
             };
         }));
 
@@ -1385,5 +1388,123 @@ module.exports.updateUploadedDocument = async (req, res) => {
 
 
 
+// get Dcuments bt request id
+
+
+
+module.exports.getDocumentRequestById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const objectId = new mongoose.Types.ObjectId(id);
+
+        const dataRes = await uploadDocuments.find({ request: objectId })
+            .select('category subCategory comments status files.path -_id')
+            .populate('subCategory', 'name')
+            .lean();
+
+        if (dataRes && dataRes.length > 0) {
+            // Transform files: keep only paths
+            const transformed = dataRes.map(doc => ({
+                ...doc,
+                files: doc.files.map(file => file.path)
+            }));
+
+            resModel.success = true;
+            resModel.message = "Data Found Successfully";
+            resModel.data = transformed;
+            res.status(200).json(resModel);
+        } else {
+            resModel.success = false;
+            resModel.message = "Data Not Found";
+            resModel.data = [];
+            res.status(200).json(resModel);
+        }
+    } catch (error) {
+        console.error("Error fetching document request:", error);
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
+
+module.exports.updateDocumentRequestStatus = async (req, res) => {
+    try {
+        const { requestId, subCatId, data } = req.body;
+
+        if (!requestId || !subCatId || !data) {
+            return res.status(400).json({
+                success: false,
+                message: "requestId, subCatId, and data are required",
+                data: null,
+            });
+        }
+
+        const requestObjId = new mongoose.Types.ObjectId(requestId);
+        const subCatObjId = new mongoose.Types.ObjectId(subCatId);
+
+        // Build update object conditionally
+        const updateFields = {
+            updatedAt: new Date(),
+        };
+
+        if (data.status) {
+            const validStatuses = ['approved', 'rejected', 'feedback_saved', 'pending'];
+            if (!validStatuses.includes(data.status)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
+                    data: null,
+                });
+            }
+            updateFields.status = data.status;
+        }
+
+        if (data.feedback !== undefined && data.feedback !== null) {
+            updateFields.feedback = data.feedback;
+        }
+
+        if (!updateFields.status && !updateFields.feedback) {
+            return res.status(400).json({
+                success: false,
+                message: "Nothing to update. Provide status or feedback.",
+                data: null,
+            });
+        }
+
+        const updatedRequest = await uploadDocuments.findOneAndUpdate(
+            {
+                request: requestObjId,
+                subCategory: subCatObjId,
+            },
+            {
+                $set: updateFields,
+            },
+            { new: true }
+        );
+
+        if (!updatedRequest) {
+            return res.status(404).json({
+                success: false,
+                message: "Document request not found",
+                data: null,
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: `Document request updated successfully`,
+            data: updatedRequest,
+        });
+    } catch (error) {
+        console.error("Update error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null,
+        });
+    }
+};
 
 
