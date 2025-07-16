@@ -1126,42 +1126,41 @@ module.exports.getAllReminders = async (req, res) => {
     try {
         const staffId = req.userInfo?.id;
         const reminders = await Remainder.find({ staffId })
-            .populate({
-                path: "clientId",
-                select: "name email",
-                model: "Client",
-            })
-            .populate({
-                path: "documentId",
-                select: "doctitle",
-                model: "DocumentRequest",
-            })
-            .select("clientId documentId notifyMethod scheduleTime status");
-
-        // Transform to simplified response
-        const formattedData = reminders.map((reminder) => {
-            return {
-                clientName: Array.isArray(reminder.clientId)
-                    ? reminder.clientId.map((c) => c.name).join(", ")
-                    : reminder.clientId?.name || "Unknown",
-                docTitle: reminder.documentId?.doctitle || "Untitled",
-                notifyMethod: reminder.notifyMethod,
-                scheduleTime: reminder.scheduleTime,
-                status: reminder.status,
-            };
-        });
-
+          .populate({
+            path: "clientId", // handles array
+            select: "name email",
+            model: "Client",
+          })
+          .populate({
+            path: "documentId",
+            select: "doctitle",
+            model: "DocumentRequest",
+          })
+          .select("clientId documentId notifyMethod scheduleTime status");
+      
+        const formattedData = reminders.map((reminder) => ({
+          clientName: Array.isArray(reminder.clientId)
+            ? reminder.clientId.map((client) => client?.name || "Unknown").join(", ")
+            : "Unknown", // fallback if not an array
+          docTitle: reminder.documentId?.doctitle || "Untitled",
+          notifyMethod: reminder.notifyMethod,
+          scheduleTime: reminder.scheduleTime,
+          status: reminder.status,
+        }));
+      
         return res.status(200).json({
-            success: true,
-            message: "Reminders fetched successfully",
-            data: formattedData,
+          success: true,
+          message: "Reminders fetched successfully",
+          data: formattedData,
         });
-    } catch (error) {
-        resModel.success = false;
-        resModel.message = "Internal Server Error";
-        resModel.data = null;
-        res.status(500).json(resModel)
-    }
+      } catch (error) {
+        return res.status(500).json({
+          success: false,
+          message: "Internal Server Error",
+          data: null,
+        });
+      }
+      
 };
 
 /**
