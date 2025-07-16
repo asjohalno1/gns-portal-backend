@@ -1180,6 +1180,22 @@ exports.addDefaultSettingReminder = async (req, res) => {
     try {
         const { scheduleTime, frequency, days, notifyMethod } = req.body;
         const staffId = req.userInfo.id;
+        let reminderRes = await DefaultSettingRemainder.findOne({ staffId });
+        if (reminderRes) {
+            let updateReminder = await DefaultSettingRemainder.updateOne({ staffId }, { scheduleTime, frequency, days, notifyMethod });
+            if (updateReminder) {
+                resModel.success = true;
+                resModel.message = "Updated Default setting Successfully.";
+                resModel.data = null;
+                return res.status(200).json(resModel);
+            } else {
+                resModel.success = false;
+                resModel.message = "Error while updating default setting reminder.";
+                resModel.data = null;
+                res.status(400).json(resModel);
+            }
+
+        }
         const newReminder = new DefaultSettingRemainder({
             staffId,
             scheduleTime,
