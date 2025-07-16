@@ -49,5 +49,5 @@ module.exports.addReminderSetting = joi.object({
   scheduleTime: joi.string().required(),
   days: joi.array().required(),
   frequency: joi.string().required(),
-  notifyMethod: joi.string().required(),
+  notifyMethod: joi.array().required(),
 })
