@@ -558,14 +558,16 @@ module.exports.getAllTrackingByStaff = async (req, res) => {
 
         const results = await Promise.all(
             requests.map(async (request) => {
-                const totalExpectedDocs = 1;
+
 
                 const uploadedDocs = await uploadDocuments.find({
                     request: request._id,
                 });
+                const totalExpectedDocs = uploadedDocs.length;
+
 
                 const uploadedCount = uploadedDocs.filter(
-                    (doc) => doc.status === "accepted"
+                    (doc) => doc.status === "accepted" && doc.isUploaded
                 ).length;
                 const progress =
                     totalExpectedDocs > 0
