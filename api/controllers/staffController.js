@@ -567,7 +567,7 @@ module.exports.getAllTrackingByStaff = async (req, res) => {
 
 
                 const uploadedCount = uploadedDocs.filter(
-                    (doc) => doc.status === "accepted" && doc.isUploaded
+                    (doc) => (doc.status === "accepted" || doc.status === "approved") && doc.isUploaded
                 ).length;
                 const progress =
                     totalExpectedDocs > 0
