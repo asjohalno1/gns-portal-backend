@@ -19,6 +19,8 @@ const uploadDocuments = require('../models/uploadDocuments');
 const subCategory = require('../models/subCategory');
 const staffService = require('../services/staff.services');
 const DefaultSettingRemainder = require('../models/defaultRemainder');
+const remainderServices = require('../services/remainder.services');
+const cronJobService = require('../services/cron.services');
 const mongoose = require('mongoose');
 
 
@@ -707,6 +709,8 @@ module.exports.sendReminder = async (req, res) => {
             resModel.data = null;
             res.status(400).json(resModel)
         } else {
+            let expression = await remainderServices(scheduleTime,days)
+            await cronJobService(expression,clientId,templateId,notifyMethod,documentId)
             resModel.success = true;
             resModel.message = "Reminder scheduled successfully.";
             resModel.data = savedReminder;
