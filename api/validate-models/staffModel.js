@@ -24,7 +24,7 @@ module.exports.addDocumentRequest = joi.object({
     days: joi.array().items(joi.string()).when('frequency', {
       is: "Weekly",
       then: joi.required(),
-      otherwise: joi.forbidden()
+      otherwise: joi.optional().default([])
     }),
     notifyMethod: joi.array().items(
       joi.string().valid("email", "sms", "portal", "AiCall")
