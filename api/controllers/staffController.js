@@ -560,6 +560,7 @@ module.exports.getAllTrackingByStaff = async (req, res) => {
                 });
                 const totalExpectedDocs = uploadedDocs.length;
 
+
                 const uploadedCount = uploadedDocs.filter(
                     (doc) => doc.status === "accepted" && doc.isUploaded
                 ).length;
