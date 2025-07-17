@@ -515,72 +515,105 @@ module.exports.getAllClientsByStaff = async (req, res) => {
 module.exports.getAllTrackingByStaff = async (req, res) => {
     try {
         const staffId = req.userInfo.id;
-        const { search, status, sort = 'desc' } = req.query;
+        const {
+            search = "",
+            status,
+            sort = "desc",
+            page = 1,
+            limit = 10,
+        } = req.query;
 
-        // Fetch all document requests by staff
+        const pageNumber = parseInt(page);
+        const limitNumber = parseInt(limit);
+        const skip = (pageNumber - 1) * limitNumber;
+
         const requests = await DocumentRequest.find({ createdBy: staffId })
-            .populate('clientId')
-            .populate('category')
-            .populate('subCategory')
-            .sort({ createdAt: sort === 'asc' ? 1 : -1 });
+            .populate("clientId")
+            .populate("category")
+            .populate("subCategory")
+            .sort({ createdAt: sort === "asc" ? 1 : -1 });
 
-        const results = await Promise.all(requests.map(async (request) => {
-            const totalExpectedDocs = 1;
+        const results = await Promise.all(
+            requests.map(async (request) => {
+                const totalExpectedDocs = 1;
 
-            const uploadedDocs = await uploadDocuments.find({
-                request: request._id
-            });
+                const uploadedDocs = await uploadDocuments.find({
+                    request: request._id,
+                });
 
-            const uploadedCount = uploadedDocs.filter(doc => doc.status === 'accepted').length;
-            const progress = totalExpectedDocs > 0 ? Math.floor((uploadedCount / totalExpectedDocs) * 100) : 0;
+                const uploadedCount = uploadedDocs.filter(
+                    (doc) => doc.status === "accepted"
+                ).length;
+                const progress =
+                    totalExpectedDocs > 0
+                        ? Math.floor((uploadedCount / totalExpectedDocs) * 100)
+                        : 0;
 
-            let computedStatus = 'Pending';
-            if (progress === 100) computedStatus = 'Completed';
-            else if (progress > 30) computedStatus = 'Partially fulfilled';
+                let computedStatus = "Pending";
+                if (progress === 100) computedStatus = "Completed";
+                else if (progress > 30) computedStatus = "Partially fulfilled";
 
-            return {
-                requestId: request._id.toString().slice(-6).toUpperCase(),
-                clientName: request.clientId?.name || 'N/A',
-                clientEmail: request.clientId?.email || 'N/A',
-                type: request.category?.name || 'N/A',
-                created: request.createdAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-                progress: `${progress}%`,
-                status: computedStatus,
-                title: request.doctitle,
-                dueDate: request.dueDate ? request.dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A',
-                subCategory: request.subCategory,
-                findByrequest: request._id,
-            };
-        }));
+                return {
+                    requestId: request._id.toString().slice(-6).toUpperCase(),
+                    clientName: request.clientId?.name || "N/A",
+                    clientEmail: request.clientId?.email || "N/A",
+                    type: request.category?.name || "N/A",
+                    created: request.createdAt.toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                    }),
+                    progress: `${progress}%`,
+                    status: computedStatus,
+                    title: request.doctitle,
+                    dueDate: request.dueDate
+                        ? request.dueDate.toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                        })
+                        : "N/A",
+                    subCategory: request.subCategory,
+                    findByrequest: request._id,
+                    comment: request.comments,
+                };
+            })
+        );
 
-        // Filter by search term and status (if provided)
-        const filteredResults = results.filter(item => {
+        // Filter logic
+        const filteredResults = results.filter((item) => {
             const matchesSearch =
                 item.clientName.toLowerCase().includes(search.toLowerCase()) ||
                 item.clientEmail.toLowerCase().includes(search.toLowerCase());
-
             const matchesStatus = status ? item.status === status : true;
-
             return matchesSearch && matchesStatus;
         });
-        if (filteredResults.length === 0) {
-            resModel.success = false;
-            resModel.message = "Tracking Data Not Found";
-            resModel.data = [];
-            res.status(200).json(resModel);
-        } else {
-            resModel.success = true;
-            resModel.message = "Tracking data fetched successfully";
-            resModel.data = filteredResults;
-            res.status(200).json(resModel);
-        }
+
+        // Pagination
+        const paginatedResults = filteredResults.slice(
+            skip,
+            skip + limitNumber
+        );
+        const totalPages = Math.ceil(filteredResults.length / limitNumber);
+
+        // Response
+        res.status(200).json({
+            success: true,
+            message: "Tracking data fetched successfully",
+            data: paginatedResults,
+            total: filteredResults.length,
+            totalPages,
+        });
     } catch (error) {
-        resModel.success = false;
-        resModel.message = "Internal Server Error";
-        resModel.data = null;
-        res.status(500).json(resModel);
+        console.error("Error fetching tracking data:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null,
+        });
     }
 };
+
 
 
 
@@ -1129,41 +1162,41 @@ module.exports.getAllReminders = async (req, res) => {
     try {
         const staffId = req.userInfo?.id;
         const reminders = await Remainder.find({ staffId })
-          .populate({
-            path: "clientId", // handles array
-            select: "name email",
-            model: "Client",
-          })
-          .populate({
-            path: "documentId",
-            select: "doctitle",
-            model: "DocumentRequest",
-          })
-          .select("clientId documentId notifyMethod scheduleTime status");
-      
+            .populate({
+                path: "clientId", // handles array
+                select: "name email",
+                model: "Client",
+            })
+            .populate({
+                path: "documentId",
+                select: "doctitle",
+                model: "DocumentRequest",
+            })
+            .select("clientId documentId notifyMethod scheduleTime status");
+
         const formattedData = reminders.map((reminder) => ({
-          clientName: Array.isArray(reminder.clientId)
-            ? reminder.clientId.map((client) => client?.name || "Unknown").join(", ")
-            : "Unknown", // fallback if not an array
-          docTitle: reminder.documentId?.doctitle || "Untitled",
-          notifyMethod: reminder.notifyMethod,
-          scheduleTime: reminder.scheduleTime,
-          status: reminder.status,
+            clientName: Array.isArray(reminder.clientId)
+                ? reminder.clientId.map((client) => client?.name || "Unknown").join(", ")
+                : "Unknown", // fallback if not an array
+            docTitle: reminder.documentId?.doctitle || "Untitled",
+            notifyMethod: reminder.notifyMethod,
+            scheduleTime: reminder.scheduleTime,
+            status: reminder.status,
         }));
-      
+
         return res.status(200).json({
-          success: true,
-          message: "Reminders fetched successfully",
-          data: formattedData,
+            success: true,
+            message: "Reminders fetched successfully",
+            data: formattedData,
         });
-      } catch (error) {
+    } catch (error) {
         return res.status(500).json({
-          success: false,
-          message: "Internal Server Error",
-          data: null,
+            success: false,
+            message: "Internal Server Error",
+            data: null,
         });
-      }
-      
+    }
+
 };
 
 /**
@@ -1233,11 +1266,9 @@ exports.addDefaultSettingReminder = async (req, res) => {
 module.exports.getAllUploadedDocuments = async (req, res) => {
     try {
         const staffId = req.userInfo?.id;
-
-        // Extract query parameters
         const {
             page = 1,
-            limit = 10,
+            limit = 5,
             search = "",
             status = "all",
             category = "",
@@ -1271,7 +1302,7 @@ module.exports.getAllUploadedDocuments = async (req, res) => {
         const [documents, totalCount] = await Promise.all([
             uploadDocuments
                 .find({ ...filter, isUploaded: true })
-                .select('doctitle category clientId comments status tags folderId files.filename files.path createdAt updatedAt')
+                .select('doctitle category clientId comments status tags folderId files.filename files.path files.size createdAt updatedAt')
                 .populate({
                     path: 'clientId',
                     select: 'name email'
@@ -1413,20 +1444,32 @@ module.exports.getDocumentRequestById = async (req, res) => {
         const objectId = new mongoose.Types.ObjectId(id);
 
         const dataRes = await uploadDocuments.find({ request: objectId })
-            .select('category subCategory comments status files.path -_id')
+            .select('category subCategory comments status isUploaded files.path comments -_id')
             .populate('subCategory', 'name')
             .lean();
 
         if (dataRes && dataRes.length > 0) {
-            // Transform files: keep only paths
             const transformed = dataRes.map(doc => ({
                 ...doc,
                 files: doc.files.map(file => file.path)
             }));
 
+            // Calculate total and uploaded counts
+            const totalDocs = dataRes.length;
+            const uploadedDocs = dataRes.filter(doc => doc.isUploaded).length;
+
+            // Add progressBar field
+            const progressBar = {
+                total: totalDocs,
+                uploaded: uploadedDocs
+            }
+
             resModel.success = true;
             resModel.message = "Data Found Successfully";
-            resModel.data = transformed;
+            resModel.data = {
+                documents: transformed,
+                progressBar
+            };
             res.status(200).json(resModel);
         } else {
             resModel.success = false;
@@ -1442,6 +1485,7 @@ module.exports.getDocumentRequestById = async (req, res) => {
         res.status(500).json(resModel);
     }
 };
+
 
 
 module.exports.updateDocumentRequestStatus = async (req, res) => {
@@ -1477,16 +1521,19 @@ module.exports.updateDocumentRequestStatus = async (req, res) => {
         }
 
         if (data.feedback !== undefined && data.feedback !== null) {
-            updateFields.feedback = data.feedback;
+            updateFields.comments = data.feedback;
         }
 
-        if (!updateFields.status && !updateFields.feedback) {
+
+
+        if (!updateFields.status && !updateFields.comments) {
             return res.status(400).json({
                 success: false,
                 message: "Nothing to update. Provide status or feedback.",
                 data: null,
             });
         }
+
 
         const updatedRequest = await uploadDocuments.findOneAndUpdate(
             {
