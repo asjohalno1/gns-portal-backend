@@ -64,16 +64,15 @@ module.exports.documentRequest = async (req, res) => {
             remainderSchedule,
             expiration,
             linkMethod,
-            subcategoryPriorities = {} // Default empty object if not provided
+            subcategoryPriorities = {},
+            scheduler
         } = req.body;
 
-        // Validate required arrays
         if (!Array.isArray(clientId) || !Array.isArray(categoryId) || !Array.isArray(subCategoryId)) {
             resModel.message = "clientId, categoryId and subCategoryId must be arrays";
             return res.status(400).json(resModel);
         }
 
-        // Validate priorities
         const validPriorities = ['low', 'medium', 'high'];
         for (const [subCatId, priority] of Object.entries(subcategoryPriorities)) {
             if (!subCategoryId.includes(subCatId)) {
@@ -111,7 +110,6 @@ module.exports.documentRequest = async (req, res) => {
         const results = [];
 
         for (const client of clientId) {
-            // Create complete priorities map with defaults
             const prioritiesMap = {};
             subCategoryId.forEach(subCatId => {
                 prioritiesMap[subCatId] = subcategoryPriorities[subCatId] || 'medium';
@@ -137,7 +135,6 @@ module.exports.documentRequest = async (req, res) => {
             requestRes = await newRequest.save();
             results.push(requestRes);
 
-            // Process categories and subcategories
             for (const catId of categoryId) {
                 const validSubCats = await SubCategory.find({
                     _id: { $in: subCategoryId },
@@ -169,7 +166,26 @@ module.exports.documentRequest = async (req, res) => {
                 await Promise.all(subCatCreationPromises);
             }
 
-            // Send notification
+
+            if (scheduler) {
+                const reminderData = {
+                    staffId: req.userInfo.id,
+                    clientId: [client],
+                    documentId: requestRes._id,
+                    customMessage: instructions,
+                    scheduleTime: scheduler.scheduleTime,
+                    frequency: scheduler.frequency,
+                    days: scheduler.days || [],
+                    notifyMethod: scheduler.notifyMethod,
+                    active: true,
+                    isDefault: false,
+                    status: "scheduled"
+                };
+                const newReminder = new Remainder(reminderData);
+                await newReminder.save();
+            }
+
+
             const clientRes = await Client.findById(client);
             if (!clientRes) {
                 console.warn(`Client ${client} not found`);
