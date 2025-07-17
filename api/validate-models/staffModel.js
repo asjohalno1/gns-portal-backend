@@ -18,6 +18,21 @@ module.exports.addDocumentRequest = joi.object({
     joi.string(), // subCategoryId as key
     joi.string().valid('low', 'medium', 'high').default('medium') // priority as value
   ).optional(),
+  scheduler: joi.object({
+    scheduleTime: joi.string().required(),
+    frequency: joi.string().valid("Daily", "Weekly").required(),
+    days: joi.array().items(joi.string()).when('frequency', {
+      is: "Weekly",
+      then: joi.required(),
+      otherwise: joi.forbidden()
+    }),
+    notifyMethod: joi.array().items(
+      joi.string().valid("email", "sms", "portal", "AiCall")
+    ).min(1).required(),
+    customMessage: joi.string().allow('').optional()
+  })
+
+
 });
 /** Document Request Model Ends */
 
@@ -37,7 +52,7 @@ module.exports.addFolder = joi.object({
 module.exports.addReminder = joi.object({
   name: joi.string().required(),
   message: joi.string().required(),
-  remainderType:joi.string().allow('').optional(),
+  remainderType: joi.string().allow('').optional(),
 })
 
 module.exports.automateReminder = joi.object({
