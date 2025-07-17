@@ -12,7 +12,7 @@ module.exports = {
     const expiresInHours = expiresIn * 24;
     const token = jwt.sign(payload, secret_key, {expiresIn: `${expiresInHours}h`});
     
-    return `http://localhost:5173/client/token-handler/?token=${token}` 
+    return `http://localhost:8076/client/token-handler/?token=${token}` 
   },
 
 
