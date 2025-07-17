@@ -8,7 +8,7 @@ const remainderSchema = new mongoose.Schema(
         templateId: { type: String },
         customMessage: { type: String },
         scheduleTime: { type: String },
-        frequency: { type: String, enum: ["daily", "Weekly"], required: true },
+        frequency: { type: String, enum: ["Daily", "Weekly"], required: true },
         days: { type: Array },
         notifyMethod: {
             type: [String], // Array of strings

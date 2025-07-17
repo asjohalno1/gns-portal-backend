@@ -4,7 +4,7 @@ const remainderSchema = new mongoose.Schema(
     {
         staffId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
         scheduleTime: { type: String },
-        frequency: { type: String, enum: ["daily", "Weekly"], required: true },
+        frequency: { type: String, enum: ["Daily", "Weekly"], required: true },
         days: { type: Array },
         notifyMethod: {
             type: [String], // Array of strings

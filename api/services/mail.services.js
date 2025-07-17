@@ -14,7 +14,7 @@ const transporter = nodemailer.createTransport({
 
 const sendEmail = async (email, subject, link, name = "User") => {
   try {
-    const htmlContent = generateTemplate({ name, link });
+    const htmlContent = await generateTemplate({ name, link });
 
     const info = await transporter.sendMail({
       from: 'shaktisainisd@gmail.com',
@@ -30,7 +30,7 @@ const sendEmail = async (email, subject, link, name = "User") => {
 
 const sendEmailRemainder = async (email, subject, link, name = "User", msg) => {
   try {
-    const htmlContent = reminderTemplate({ name, link, msg });
+    const htmlContent = await reminderTemplate({ name, link, msg });
 
     const info = await transporter.sendMail({
       from: 'shaktisainisd@gmail.com',
