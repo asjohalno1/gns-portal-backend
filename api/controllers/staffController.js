@@ -741,10 +741,13 @@ module.exports.getAllFolder = async (req, res) => {
  * @apiDescription API for sending a scheduled reminder to one or more clients.
  * @apiSampleRequest http://localhost:2001/api/staff/sendReminder
  */
+// In your reminder controller
 module.exports.sendReminder = async (req, res) => {
     try {
         const { days, isDefault, clientId, templateId, customMessage, scheduleTime, frequency, notifyMethod, documentId } = req.body;
         const staffId = req.userInfo.id;
+
+
         const newReminder = new Remainder({
             staffId,
             clientId,
@@ -755,29 +758,34 @@ module.exports.sendReminder = async (req, res) => {
             notifyMethod,
             documentId,
             active: true,
-            isDefault,
             status: "scheduled",
             days
+
         });
+
         const savedReminder = await newReminder.save();
         if (!savedReminder) {
-            resModel.success = false;
-            resModel.message = "Error while scheduling reminder";
-            resModel.data = null;
-            res.status(400).json(resModel)
-        } else {
-            let expression = await remainderServices(scheduleTime, days)
-            await cronJobService(expression, clientId, templateId, notifyMethod, documentId)
-            resModel.success = true;
-            resModel.message = "Reminder scheduled successfully.";
-            resModel.data = savedReminder;
-            res.status(200).json(resModel);
+            return res.status(400).json({
+                success: false,
+                message: "Error while scheduling reminder",
+                data: null
+            });
         }
+
+        let expression = await remainderServices(scheduleTime, days);
+        await cronJobService(expression, clientId, templateId, notifyMethod, documentId);
+
+        return res.status(200).json({
+            success: true,
+            message: "Reminder scheduled successfully.",
+            data: savedReminder
+        });
     } catch (error) {
-        resModel.success = false;
-        resModel.message = "Internal Server Error";
-        resModel.data = null;
-        res.status(500).json(resModel);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null
+        });
     }
 };
 
@@ -942,6 +950,10 @@ module.exports.getReminderDashboard = async (req, res) => {
             createdBy: staffId,
             status: "pending",
         });
+        const defaultRemainder = await DefaultSettingRemainder.findOne({
+            staffId,
+            active: true,
+        })
         const remindersRaw = await Remainder.find({ staffId }).sort({ createdAt: -1 });
         const allClientIds = [...new Set(remindersRaw.flatMap(r => r.clientId))];
         const clients = await Client.find({ _id: { $in: allClientIds } });
@@ -972,6 +984,7 @@ module.exports.getReminderDashboard = async (req, res) => {
             templatesCreatedTotal,
             pendingUploads,
             reminders,
+            defaultRemainder
         };
         res.status(200).json(resModel);
     } catch (error) {
@@ -1209,7 +1222,8 @@ module.exports.getAllReminders = async (req, res) => {
                 select: "doctitle",
                 model: "DocumentRequest",
             })
-            .select("clientId documentId notifyMethod scheduleTime status");
+            .select("clientId documentId notifyMethod scheduleTime status")
+            .sort({ createdAt: -1 });
 
         const formattedData = reminders.map((reminder) => ({
             clientName: Array.isArray(reminder.clientId)
@@ -1359,6 +1373,7 @@ module.exports.getAllUploadedDocuments = async (req, res) => {
                 })
                 .skip(skip)
                 .limit(limitNum)
+                .sort({ createdAt: -1 })
                 .lean(),
 
             uploadDocuments.countDocuments(filter)
