@@ -1,3 +1,5 @@
+const http = require('http');
+const https = require('https');
 const express = require('express');
 const bodyParser = require('body-parser')
 const validator = require('express-joi-validation').createValidator({ passError: true })
@@ -66,7 +68,19 @@ const { deleteAllClientFolders } = require('./api/services/googleDriveService.js
 //listFilesInFolder("1cMxxr5kn83InV6wtrO515_Jr4tSlRX3B")
 //deleteAllClientFolders()
 
-app.listen(process.env.PORT, () => {
+
+  // Use https.createServer instead of http.createServer
+  const server = process.env.NODE_ENV == "staging" ? https.createServer(
+    {
+        key: fs.readFileSync("/home/ubuntu/ssl/privkey.pem"),
+        cert: fs.readFileSync("/home/ubuntu/ssl/fullchain.pem"),
+    }, app) : http.createServer(app);
+
+// app.listen(process.env.PORT, () => {
+//     console.log(`app listening on port ${process.env.PORT}!`)
+// });
+
+server.listen(process.env.PORT, () => {
     console.log(`app listening on port ${process.env.PORT}!`)
 });
 
