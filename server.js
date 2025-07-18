@@ -1,5 +1,6 @@
 const http = require('http');
 const https = require('https');
+const fs = require('fs');
 const express = require('express');
 const bodyParser = require('body-parser')
 const validator = require('express-joi-validation').createValidator({ passError: true })
@@ -13,7 +14,7 @@ const app = express();
 const allowedOrigins = [
     "http://localhost:5173",
     "http://localhost:8076",
-    "http://localhost:8075", 
+    "http://localhost:8075",
     "http://localhost:8077",
     "http://localhost:2001",
     "http://44.211.113.36:8076"
@@ -69,8 +70,8 @@ const { deleteAllClientFolders } = require('./api/services/googleDriveService.js
 //deleteAllClientFolders()
 
 
-  // Use https.createServer instead of http.createServer
-  const server = process.env.NODE_ENV == "staging" ? https.createServer(
+// Use https.createServer instead of http.createServer
+const server = process.env.NODE_ENV == "staging" ? https.createServer(
     {
         key: fs.readFileSync("/home/ubuntu/ssl/privkey.pem"),
         cert: fs.readFileSync("/home/ubuntu/ssl/fullchain.pem"),
