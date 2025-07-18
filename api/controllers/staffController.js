@@ -1315,9 +1315,9 @@ module.exports.getAllUploadedDocuments = async (req, res) => {
             search = "",
             status = "all",
             category = "",
+            client = "",
 
         } = req.query;
-
         const pageNum = parseInt(page, 10);
         const limitNum = parseInt(limit, 10);
         const skip = (pageNum - 1) * limitNum;
@@ -1333,6 +1333,9 @@ module.exports.getAllUploadedDocuments = async (req, res) => {
 
         if (category) {
             filter.category = category;
+        }
+        if (client) {
+            filter.clientId = client;
         }
         if (search) {
             filter.$or = [
