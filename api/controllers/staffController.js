@@ -23,7 +23,7 @@ const DefaultSettingRemainder = require('../models/defaultRemainder');
 const remainderServices = require('../services/remainder.services');
 const cronJobService = require('../services/cron.services');
 const mongoose = require('mongoose');
-const {createClientFolder } = require('../services/googleDriveService.js');
+const { createClientFolder } = require('../services/googleDriveService.js');
 const googleMaping = require('../models/googleMapping');
 
 
@@ -109,122 +109,152 @@ module.exports.documentRequest = async (req, res) => {
         const currentDate = new Date();
         const expiryDate = new Date(currentDate.getTime() + expiration * 24 * 60 * 60 * 1000);
 
-        let requestRes;
         const results = [];
 
         for (const client of clientId) {
-            const prioritiesMap = {};
-            subCategoryId.forEach(subCatId => {
-                prioritiesMap[subCatId] = subcategoryPriorities[subCatId] || 'medium';
-            });
+            const createdRequests = [];
+            const createdSubCategories = [];
+            const uploadedDocs = [];
+            const createdReminders = [];
 
-            const requestInfo = {
-                createdBy: req.userInfo.id,
-                clientId: client,
-                category: categoryId,
-                subCategory: subCategoryId,
-                subcategoryPriorities: prioritiesMap,
-                dueDate,
-                instructions,
-                notifyMethod,
-                remainderSchedule,
-                templateId: templateId || null,
-                expiration: expiryDate,
-                linkMethod,
-                doctitle
-            };
-
-            const newRequest = new DocumentRequest(requestInfo);
-            requestRes = await newRequest.save();
-            results.push(requestRes);
-
-            for (const catId of categoryId) {
-                const validSubCats = await SubCategory.find({
-                    _id: { $in: subCategoryId },
-                    categoryId: catId
-                }).lean();
-
-                const subCatCreationPromises = validSubCats.map(async (subCat) => {
-                    const priority = prioritiesMap[subCat._id.toString()] || 'medium';
-
-                    await DocumentSubCategory.create({
-                        request: requestRes._id,
-                        category: catId,
-                        subCategory: subCat._id,
-                        priority
-                    });
-
-                    await uploadDocument.create({
-                        request: requestRes._id,
-                        category: catId,
-                        subCategory: subCat._id,
-                        dueDate,
-                        clientId: client,
-                        doctitle,
-                        priority,
-                        staffId: req.userInfo.id
-                    });
+            try {
+                const prioritiesMap = {};
+                subCategoryId.forEach(subCatId => {
+                    prioritiesMap[subCatId] = subcategoryPriorities[subCatId] || 'medium';
                 });
 
-                await Promise.all(subCatCreationPromises);
-            }
-
-
-            if (scheduler) {
-                const reminderData = {
-                    staffId: req.userInfo.id,
-                    clientId: [client],
-                    documentId: requestRes._id,
-                    customMessage: instructions,
-                    scheduleTime: scheduler.scheduleTime,
-                    frequency: scheduler.frequency,
-                    days: scheduler.days || [],
-                    notifyMethod: scheduler.notifyMethod,
-                    active: true,
-                    isDefault: false,
-                    status: "scheduled"
-                };
-                const newReminder = new Remainder(reminderData);
-                await newReminder.save();
-                let expression = await remainderServices(scheduler?.scheduleTime, scheduler?.days)
-                await cronJobService(expression, client, doctitle, scheduler?.notifyMethod, "", dueDate)
-
-            }
-
-
-            const clientRes = await Client.findById(client);
-            if (!clientRes) {
-                console.warn(`Client ${client} not found`);
-                continue;
-            }
-
-            const tokenInfo = {
-                clientId: client,
-                userId: req.userInfo.id,
-                requestId: requestRes._id,
-                email: clientRes.email
-            };
-
-            const expiresIn = parseInt(expiration);
-            const requestLink = await jwt.linkToken(tokenInfo, expiresIn);
-            let docRes = await subCategory.find({ _id: subCategoryId });
-            let docList = docRes.map(doc => doc.name);
-            if (linkMethod === "email") {
-                await DocumentRequest.findByIdAndUpdate(
-                    requestRes._id,
-                    { requestLink, linkStatus: "sent" }
-                );
-                await mailServices.sendEmail(
-                    clientRes.email,
-                    "Document Request",
-                    requestLink,
-                    clientRes.name,
-                    doctitle,
+                const requestInfo = {
+                    createdBy: req.userInfo.id,
+                    clientId: client,
+                    category: categoryId,
+                    subCategory: subCategoryId,
+                    subcategoryPriorities: prioritiesMap,
                     dueDate,
-                    docList
-                );
-            } else if (linkMethod === "sms" && clientRes.phoneNumber) {
-                // await twilioServices(clientRes.phoneNumber, requestLink);
+                    instructions,
+                    notifyMethod,
+                    remainderSchedule,
+                    templateId: templateId || null,
+                    expiration: expiryDate,
+                    linkMethod,
+                    doctitle
+                };
+
+                const newRequest = new DocumentRequest(requestInfo);
+                const requestRes = await newRequest.save();
+                createdRequests.push(requestRes);
+                results.push(requestRes);
+
+                for (const catId of categoryId) {
+                    const validSubCats = await SubCategory.find({
+                        _id: { $in: subCategoryId },
+                        categoryId: catId
+                    }).lean();
+
+                    for (const subCat of validSubCats) {
+                        const priority = prioritiesMap[subCat._id.toString()] || 'medium';
+
+                        const docSubCat = await DocumentSubCategory.create({
+                            request: requestRes._id,
+                            category: catId,
+                            subCategory: subCat._id,
+                            priority
+                        });
+                        createdSubCategories.push(docSubCat);
+
+                        const uploaded = await uploadDocument.create({
+                            request: requestRes._id,
+                            category: catId,
+                            subCategory: subCat._id,
+                            dueDate,
+                            clientId: client,
+                            doctitle,
+                            priority,
+                            staffId: req.userInfo.id
+                        });
+                        uploadedDocs.push(uploaded);
+                    }
+                }
+
+                // Scheduler (optional)
+                if (scheduler) {
+                    const reminderData = {
+                        staffId: req.userInfo.id,
+                        clientId: [client],
+                        documentId: requestRes._id,
+                        customMessage: instructions,
+                        scheduleTime: scheduler.scheduleTime,
+                        frequency: scheduler.frequency,
+                        days: scheduler.days || [],
+                        notifyMethod: scheduler.notifyMethod,
+                        active: true,
+                        isDefault: false,
+                        status: "scheduled"
+                    };
+
+                    const newReminder = new Remainder(reminderData);
+                    await newReminder.save();
+                    createdReminders.push(newReminder);
+
+                    let expression = await remainderServices(scheduler?.scheduleTime, scheduler?.days);
+                    await cronJobService(expression, client, doctitle, scheduler?.notifyMethod, "", dueDate);
+                }
+
+                // Generate token + send email/sms
+                const clientRes = await Client.findById(client);
+                if (!clientRes) {
+                    console.warn(`Client ${client} not found`);
+                    continue;
+                }
+
+                const tokenInfo = {
+                    clientId: client,
+                    userId: req.userInfo.id,
+                    requestId: requestRes._id,
+                    email: clientRes.email
+                };
+
+                const expiresIn = parseInt(expiration);
+                const requestLink = await jwt.linkToken(tokenInfo, expiresIn);
+
+                let docRes = await subCategory.find({ _id: subCategoryId });
+                let docList = docRes.map(doc => doc.name);
+
+                if (linkMethod === "email") {
+                    await DocumentRequest.findByIdAndUpdate(
+                        requestRes._id,
+                        { requestLink, linkStatus: "sent" }
+                    );
+                    await mailServices.sendEmail(
+                        clientRes.email,
+                        "Document Request",
+                        requestLink,
+                        clientRes.name,
+                        doctitle,
+                        dueDate,
+                        docList
+                    );
+                } else if (linkMethod === "sms" && clientRes.phoneNumber) {
+                    // await twilioServices(clientRes.phoneNumber, requestLink);
+                }
+
+            } catch (schedulerError) {
+                // Manual rollback if anything inside scheduler block or before it fails
+                for (const r of createdRequests) {
+                    await DocumentRequest.findByIdAndDelete(r._id);
+                }
+                for (const s of createdSubCategories) {
+                    await DocumentSubCategory.findByIdAndDelete(s._id);
+                }
+                for (const d of uploadedDocs) {
+                    await uploadDocument.findByIdAndDelete(d._id);
+                }
+                for (const rem of createdReminders) {
+                    await Remainder.findByIdAndDelete(rem._id);
+                }
+
+                console.error("Error in scheduler or document creation. Rolled back:", schedulerError);
+                resModel.message = "Error in scheduler or document creation: " + schedulerError.message;
+                return res.status(500).json(resModel);
             }
         }
 
@@ -244,7 +274,6 @@ module.exports.documentRequest = async (req, res) => {
         return res.status(500).json(resModel);
     }
 };
-
 
 
 /**
