@@ -3,6 +3,7 @@ let Category = require("../models/category");
 let subCategory = require("../models/subCategory");
 const adminServices = require('../services/admin.services');
 const Client = require('../models/clientModel');
+const Users = require('../models/userModel');
 const Template = require('../models/template');
 const assignClient = require('../models/assignClients')
 const DocumentSubCategory = require('../models/documentSubcategory');
@@ -209,7 +210,10 @@ module.exports.addClient = async (req, res) => {
             staffId,
         });
         await newAssign.save();
-        await createClientFolder(name, "", email);
+        const getStaff = await Users.findOne({ _id: staffId });
+        const staticRoot = await createClientFolder(getStaff?.first_name,"",email) ;
+        const clientsRootId = await createClientFolder("Clients", staticRoot,email);
+        await createClientFolder(name, clientsRootId, email);
         if (savedClient) {
             resModel.success = true;
             resModel.message = "Client added successfully";

@@ -8,6 +8,7 @@ const jwt = require('../services/jwt.services');
 const mailServices = require('../services/mail.services');
 const twilioServices = require('../services/twilio.services');
 const Client = require('../models/clientModel');
+const Users = require('../models/userModel.js');
 const DocumentSubCategory = require('../models/documentSubcategory');
 const assignClient = require('../models/assignClients');
 const Folder = require('../models/folder');
@@ -1651,19 +1652,26 @@ exports.addGoogleMaping = async (req, res) => {
         const { clientId, clientFolderName, uncategorized, standardFolder, additionalSubfolders } = req.body;
         let clientRes = await Client.findOne({ _id: clientId });
         const staffId = req.userInfo.id;
+        let getStaff = await Users.findOne({ _id: staffId });
         if (uncategorized) {
-            const staticRootId = await createClientFolder(clientRes?.name, "", clientRes?.email);
+            const staticRoot = await createClientFolder(getStaff?.first_name,"",clientRes?.email) ;
+            const clientsRootId = await createClientFolder("Clients", staticRoot,clientRes?.email);
+            const staticRootId = await createClientFolder(clientRes?.name,clientsRootId, clientRes?.email);
             await createClientFolder("uncategorized", staticRootId, clientRes?.email);
         }
         if (standardFolder) {
-            const staticRootId = await createClientFolder(clientRes?.name, "", clientRes?.email);
+            const staticRoot = await createClientFolder(getStaff?.first_name,"",clientRes?.email) ;
+            const clientsRootId = await createClientFolder("Clients", staticRoot,clientRes?.email);
+            const staticRootId = await createClientFolder(clientRes?.name, clientsRootId, clientRes?.email);
             let folder = ["Tax Returns", "Bookkeeping"]
             for (const folderName of folder) {
                 await createClientFolder(folderName, staticRootId, clientRes?.email);
             }
         }
         if (additionalSubfolders.length > 0) {
-            const staticRootId = await createClientFolder(clientRes?.name, "", clientRes?.email);
+            const staticRoot = await createClientFolder(getStaff?.first_name,"",email) ;
+            const clientsRootId = await createClientFolder("Clients", staticRoot,email);
+            const staticRootId = await createClientFolder(clientRes?.name, clientsRootId, clientRes?.email);
             for (const folderName of additionalSubfolders) {
                 await createClientFolder(folderName, staticRootId, clientRes?.email);
             }
