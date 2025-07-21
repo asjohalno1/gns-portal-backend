@@ -127,4 +127,5 @@ const listFilesInFolderStructure = async (clientName) => {
 module.exports = {
     uploadFileToFolder,
     listFilesInFolderStructure,
+    createClientFolder
 };

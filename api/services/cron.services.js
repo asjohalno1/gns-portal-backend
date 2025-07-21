@@ -42,7 +42,7 @@ async function scheduleDailyReminder(expression, clientIds, templateId, notifyMe
         const { _id: clientId, email, name } = client;
         if (notifyMethod[0] === "email") {
           const subject = `Reminder: Upload ${templateId}`;
-          const msg = `Dear ${name},\n\nPlease upload the document "${templateId}" by ${dueDate || 'the due date'}.\n\nClick here to upload: ${requestLink}`;
+          const msg = `Dear ${name},\n\nPlease upload the document "${templateId}" by ${dueDate || 'the due date'}`;
           await mailServices.sendEmailRemainder(email, subject, "", name, msg);
           console.log(`[Email Reminder] Sent to ${email}`);
         } else if (notifyMethod === "sms") {

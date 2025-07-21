@@ -22,6 +22,8 @@ const DefaultSettingRemainder = require('../models/defaultRemainder');
 const remainderServices = require('../services/remainder.services');
 const cronJobService = require('../services/cron.services');
 const mongoose = require('mongoose');
+const {createClientFolder } = require('../services/googleDriveService.js');
+const googleMaping = require('../models/googleMapping');
 
 
 
@@ -1630,4 +1632,68 @@ module.exports.updateDocumentRequestStatus = async (req, res) => {
     }
 };
 
+
+/**
+ * @api {post} /api/staff/googleMaping Create Google Maping
+ * @apiName Create Google Maping
+ * @apiGroup Staff
+ * @apiBody {String} clientId  clientId.
+ * @apiBody {String} clientFolderName Client Folder Name.
+ * @apiBody {Bolean} uncategorized Uncategorized.
+ * @apiBody {Bolean} standardFolder StandardFolder.
+ * @apiBody {Array} additionalSubfolders additionalSubfolders.
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription Create Google Maping for staff.
+ * @apiSampleRequest http://localhost:2001/api/staff/googleMaping
+ */
+exports.addGoogleMaping = async (req, res) => {
+    try {
+        const { clientId, clientFolderName, uncategorized, standardFolder, additionalSubfolders } = req.body;
+        let clientRes = await Client.findOne({ _id: clientId });
+        const staffId = req.userInfo.id;
+        if (uncategorized) {
+            const staticRootId = await createClientFolder(clientRes?.name, "", clientRes?.email);
+            await createClientFolder("uncategorized", staticRootId, clientRes?.email);
+        }
+        if (standardFolder) {
+            const staticRootId = await createClientFolder(clientRes?.name, "", clientRes?.email);
+            let folder = ["Tax Returns", "Bookkeeping"]
+            for (const folderName of folder) {
+                await createClientFolder(folderName, staticRootId, clientRes?.email);
+            }
+        }
+        if (additionalSubfolders.length > 0) {
+            const staticRootId = await createClientFolder(clientRes?.name, "", clientRes?.email);
+            for (const folderName of additionalSubfolders) {
+                await createClientFolder(folderName, staticRootId, clientRes?.email);
+            }
+        }
+        const newMaping = new googleMaping({
+            staffId,
+            clientId,
+            clientFolderName,
+            uncategorized,
+            standardFolder,
+            additionalSubfolders
+        });
+        const savedMaping = await newMaping.save();
+        if (savedMaping) {
+            resModel.success = true;
+            resModel.message = "Google Maping Created Successfully.";
+            resModel.data = savedMaping;
+            return res.status(200).json(resModel);
+        } else {
+            resModel.success = false;
+            resModel.message = "Error in creating Google Maping.";
+            resModel.data = null;
+            res.status(400).json(resModel);
+        }
+
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
 
