@@ -1203,7 +1203,7 @@ module.exports.getAllReminders = async (req, res) => {
     try {
         const staffId = req.userInfo?.id;
 
-        const page = parseInt(req.query.page) || 1; // Default page = 1
+        const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10; // Default limit = 10
         const skip = (page - 1) * limit;
 
@@ -1213,7 +1213,7 @@ module.exports.getAllReminders = async (req, res) => {
             .skip(skip)
             .limit(limit)
             .populate({
-                path: "clientId", // handles array
+                path: "clientId",
                 select: "name email",
                 model: "Client",
             })

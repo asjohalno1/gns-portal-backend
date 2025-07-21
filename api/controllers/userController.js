@@ -309,7 +309,7 @@ module.exports.getAllUser = async (req, res) => {
  * @apiSampleRequest http://localhost:2001/api/user/uploadDocument 
  */
 module.exports.uploadDocument = async (req, res) => {
-
+    const id = req?.body?.requestId;
     try {
         const { categoryId, subCategoryId, notes } = req.body;
         let files = req.files;
@@ -317,7 +317,7 @@ module.exports.uploadDocument = async (req, res) => {
         // await uploadFileToFolder(clientRes?.name, files, "Bookkeeping", clientRes?.email);
         // await clientModel.findOneAndUpdate({ _id: req?.userInfo?.clientId }, { folderId: client });
         const uploadInfo = {
-            request: req?.userInfo?.requestId,
+            request: id,
             clientEmail: req?.userInfo?.email.toLowerCase(),
             notes: notes,
             files: files.map(file => ({
@@ -338,7 +338,7 @@ module.exports.uploadDocument = async (req, res) => {
         const newLog = new userLog(logInfo)
         await newLog.save();
 
-        const newUpload = await uploadDocument.findOneAndUpdate({ request: req?.userInfo?.requestId, subCategory: subCategoryId }, uploadInfo, { upsert: true });
+        const newUpload = await uploadDocument.findOneAndUpdate({ request: id, subCategory: subCategoryId }, uploadInfo, { upsert: true });
         if (newUpload) {
             resModel.success = true;
             resModel.message = "Document Upload Successfully";
@@ -358,6 +358,9 @@ module.exports.uploadDocument = async (req, res) => {
 
     }
 }
+
+
+
 
 
 /**
@@ -387,6 +390,10 @@ module.exports.getClientDashboard = async (req, res) => {
             .populate("subCategory")
             .populate("request")
             .populate("isUploaded")
+            .populate({
+                path: "request",
+                select: "_id",
+            });
 
         const totalDocuments = uploadedDocs.length;
         const pendingCount = uploadedDocs.filter((doc) => doc.status === "pending").length;
@@ -399,11 +406,7 @@ module.exports.getClientDashboard = async (req, res) => {
 
         if (status && status !== 'all') {
             filteredDocs = filteredDocs.filter((doc) => doc.status.toLowerCase() === status);
-
-
         }
-
-
         if (search) {
             filteredDocs = filteredDocs.filter((doc) => {
                 const subCat = doc.subCategory?.name?.toLowerCase() || '';
@@ -411,21 +414,17 @@ module.exports.getClientDashboard = async (req, res) => {
                 return subCat.includes(search) || cat.includes(search);
             });
         }
-
-        // Sort and paginate
         filteredDocs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         const totalFiltered = filteredDocs.length;
         const paginatedDocs = filteredDocs.slice((page - 1) * limit, page * limit);
 
-        // Upcoming deadlines - Updated to use stored priority
         let upcomingDeadlines = uploadedDocs
-            .filter((doc) => doc.dueDate) // first filter dueDate exists
+            .filter((doc) => doc.dueDate)
             .filter((doc) => {
-                // Then apply optional status filter
                 if (statusRecentActivity && statusRecentActivity !== 'all') {
                     return doc.status?.toLowerCase() === statusRecentActivity;
                 }
-                return true; // no filter if 'all' or not provided
+                return true;
             })
             .map((doc) => {
                 const diffDays = Math.ceil((new Date(doc.dueDate) - now) / (1000 * 60 * 60 * 24));
@@ -490,7 +489,6 @@ module.exports.getClientDashboard = async (req, res) => {
 
 
 
-
 /**
  * @api {get} /api/user/clientDocuments  Get Client Documents
  * @apiName Get Client Documents
@@ -501,14 +499,14 @@ module.exports.getClientDashboard = async (req, res) => {
  */
 module.exports.getClientDocuments = async (req, res) => {
     try {
-        const requestId = req?.userInfo?.requestId;
+        const id = req?.query?.requestId;
 
-        const documents = await uploadDocuments.find({ request: requestId })
+        const documents = await uploadDocuments.find({ request: id })
             .populate('category', 'name') // Populate category name
             .populate('request', 'status') // Populate request status
             .populate('subCategory', 'name');
 
-        const subCategoryLinks = await DocumentSubCategory.find({ request: requestId })
+        const subCategoryLinks = await DocumentSubCategory.find({ request: id })
             .populate('subCategory', 'name')
             .populate('category', 'name');
 
