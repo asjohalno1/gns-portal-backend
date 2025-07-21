@@ -193,7 +193,7 @@ module.exports.googleWithLogin = async (req, res) => {
         const [firstName, lastName] = name.split(" ");
         const userCheck = await User.findOne({ email });
         if (userCheck) {
-            const accessToken = await jwtService.issueJwtToken({ email, id: userCheck._id ,name:userCheck?.first_name })
+            const accessToken = await jwtService.issueJwtToken({ email, id: userCheck._id, name: userCheck?.first_name })
             resModel.success = true;
             resModel.message = "User Login Successfully";
             resModel.data = { token: accessToken, user: userCheck };
@@ -646,16 +646,28 @@ module.exports.getAllNotifications = async (req, res) => {
 
 
 exports.getClientDocu = async (req, res) => {
-    const clientId = req?.userInfo?.clientId;
-    const clientRes = await clientModel.findOne({ _id: clientId });
+    try {
+        const staffId = req?.userInfo?.id;
+        const staffRes = await User.findOne({ _id: staffId });
+        const data = await listFilesInFolderStructure(staffRes?.folderId);
+        if (!data) {
+            resModel.success = true;
+            resModel.message = "No Google Drive documents found";
+            resModel.data = [];
+            res.status(200).json(resModel)
+        } else {
+            resModel.success = true;
+            resModel.message = "Fetched Google Drive documents successfully";
+            resModel.data = data;
+            res.status(200).json(resModel)
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
 
-    const data = await listFilesInFolderStructure(clientRes.name);
-
-    res.status(200).json({
-        success: true,
-        message: "Fetched Google Drive documents successfully",
-        data
-    });
 };
 
 

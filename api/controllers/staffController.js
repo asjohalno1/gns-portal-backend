@@ -1698,8 +1698,8 @@ exports.addGoogleMaping = async (req, res) => {
             }
         }
         if (additionalSubfolders.length > 0) {
-            const staticRoot = await createClientFolder(getStaff?.first_name,"",email) ;
-            const clientsRootId = await createClientFolder("Clients", staticRoot,email);
+            const staticRoot = await createClientFolder(getStaff?.first_name,"",clientRes?.email) ;
+            const clientsRootId = await createClientFolder("Clients", staticRoot,clientRes?.email);
             const staticRootId = await createClientFolder(clientRes?.name, clientsRootId, clientRes?.email);
             for (const folderName of additionalSubfolders) {
                 await createClientFolder(folderName, staticRootId, clientRes?.email);
