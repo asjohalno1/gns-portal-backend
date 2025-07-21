@@ -6,6 +6,7 @@ const Client = require('../models/clientModel');
 const Template = require('../models/template');
 const assignClient = require('../models/assignClients')
 const DocumentSubCategory = require('../models/documentSubcategory');
+const { listFilesInFolderStructure, uploadFileToFolder, createClientFolder } = require('../services/googleDriveService.js');
 
 
 /** Category Api's starts */
@@ -208,6 +209,7 @@ module.exports.addClient = async (req, res) => {
             staffId,
         });
         await newAssign.save();
+        await createClientFolder(name, "", email);
         if (savedClient) {
             resModel.success = true;
             resModel.message = "Client added successfully";

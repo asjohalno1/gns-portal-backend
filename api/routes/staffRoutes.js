@@ -28,6 +28,7 @@ module.exports = function (app, validator) {
    app.put('/api/staff/updateReminderTemplate/:id', auth, validator.params(staffModel.commonId), staffCntrl.updateReminderTemplate)
    app.get('/api/staff/getReminderTemplate/:id', auth, validator.params(staffModel.commonId), staffCntrl.getReminderTemplateById)
    app.get('/api/staff/getAllReminder', auth, staffCntrl.getReminderDashboard)
+   app.post('/api/staff/googleMaping', auth, staffCntrl.addGoogleMaping)
    app.post('/api/staff/automateReminder', auth, validator.body(staffModel.automateReminder), staffCntrl.addAutomatedReminder)
    app.post('/api/staff/defaultSettingReminder', auth, validator.body(staffModel.addReminderSetting), staffCntrl.addDefaultSettingReminder)
    app.patch('/api/staff/updateUploadedDocument/:id', auth, staffCntrl.updateUploadedDocument)
