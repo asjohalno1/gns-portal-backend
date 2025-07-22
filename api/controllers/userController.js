@@ -326,7 +326,8 @@ module.exports.uploadDocument = async (req, res) => {
                 path: `/uploads/${file.filename}`,
                 size: file.size,
             })),
-            isUploaded: true
+            isUploaded: true,
+            status: "pending",
 
         };
         const subCategory = await subCategoryModel.findOne({ _id: subCategoryId });

@@ -6,7 +6,7 @@ const twilioServices = require('../services/twilio.services');
 const mongoose = require('mongoose')
 
 
-async function scheduleDailyReminder(expression, clientIds, templateId, notifyMethod, documentId,dueDate) {
+async function scheduleDailyReminder(expression, clientIds, templateId, notifyMethod, documentId,dueDate,customMessage) {
   if(documentId){
   const document = await documentRequests.findOne({ _id: documentId });
   if (!document) {
@@ -15,14 +15,14 @@ async function scheduleDailyReminder(expression, clientIds, templateId, notifyMe
   }
   cron.schedule(expression, async () => {
     try {
-      const { name: doctitle, requestLink, dueDate } = document;
+      const {doctitle, requestLink} = document;
       const clients = await Client.find({ _id: { $in: clientIds } });
       for (const client of clients) {
         const { _id: clientId, email, name } = client;
         if (notifyMethod[0] === "email") {
           const subject = `Reminder: Upload ${doctitle}`;
-          const msg = `Dear ${name},\n\nPlease upload the document "${doctitle}" by ${dueDate?.toDateString() || 'the due date'}.\n\nClick here to upload: ${requestLink}`;
-          await mailServices.sendEmailRemainder(email, subject, requestLink, name, msg);
+          //const msg = `Dear ${name},\n\nPlease upload the document "${doctitle}" by ${dueDate?.toDateString() || 'the due date'}.\n\nClick here to upload: ${requestLink}`;
+          await mailServices.sendEmailRemainder(email, subject, requestLink, name, customMessage);
           console.log(`[Email Reminder] Sent to ${email}`);
         } else if (notifyMethod === "sms") {
           await twilioServices(clientId, templateId, documentId);
