@@ -778,8 +778,15 @@ module.exports.getAllFolder = async (req, res) => {
 // In your reminder controller
 module.exports.sendReminder = async (req, res) => {
     try {
-        const { days, isDefault, clientId, templateId, customMessage, scheduleTime, frequency, notifyMethod, documentId } = req.body;
+        let { days, isDefault, clientId, templateId, customMessage, scheduleTime, frequency, notifyMethod, documentId } = req.body;
         const staffId = req.userInfo.id;
+        if (isDefault) {
+            let defaultReminder = await DefaultSettingRemainder.findOne({ staffId })
+            scheduleTime = defaultReminder?.scheduleTime || "15:30";
+            frequency = defaultReminder?.frequency || "Daily";
+            notifyMethod = defaultReminder?.notifyMethod || ["email"];
+        }
+
         const newReminder = new Remainder({
             staffId,
             clientId,
