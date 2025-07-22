@@ -253,8 +253,8 @@ module.exports.addClient = async (req, res) => {
  */
 module.exports.updateClient = async (req, res) => {
     try {
-        const clientId = req.params.id;
-        const { isGoogleDrive, name, email, phoneNumber, address, company, notes, staffId, status } = req.body;
+        const clientId = req.userInfo.clientId;
+        const {dateOfBirth, isGoogleDrive, name, email, phoneNumber, address, company, notes, status } = req.body;
         let updatedData = {
             name,
             email: email.toLowerCase(),
@@ -263,20 +263,21 @@ module.exports.updateClient = async (req, res) => {
             company,
             notes,
             status: status || false,
-            isGoogleDrive
+            isGoogleDrive,
+            dateOfBirth:dateOfBirth
         };
         const updatedClient = await Client.findByIdAndUpdate(clientId, updatedData, { new: true });
-        const existingAssign = await assignClient.findOne({ clientId: clientId });
-        if (existingAssign) {
-            existingAssign.staffId = staffId;
-            await existingAssign.save();
-        } else {
-            const newAssign = new assignClient({
-                clientId: clientId,
-                staffId,
-            });
-            await newAssign.save();
-        }
+       // const existingAssign = await assignClient.findOne({ clientId: clientId });
+        // if (existingAssign) {
+        //     existingAssign.staffId = staffId;
+        //     await existingAssign.save();
+        // } else {
+        //     const newAssign = new assignClient({
+        //         clientId: clientId,
+        //         staffId,
+        //     });
+        //     await newAssign.save();
+        // }
         if (updatedClient) {
             resModel.success = true;
             resModel.message = "Client updated successfully";

@@ -40,7 +40,6 @@ const clientSchema = new mongoose.Schema({
     },
     dateOfBirth: {
         type: Date,
-        default: null,
     },
 
     createdAt: {
