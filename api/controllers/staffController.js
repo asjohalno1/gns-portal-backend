@@ -532,6 +532,7 @@ module.exports.getAllClientsByStaff = async (req, res) => {
                     status: docStatus,
                     dateRequested: doc.createdAt,
                     doctitle: doc.doctitle,
+                    isUploaded: doc.isUploaded,
                 });
             }
         }
@@ -636,6 +637,7 @@ module.exports.getAllTrackingByStaff = async (req, res) => {
                     subCategory: request.subCategory,
                     findByrequest: request._id,
                     comment: request.comments,
+                    isUploaded: true
                 };
             })
         );
