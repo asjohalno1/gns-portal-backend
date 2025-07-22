@@ -46,7 +46,7 @@ function createUpload(folder = '') {
     });
 
     const fileFilter = (req, file, cb) => {
-      const allowedTypes = ['.csv', '.xlsx'];
+      const allowedTypes = ['.csv', '.xlsx','.jpg'];
       const ext = path.extname(file.originalname).toLowerCase();
       if (allowedTypes.includes(ext)) {
         cb(null, true);

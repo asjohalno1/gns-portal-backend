@@ -1745,3 +1745,61 @@ exports.addGoogleMaping = async (req, res) => {
     }
 };
 
+/**
+ * @api {put} /api/staff/update Update Staff
+ * @apiName Update Staff
+ * @apiGroup Staff
+ * @apiBody {String} first_name  First Name.
+ * @apiBody {String} last_name  Last Name.
+ * @apiBody {String} email Email.
+ * @apiBody {String} profile Profile.
+ * @apiBody {String} phoneNumber Phone Number.
+ * @apiBody {String} dob Date of Birth.
+ * @apiBody {String} address Address.
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription API for Uupdate user.
+ * @apiSampleRequest http://localhost:2001/api/staff/update
+ */
+module.exports.updateStaff = async (req, res) => {
+    try {
+        const { first_name, last_name, email, phoneNumber, dob, address } = req.body;
+        const staffId = req.userInfo.id;
+        const existingUser = await Users.findOne({ _id: staffId });
+        if (!existingUser) {
+            resModel.success = false;
+            resModel.message = "Staff Not Exist";
+            resModel.data = null;
+            res.status(400).json(resModel);
+        } else {
+            const updatedUser = await Users.findOneAndUpdate(
+                { _id: staffId },
+                {
+                    first_name,
+                    last_name,
+                    email,
+                    phoneNumber,
+                    dob,
+                    address
+                },
+                { new: true }
+            )
+            if (updatedUser) {
+                resModel.success = true;
+                resModel.message = "Staff Updated successfully";
+                resModel.data = updatedUser;
+                res.status(200).json(resModel);
+            } else {
+                resModel.success = true;
+                resModel.message = "Error in updating staff";
+                resModel.data = null;
+                res.status(400).json(resModel)
+            }
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+

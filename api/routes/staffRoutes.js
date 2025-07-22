@@ -10,8 +10,10 @@ const auth = require('../middleware/auth');
 /* validate model  import  ends */
 const UploadedDocument = require('../models/uploadDocuments');
 
-module.exports = function (app, validator) {
+const { uploadPDF } = require('../services/multer.services');
 
+module.exports = function (app, validator) {
+   app.put('/api/staff/update',auth,staffCntrl.updateStaff)
    app.post('/api/staff/requestDocument', auth, validator.body(staffModel.addDocumentRequest), staffCntrl.documentRequest)
    app.get('/api/staff/dashboard', auth, staffCntrl.staffDashboard)
    app.get('/api/staff/getAllClients', auth, staffCntrl.getAllClientsByStaff)
