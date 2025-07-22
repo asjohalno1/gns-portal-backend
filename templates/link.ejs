@@ -1,6 +1,6 @@
 // emailTemplate.js
 
-module.exports = function generateTemplate({ name,link,doctitle,deadline,docList}) {
+module.exports = function generateTemplate({ name,link,doctitle,deadline,docList,instructions}) {
 const listItems = docList.map(item => `<li style="margin-bottom: 6px;">${item}</li>`).join('');
 return `
 <div>
@@ -378,12 +378,13 @@ return `
         <div class="important-notes">
           <div class="notes-title">Important Notes:</div>
           <ul class="notes-list">
-            <li>This secure link will expire in 7 days for your security</li>
+            ${instructions}
+            <!-- <li>This secure link will expire in 7 days for your security</li>
             <li>Accepted formats: PDF, JPG, PNG (max 10MB per file)</li>
             <li>All documents must be clear and legible</li>
             <li>You will receive a confirmation email once your documents are received</li>
             <li>Finance Reports</li>
-            <li>Bank Statements</li>
+            <li>Bank Statements</li> -->
           </ul>
         </div>
 

@@ -231,7 +231,8 @@ module.exports.documentRequest = async (req, res) => {
                         clientRes.name,
                         doctitle,
                         dueDate,
-                        docList
+                        docList,
+                        instructions
                     );
                 } else if (linkMethod === "sms" && clientRes.phoneNumber) {
                     // await twilioServices(clientRes.phoneNumber, requestLink);
@@ -778,8 +779,6 @@ module.exports.sendReminder = async (req, res) => {
     try {
         const { days, isDefault, clientId, templateId, customMessage, scheduleTime, frequency, notifyMethod, documentId } = req.body;
         const staffId = req.userInfo.id;
-
-
         const newReminder = new Remainder({
             staffId,
             clientId,
@@ -805,7 +804,7 @@ module.exports.sendReminder = async (req, res) => {
         }
 
         let expression = await remainderServices(scheduleTime, days);
-        await cronJobService(expression, clientId, templateId, notifyMethod, documentId);
+        await cronJobService(expression, clientId, templateId, notifyMethod, documentId,"",customMessage);
 
         return res.status(200).json({
             success: true,
@@ -1683,14 +1682,14 @@ exports.addGoogleMaping = async (req, res) => {
         const staffId = req.userInfo.id;
         let getStaff = await Users.findOne({ _id: staffId });
         if (uncategorized) {
-            const staticRoot = await createClientFolder(getStaff?.first_name,"",clientRes?.email) ;
-            const clientsRootId = await createClientFolder("Clients", staticRoot,clientRes?.email);
-            const staticRootId = await createClientFolder(clientRes?.name,clientsRootId, clientRes?.email);
+            const staticRoot = await createClientFolder(getStaff?.first_name, "", clientRes?.email);
+            const clientsRootId = await createClientFolder("Clients", staticRoot, clientRes?.email);
+            const staticRootId = await createClientFolder(clientRes?.name, clientsRootId, clientRes?.email);
             await createClientFolder("uncategorized", staticRootId, clientRes?.email);
         }
         if (standardFolder) {
-            const staticRoot = await createClientFolder(getStaff?.first_name,"",clientRes?.email) ;
-            const clientsRootId = await createClientFolder("Clients", staticRoot,clientRes?.email);
+            const staticRoot = await createClientFolder(getStaff?.first_name, "", clientRes?.email);
+            const clientsRootId = await createClientFolder("Clients", staticRoot, clientRes?.email);
             const staticRootId = await createClientFolder(clientRes?.name, clientsRootId, clientRes?.email);
             let folder = ["Tax Returns", "Bookkeeping"]
             for (const folderName of folder) {
@@ -1698,8 +1697,8 @@ exports.addGoogleMaping = async (req, res) => {
             }
         }
         if (additionalSubfolders.length > 0) {
-            const staticRoot = await createClientFolder(getStaff?.first_name,"",clientRes?.email) ;
-            const clientsRootId = await createClientFolder("Clients", staticRoot,clientRes?.email);
+            const staticRoot = await createClientFolder(getStaff?.first_name, "", clientRes?.email);
+            const clientsRootId = await createClientFolder("Clients", staticRoot, clientRes?.email);
             const staticRootId = await createClientFolder(clientRes?.name, clientsRootId, clientRes?.email);
             for (const folderName of additionalSubfolders) {
                 await createClientFolder(folderName, staticRootId, clientRes?.email);
