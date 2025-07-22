@@ -325,7 +325,8 @@ module.exports.staffDashboard = async (req, res) => {
             const docs = await uploadDocuments.find({ clientId: client._id }).sort({ updatedAt: -1 });
 
             const totalRequests = docs.length;
-            const completed = docs.filter(doc => doc.status === 'accepted').length;
+            const completed = totalRequests;
+            const uploaded = docs.filter(doc => doc.isUploaded === true).length;
             const pending = docs.filter(doc => doc.status === 'pending').length;
             const overdue = docs.filter(doc => doc.dueDate && new Date(doc.dueDate) < now && doc.status === 'pending').length;
 
@@ -396,7 +397,7 @@ module.exports.staffDashboard = async (req, res) => {
                 name: client.name,
                 email: client.email,
                 documentRequest: totalRequests
-                    ? `Document remaining (${completed}/${totalRequests})`
+                    ? `Document remaining (${uploaded}/${totalRequests})`
                     : 'Not Assign Any Document',
                 taskDeadline,
                 taskDeadlineColor: color,
@@ -804,7 +805,7 @@ module.exports.sendReminder = async (req, res) => {
         }
 
         let expression = await remainderServices(scheduleTime, days);
-        await cronJobService(expression, clientId, templateId, notifyMethod, documentId,"",customMessage);
+        await cronJobService(expression, clientId, templateId, notifyMethod, documentId, "", customMessage);
 
         return res.status(200).json({
             success: true,
@@ -1484,6 +1485,7 @@ module.exports.updateUploadedDocument = async (req, res) => {
         ) {
             updateQuery.$set = {};
             if (status) updateQuery.$set.status = status;
+            if (status === "rejected") updateQuery.$set.isUploaded = false;
             if (subCategory) updateQuery.$set.subCategory = subCategory;
             if (comments
             ) updateQuery.$set.comments = comments
@@ -1608,6 +1610,9 @@ module.exports.updateDocumentRequestStatus = async (req, res) => {
                     message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
                     data: null,
                 });
+            }
+            if (data.status === "rejected") {
+                updateFields.isUploaded = false;
             }
             updateFields.status = data.status;
         }
