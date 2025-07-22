@@ -739,7 +739,9 @@ exports.getAllUploadedDocuments = async (req, res) => {
             uploadedAt: doc.createdAt, //FUTURE UPDATE 
             dueDate: doc.dueDate,
             status: doc.status,
-            documentPath: doc.documentPath
+            documentPath: doc.documentPath,
+            isUploaded: doc.isUploaded,
+            requestId: doc.request,
         }));
 
         res.status(200).json({
