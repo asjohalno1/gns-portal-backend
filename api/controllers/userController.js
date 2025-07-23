@@ -502,6 +502,9 @@ module.exports.getClientDocuments = async (req, res) => {
     try {
         const id = req?.query?.requestId;
 
+
+        const updateLinkStatus = await DocumentRequest.findOneAndUpdate({ _id: id }, { $set: { linkStatus: "Used" } });
+
         const documents = await uploadDocuments.find({ request: id })
             .populate('category', 'name') // Populate category name
             .populate('request', 'status') // Populate request status

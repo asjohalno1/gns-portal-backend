@@ -45,7 +45,7 @@ app.use(bodyParser.urlencoded({ extended: true }))
 
 
 app.use(bodyParser.json({ limit: '100mb' }))
-console.log("NODE_ENV:", process.env.NODE_ENV);
+
 
 app.use('/apidoc', express.static(path.join(__dirname, '/apidoc/doc')));
 require('./api/routes')(app, validator);

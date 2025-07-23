@@ -36,6 +36,7 @@ const uploadFiles = multer({
 
 // 🔹 2. Specialized Upload for CSV/XLSX
 function createUpload(folder = '') {
+
   try {
     const uploadPath = path.join(__dirname, '..', 'uploads', folder);
     fs.mkdirSync(uploadPath, { recursive: true });
@@ -46,7 +47,7 @@ function createUpload(folder = '') {
     });
 
     const fileFilter = (req, file, cb) => {
-      const allowedTypes = ['.csv', '.xlsx','.jpg'];
+      const allowedTypes = ['.csv', '.xlsx', '.jpg', '.jpeg', '.png'];
       const ext = path.extname(file.originalname).toLowerCase();
       if (allowedTypes.includes(ext)) {
         cb(null, true);
@@ -54,6 +55,7 @@ function createUpload(folder = '') {
         cb(new Error('Only .csv and .xlsx files are allowed!'));
       }
     };
+
 
     return multer({
       storage,
@@ -66,7 +68,11 @@ function createUpload(folder = '') {
   }
 }
 
+const uploadProfile = createUpload('profile-images', ['.jpg', '.jpeg', '.png']);
+
+
 module.exports = {
   uploadPDF: uploadFiles, // Renamed to be more accurate
   createUpload,
+  uploadProfile: uploadProfile
 };

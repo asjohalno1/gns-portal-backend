@@ -25,6 +25,9 @@ const cronJobService = require('../services/cron.services');
 const mongoose = require('mongoose');
 const { createClientFolder } = require('../services/googleDriveService.js');
 const googleMaping = require('../models/googleMapping');
+const path = require('path');
+
+const fs = require('fs');
 
 
 
@@ -536,6 +539,22 @@ module.exports.getAllClientsByStaff = async (req, res) => {
                     ].some(field => field?.toLowerCase().includes(keywordLower))
                 ) continue;
 
+                const findLinkStatus = await DocumentRequest.findOne(
+                    { _id: doc.request },
+                    { linkStatus: 1, _id: 0 }
+                );
+                let linkStatus = findLinkStatus?.linkStatus || "-";
+                const now = new Date();
+                const dueDate = new Date(doc.dueDate);
+
+                if (dueDate < now) {
+                    linkStatus = "Expired";
+                } else {
+                    const hoursUntilDue = (dueDate - now) / (1000 * 60 * 60);
+                    if (hoursUntilDue <= 24) {
+                        linkStatus = "Expire Soon";
+                    }
+                }
 
                 allDocs.push({
                     documentRequiredTitle: doc.title,
@@ -546,6 +565,9 @@ module.exports.getAllClientsByStaff = async (req, res) => {
                     dateRequested: doc.createdAt,
                     doctitle: doc.doctitle,
                     isUploaded: doc.isUploaded,
+                    linkStatus,
+                    dueDate: doc.dueDate,
+                    createdAt: doc.createdAt
                 });
             }
         }
@@ -1557,6 +1579,14 @@ module.exports.updateUploadedDocument = async (req, res) => {
 module.exports.getDocumentRequestById = async (req, res) => {
     try {
         const { id } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            resModel.success = false;
+            resModel.message = "Invalid document ID";
+            resModel.data = null;
+            return res.status(400).json(resModel);
+        }
+
         const objectId = new mongoose.Types.ObjectId(id);
 
         const dataRes = await uploadDocuments.find({ request: objectId })
@@ -1570,11 +1600,9 @@ module.exports.getDocumentRequestById = async (req, res) => {
                 files: doc.files.map(file => file.path)
             }));
 
-            // Calculate total and uploaded counts
             const totalDocs = dataRes.length;
             const uploadedDocs = dataRes.filter(doc => doc.isUploaded).length;
 
-            // Add progressBar field
             const progressBar = {
                 total: totalDocs,
                 uploaded: uploadedDocs
@@ -1604,6 +1632,7 @@ module.exports.getDocumentRequestById = async (req, res) => {
 
 
 
+
 module.exports.updateDocumentRequestStatus = async (req, res) => {
     try {
         const { requestId, subCatId, data } = req.body;
@@ -1619,7 +1648,7 @@ module.exports.updateDocumentRequestStatus = async (req, res) => {
         const requestObjId = new mongoose.Types.ObjectId(requestId);
         const subCatObjId = new mongoose.Types.ObjectId(subCatId);
 
-        // Build update object conditionally
+
         const updateFields = {
             updatedAt: new Date(),
         };
@@ -1776,45 +1805,67 @@ exports.addGoogleMaping = async (req, res) => {
  * @apiSampleRequest http://localhost:2001/api/staff/update
  */
 module.exports.updateStaff = async (req, res) => {
+
+    console.log(req.file);
+    const resModel = {
+        success: false,
+        message: "",
+        data: null
+    };
+
     try {
         const { first_name, last_name, email, phoneNumber, dob, address } = req.body;
         const staffId = req.userInfo.id;
-        const existingUser = await Users.findOne({ _id: staffId });
-        if (!existingUser) {
-            resModel.success = false;
-            resModel.message = "Staff Not Exist";
-            resModel.data = null;
-            res.status(400).json(resModel);
-        } else {
-            const updatedUser = await Users.findOneAndUpdate(
-                { _id: staffId },
-                {
-                    first_name,
-                    last_name,
-                    email,
-                    phoneNumber,
-                    dob,
-                    address
-                },
-                { new: true }
-            )
-            if (updatedUser) {
-                resModel.success = true;
-                resModel.message = "Staff Updated successfully";
-                resModel.data = updatedUser;
-                res.status(200).json(resModel);
-            } else {
-                resModel.success = true;
-                resModel.message = "Error in updating staff";
-                resModel.data = null;
-                res.status(400).json(resModel)
+
+        // Prepare update data
+        const updateData = {
+            first_name,
+            last_name,
+            email,
+            phoneNumber,
+            dob,
+            address
+        };
+
+        // Handle file upload if present
+        if (req.file) {
+            // Construct the file path (adjust according to your storage)
+            updateData.profile = `/uploads/profile-images/${req.file.filename}`;
+
+            // Optional: Delete old profile picture if exists
+            const existingUser = await Users.findById(staffId);
+            if (existingUser?.profile) {
+
+                console.log(existingUser.profile);
+                const oldFilePath = path.join(__dirname, '..', existingUser.profile);
+                if (fs.existsSync(oldFilePath)) {
+                    fs.unlinkSync(oldFilePath);
+                }
             }
         }
+
+        const updatedUser = await Users.findOneAndUpdate(
+            { _id: staffId },
+            updateData,
+            { new: true }
+        );
+
+        if (!updatedUser) {
+            resModel.success = false;
+            resModel.message = "Error in updating staff";
+            return res.status(400).json(resModel);
+        }
+
+        resModel.success = true;
+        resModel.message = "Staff updated successfully";
+        resModel.data = updatedUser;
+        return res.status(200).json(resModel);
+
     } catch (error) {
+        console.error("Update error:", error);
         resModel.success = false;
-        resModel.message = "Internal Server Error";
-        resModel.data = null;
-        res.status(500).json(resModel);
+        resModel.message = error.message || "Internal Server Error";
+        return res.status(500).json(resModel);
     }
 };
 
