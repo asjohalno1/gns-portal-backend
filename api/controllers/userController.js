@@ -344,9 +344,9 @@ module.exports.uploadDocument = async (req, res) => {
         if (newUpload) {
             /**Notification */
             const newNotification = new notification({
-                clientlId: req?.userInfo?.clientId,
-                message:`Upload successful: ${subCategory?.name}`,
-                type:"Uploaded Document"
+                clientId: req?.userInfo?.clientId,
+                message: `Upload successful: ${subCategory?.name}`,
+                type: "Uploaded Document"
             });
             await newNotification.save();
             resModel.success = true;
@@ -639,31 +639,31 @@ module.exports.getAllNotifications = async (req, res) => {
         let formatReminders = (reminders) => {
             const today = new Date();
             const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-          
+
             return reminders.map(reminder => {
-              const title = reminder.customMessage.replace(/<[^>]+>/g, '').trim();
-          
-              const day = reminder.days[0]; // assuming only one day
-              const hourMin = reminder.scheduleTime;
-          
-              const targetDayIndex = dayNames.indexOf(day);
-              const todayIndex = today.getDay();
-          
-              let schedule;
-              if ((targetDayIndex - todayIndex + 7) % 7 === 1) {
-                schedule = `Scheduled for tomorrow at ${hourMin}`;
-              } else {
-                schedule = `Every ${day} at ${hourMin}`;
-              }
-          
-              return { title, schedule };
+                const title = reminder.customMessage.replace(/<[^>]+>/g, '').trim();
+
+                const day = reminder.days[0]; // assuming only one day
+                const hourMin = reminder.scheduleTime;
+
+                const targetDayIndex = dayNames.indexOf(day);
+                const todayIndex = today.getDay();
+
+                let schedule;
+                if ((targetDayIndex - todayIndex + 7) % 7 === 1) {
+                    schedule = `Scheduled for tomorrow at ${hourMin}`;
+                } else {
+                    schedule = `Every ${day} at ${hourMin}`;
+                }
+
+                return { title, schedule };
             });
-          };
+        };
         let data = formatReminders(upcomingRemainders);
         if (notificationRes) {
             resModel.success = true;
             resModel.message = "Get All Notifications Successfully";
-            resModel.data = { notification: notificationRes, upcomingRemainders:data };
+            resModel.data = { notification: notificationRes, upcomingRemainders: data };
             res.status(200).json(resModel);
         }
         else {

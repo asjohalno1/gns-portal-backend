@@ -351,7 +351,7 @@ module.exports.staffDashboard = async (req, res) => {
             summary.pendingRequests += pending;
             summary.overdue += overdue;
 
-            let statusUpdate = 'Completed';
+            let statusUpdate = '-';
             if (overdue > 0) statusUpdate = 'Overdue';
             else if (pending > 0) statusUpdate = 'Pending';
 
@@ -853,14 +853,14 @@ module.exports.sendReminder = async (req, res) => {
         await cronJobService(expression, clientId, templateId, notifyMethod, documentId, "", customMessage);
         /**Notification */
         let document = await DocumentRequest.findOne({ _id: documentId });
-         for (let i of clientId){
-        const newNotification = new notification({
-            clientlId: i,
-            message: `Requires Document: ${document?.doctitle}`,
-            type: "warning"
-        });
-        await newNotification.save();
-    }
+        for (let i of clientId) {
+            const newNotification = new notification({
+                clientlId: i,
+                message: `Requires Document: ${document?.doctitle}`,
+                type: "warning"
+            });
+            await newNotification.save();
+        }
         return res.status(200).json({
             success: true,
             message: "Reminder scheduled successfully.",
