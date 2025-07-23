@@ -18,6 +18,7 @@ const AutomatedRemainder = require('../models/automatedRemainder');
 const uploadDocument = require('../models/uploadDocuments')
 const uploadDocuments = require('../models/uploadDocuments');
 const subCategory = require('../models/subCategory');
+const notification = require('../models/notification');
 const staffService = require('../services/staff.services');
 const DefaultSettingRemainder = require('../models/defaultRemainder');
 const remainderServices = require('../services/remainder.services');
@@ -81,16 +82,16 @@ module.exports.documentRequest = async (req, res) => {
         function getRemainingWholeHours(dueDateStr) {
             const now = new Date(); // current time
             const dueDate = new Date(dueDateStr); // parse due date
-          
+
             const diffInMs = dueDate - now; // time difference in milliseconds
-          
+
             if (diffInMs <= 0) {
-              return "Deadline has passed.";
+                return "Deadline has passed.";
             }
-          
+
             const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60)); // convert to full hours only
-            return diffInHours ;
-          }
+            return diffInHours;
+        }
 
         const validPriorities = ['low', 'medium', 'high'];
         for (const [subCatId, priority] of Object.entries(subcategoryPriorities)) {
@@ -850,7 +851,16 @@ module.exports.sendReminder = async (req, res) => {
 
         let expression = await remainderServices(scheduleTime, days);
         await cronJobService(expression, clientId, templateId, notifyMethod, documentId, "", customMessage);
-
+        /**Notification */
+        let document = await DocumentRequest.findOne({ _id: documentId });
+         for (let i of clientId){
+        const newNotification = new notification({
+            clientlId: i,
+            message: `Requires Document: ${document?.doctitle}`,
+            type: "warning"
+        });
+        await newNotification.save();
+    }
         return res.status(200).json({
             success: true,
             message: "Reminder scheduled successfully.",
