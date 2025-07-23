@@ -526,6 +526,22 @@ module.exports.getAllClientsByStaff = async (req, res) => {
                     ].some(field => field?.toLowerCase().includes(keywordLower))
                 ) continue;
 
+                const findLinkStatus = await DocumentRequest.findOne(
+                    { _id: doc.request },
+                    { linkStatus: 1, _id: 0 }
+                );
+                let linkStatus = findLinkStatus?.linkStatus || "-";
+                const now = new Date();
+                const dueDate = new Date(doc.dueDate);
+
+                if (dueDate < now) {
+                    linkStatus = "Expired";
+                } else {
+                    const hoursUntilDue = (dueDate - now) / (1000 * 60 * 60);
+                    if (hoursUntilDue <= 24) {
+                        linkStatus = "Expire Soon";
+                    }
+                }
 
                 allDocs.push({
                     documentRequiredTitle: doc.title,
@@ -536,7 +552,7 @@ module.exports.getAllClientsByStaff = async (req, res) => {
                     dateRequested: doc.createdAt,
                     doctitle: doc.doctitle,
                     isUploaded: doc.isUploaded,
-                    linkStatus: doc.linkStatus,
+                    linkStatus,
                     dueDate: doc.dueDate,
                     createdAt: doc.createdAt
                 });
@@ -1550,6 +1566,14 @@ module.exports.updateUploadedDocument = async (req, res) => {
 module.exports.getDocumentRequestById = async (req, res) => {
     try {
         const { id } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            resModel.success = false;
+            resModel.message = "Invalid document ID";
+            resModel.data = null;
+            return res.status(400).json(resModel);
+        }
+
         const objectId = new mongoose.Types.ObjectId(id);
 
         const dataRes = await uploadDocuments.find({ request: objectId })
@@ -1563,11 +1587,9 @@ module.exports.getDocumentRequestById = async (req, res) => {
                 files: doc.files.map(file => file.path)
             }));
 
-            // Calculate total and uploaded counts
             const totalDocs = dataRes.length;
             const uploadedDocs = dataRes.filter(doc => doc.isUploaded).length;
 
-            // Add progressBar field
             const progressBar = {
                 total: totalDocs,
                 uploaded: uploadedDocs
@@ -1597,6 +1619,7 @@ module.exports.getDocumentRequestById = async (req, res) => {
 
 
 
+
 module.exports.updateDocumentRequestStatus = async (req, res) => {
     try {
         const { requestId, subCatId, data } = req.body;
@@ -1612,7 +1635,7 @@ module.exports.updateDocumentRequestStatus = async (req, res) => {
         const requestObjId = new mongoose.Types.ObjectId(requestId);
         const subCatObjId = new mongoose.Types.ObjectId(subCatId);
 
-        // Build update object conditionally
+
         const updateFields = {
             updatedAt: new Date(),
         };
