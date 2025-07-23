@@ -75,6 +75,19 @@ module.exports.documentRequest = async (req, res) => {
             resModel.message = "clientId, categoryId and subCategoryId must be arrays";
             return res.status(400).json(resModel);
         }
+        function getRemainingWholeHours(dueDateStr) {
+            const now = new Date(); // current time
+            const dueDate = new Date(dueDateStr); // parse due date
+          
+            const diffInMs = dueDate - now; // time difference in milliseconds
+          
+            if (diffInMs <= 0) {
+              return "Deadline has passed.";
+            }
+          
+            const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60)); // convert to full hours only
+            return diffInHours ;
+          }
 
         const validPriorities = ['low', 'medium', 'high'];
         for (const [subCatId, priority] of Object.entries(subcategoryPriorities)) {
@@ -212,7 +225,7 @@ module.exports.documentRequest = async (req, res) => {
                     requestId: requestRes._id,
                     email: clientRes.email
                 };
-
+                let expiration = getRemainingWholeHours(dueDate);
                 const expiresIn = parseInt(expiration);
                 const requestLink = await jwt.linkToken(tokenInfo, expiresIn);
 

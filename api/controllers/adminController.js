@@ -211,7 +211,7 @@ module.exports.addClient = async (req, res) => {
         });
         await newAssign.save();
         const getStaff = await Users.findOne({ _id: staffId });
-        const staticRoot = await createClientFolder(getStaff?.first_name,"",email) ;
+        const staticRoot = await createClientFolder(getStaff?.first_name,null,email,staffId) ;
         const clientsRootId = await createClientFolder("Clients", staticRoot,email);
         await createClientFolder(name, clientsRootId, email);
         if (savedClient) {

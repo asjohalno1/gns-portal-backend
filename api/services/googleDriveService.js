@@ -1,6 +1,7 @@
 const { google } = require('googleapis');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
+const Users = require('../models/userModel');
 const fs = require('fs');
 const { logger } = require('sequelize/lib/utils/logger');
 const KEYFILEPATH = path.join(__dirname, '../../cpa-project-new-c6a5d789e270.json'); // your service account key
@@ -13,7 +14,7 @@ const auth = new google.auth.GoogleAuth({
 
 const drive = google.drive({ version: 'v3', auth });
 
-const createClientFolder = async (name, parentId = null, Email) => {
+const createClientFolder = async (name, parentId = null,Email,_id) => {
     try {
         const q = `'${parentId ? parentId : 'root'}' in parents and name = '${name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
         const res = await drive.files.list({ q, fields: 'files(id, name)' });
@@ -39,6 +40,12 @@ const createClientFolder = async (name, parentId = null, Email) => {
                 emailAddress: Email, // 🔁 Replace with your actual Gmail address
             },
         });
+        if(parentId == null){
+            await Users.findByIdAndUpdate(
+                _id,
+                { folderId:folder.data.id }
+            );
+        }
 
         return folder.data.id;
     } catch (error) {
