@@ -311,12 +311,14 @@ module.exports.getAllUser = async (req, res) => {
  */
 module.exports.uploadDocument = async (req, res) => {
     const id = req?.body?.requestId;
+    const staffId = req?.userInfo?.userId
     try {
         const { categoryId, subCategoryId, notes } = req.body;
         let files = req.files;
-        let clientRes = await clientModel.findOne({ _id: req?.userInfo?.clientId });
-        // await uploadFileToFolder(clientRes?.name, files, "Bookkeeping", clientRes?.email);
-        // await clientModel.findOneAndUpdate({ _id: req?.userInfo?.clientId }, { folderId: client });
+        // let clientRes = await clientModel.findOne({ _id: req?.userInfo?.clientId });
+         let subCategory = await subCategoryModel.findOne({ _id: subCategoryId });
+        // let userRes = await User.findOne({ _id: staffId });
+        // await uploadFileToFolder(clientRes?.name, files, subCategory?.name, clientRes?.email, userRes?.first_name);
         const uploadInfo = {
             request: id,
             clientEmail: req?.userInfo?.email.toLowerCase(),
@@ -331,7 +333,7 @@ module.exports.uploadDocument = async (req, res) => {
             status: "pending",
 
         };
-        const subCategory = await subCategoryModel.findOne({ _id: subCategoryId });
+
         let logInfo = {
             clientId: req?.userInfo?.clientId,
             title: "Document Uploaded",
