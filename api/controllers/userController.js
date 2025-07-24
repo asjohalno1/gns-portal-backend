@@ -329,7 +329,7 @@ module.exports.uploadDocument = async (req, res) => {
         const { categoryId, subCategoryId, notes } = req.body;
         let files = req.files;
         // let clientRes = await clientModel.findOne({ _id: req?.userInfo?.clientId });
-         let subCategory = await subCategoryModel.findOne({ _id: subCategoryId });
+        let subCategory = await subCategoryModel.findOne({ _id: subCategoryId });
         // let userRes = await User.findOne({ _id: staffId });
         // await uploadFileToFolder(clientRes?.name, files, subCategory?.name, clientRes?.email, userRes?.first_name);
         const uploadInfo = {
@@ -699,7 +699,7 @@ module.exports.getAllNotifications = async (req, res) => {
 
 exports.getClientDocu = async (req, res) => {
     try {
-        const staffId = req?.userInfo?.userId;
+        const staffId = req?.userInfo?.id;
         const staffRes = await User.findOne({ _id: staffId });
         const data = await listFilesInFolderStructure(staffRes?.folderId);
         if (!data) {
