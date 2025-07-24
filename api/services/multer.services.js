@@ -60,11 +60,11 @@ function createUpload(folder = '') {
     return multer({
       storage,
       fileFilter,
-      limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit for these files too
+      limits: { fileSize: 10 * 1024 * 1024 }
     });
   } catch (err) {
     console.error('Error creating upload:', err);
-    throw err; // Re-throw to handle at calling level
+    throw err;
   }
 }
 
@@ -72,7 +72,7 @@ const uploadProfile = createUpload('profile-images', ['.jpg', '.jpeg', '.png']);
 
 
 module.exports = {
-  uploadPDF: uploadFiles, // Renamed to be more accurate
+  uploadPDF: uploadFiles,
   createUpload,
   uploadProfile: uploadProfile
 };

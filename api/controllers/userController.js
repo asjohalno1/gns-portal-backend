@@ -21,6 +21,7 @@ const remainder = require('../models/remainer');
 
 
 const { listFilesInFolderStructure, uploadFileToFolder } = require('../services/googleDriveService.js');
+const { default: mongoose } = require('mongoose');
 
 
 
@@ -243,25 +244,37 @@ module.exports.googleWithLogin = async (req, res) => {
 module.exports.getUserDetails = async (req, res) => {
     try {
         const { id } = req.params;
-        let _id = id
-        // Find product by ID
-        const user = await User.findById(_id);
+
+        let _id = id;
+        if (!_id || !mongoose.Types.ObjectId.isValid(_id)) {
+            resModel.success = false;
+            resModel.message = "Invalid or missing ID";
+            resModel.data = null;
+            return res.status(400).json(resModel);
+        }
+
+        let user = await User.findById(_id);
+
+        if (!user) {
+            user = await clientModel.findById(_id);
+        }
+
         if (!user) {
             resModel.success = false;
-            resModel.message = "User Does't Exists";
+            resModel.message = "User doesn't exist";
             resModel.data = null;
-            res.status(400).json(resModel)
-        } else {
-            resModel.success = true;
-            resModel.message = "User Details Found Successfully";
-            resModel.data = user;
-            res.status(200).json(resModel);
+            return res.status(404).json(resModel);
         }
+        resModel.success = true;
+        resModel.message = "User Details Found Successfully";
+        resModel.data = user;
+        return res.status(200).json(resModel);
     } catch (error) {
+        console.error("Error in getUserDetails:", error);
         resModel.success = false;
-        resModel.message = "Internel Server Error";
+        resModel.message = "Internal Server Error";
         resModel.data = null;
-        res.status(500).json(resModel)
+        return res.status(500).json(resModel);
     }
 };
 
@@ -857,8 +870,11 @@ module.exports.getDocumentById = async (req, res) => {
 
 
 module.exports.getUserProfile = async (req, res) => {
+
+
     try {
         const clientId = req.userInfo?.clientId;
+        console.log(clientId);
         const user = await clientModel.findById(clientId).select("-password");
 
         if (!user) {
@@ -879,5 +895,51 @@ module.exports.getUserProfile = async (req, res) => {
         resModel.message = "Internal Server Error";
         resModel.data = null;
         res.status(500).json(resModel);
+    }
+};
+
+
+
+
+module.exports.updateClientDetails = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updateData = req.body;
+        if (req.file) {
+            updateData.profilePicture = `/uploads/profile-images/${req.file.filename}`;
+        }
+
+        if (!id) {
+            return res.status(400).json({
+                success: false,
+                message: "Client ID is required",
+                data: null,
+            });
+        }
+        const updatedClient = await clientModel.findByIdAndUpdate(id, updateData, {
+            new: true,
+            runValidators: true,
+        });
+
+        if (!updatedClient) {
+            return res.status(404).json({
+                success: false,
+                message: "Client not found",
+                data: null,
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Client details updated successfully",
+            data: updatedClient,
+        });
+    } catch (error) {
+        console.error("Error updating client:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            data: null,
+        });
     }
 };

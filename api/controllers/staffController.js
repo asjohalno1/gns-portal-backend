@@ -1816,7 +1816,6 @@ exports.addGoogleMaping = async (req, res) => {
  */
 module.exports.updateStaff = async (req, res) => {
 
-    console.log(req.file);
     const resModel = {
         success: false,
         message: "",
@@ -1837,15 +1836,10 @@ module.exports.updateStaff = async (req, res) => {
             address
         };
 
-        // Handle file upload if present
         if (req.file) {
-            // Construct the file path (adjust according to your storage)
             updateData.profile = `/uploads/profile-images/${req.file.filename}`;
-
-            // Optional: Delete old profile picture if exists
             const existingUser = await Users.findById(staffId);
             if (existingUser?.profile) {
-
                 console.log(existingUser.profile);
                 const oldFilePath = path.join(__dirname, '..', existingUser.profile);
                 if (fs.existsSync(oldFilePath)) {
