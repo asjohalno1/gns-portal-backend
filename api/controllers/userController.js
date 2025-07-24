@@ -699,7 +699,7 @@ module.exports.getAllNotifications = async (req, res) => {
 
 exports.getClientDocu = async (req, res) => {
     try {
-        const staffId = req?.userInfo?.id;
+        const staffId = req?.userInfo?.userId;
         const staffRes = await User.findOne({ _id: staffId });
         const data = await listFilesInFolderStructure(staffRes?.folderId);
         if (!data) {
