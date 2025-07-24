@@ -168,6 +168,54 @@ const listFilesInFolderStructure = async (parentFolderId) => {
 };
 
 
+const deleteAllFolders = async () => {
+    try {
+        const foldersRes = await drive.files.list({
+            q: `mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+            fields: 'files(id, name)',
+            pageSize: 1000, // adjust if needed
+        });
+
+        const folders = foldersRes.data.files;
+
+        if (!folders.length) {
+            console.log('ℹ️ No folders found.');
+            return;
+        }
+
+        for (const folder of folders) {
+            console.log(`🧹 Deleting folder: ${folder.name} (${folder.id})`);
+            await deleteFolderRecursively(folder.id);
+        }
+
+        console.log('✅ All folders deleted.');
+    } catch (error) {
+        console.error('❌ Error deleting folders:', error.message);
+    }
+};
+
+const deleteFolderRecursively = async (folderId) => {
+    const listRes = await drive.files.list({
+        q: `'${folderId}' in parents and trashed = false`,
+        fields: 'files(id, name, mimeType)',
+    });
+
+    const files = listRes.data.files;
+
+    for (const file of files) {
+        if (file.mimeType === 'application/vnd.google-apps.folder') {
+            await deleteFolderRecursively(file.id);
+        } else {
+            await drive.files.delete({ fileId: file.id });
+            console.log(`🗑️ Deleted file: ${file.name}`);
+        }
+    }
+
+    await drive.files.delete({ fileId: folderId });
+    console.log(`📁 Deleted folder: ${folderId}`);
+};
+
+
 
 
 
@@ -175,5 +223,6 @@ const listFilesInFolderStructure = async (parentFolderId) => {
 module.exports = {
     uploadFileToFolder,
     listFilesInFolderStructure,
-    createClientFolder
+    createClientFolder,
+    deleteAllFolders
 };

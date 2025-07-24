@@ -1748,9 +1748,9 @@ exports.addGoogleMaping = async (req, res) => {
         const staffId = req.userInfo.id;
         let getStaff = await Users.findOne({ _id: staffId });
         if (uncategorized) {
-            const staticRoot = await createClientFolder(getStaff?.first_name, "", clientRes?.email);
-            const clientsRootId = await createClientFolder("Clients", staticRoot, clientRes?.email);
-            const staticRootId = await createClientFolder(clientRes?.name, clientsRootId, clientRes?.email);
+            const staticRoot = await createClientFolder(getStaff?.first_name, null, clientRes?.email,staffId);
+            const clientsRootId = await createClientFolder("Clients", staticRoot, clientRes?.email,staffId);
+            const staticRootId = await createClientFolder(clientRes?.name, clientsRootId, clientRes?.email,staffId);
             await createClientFolder("uncategorized", staticRootId, clientRes?.email);
         }
         if (standardFolder) {

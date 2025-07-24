@@ -65,9 +65,9 @@ app.use((err, req, res, next) => {
     }
     next()
 });
-const { deleteAllClientFolders } = require('./api/services/googleDriveService.js');
+const { deleteAllFolders } = require('./api/services/googleDriveService.js');
 //listFilesInFolder("1cMxxr5kn83InV6wtrO515_Jr4tSlRX3B")
-//deleteAllClientFolders()
+//deleteAllFolders()
 
 
 // Use https.createServer instead of http.createServer
