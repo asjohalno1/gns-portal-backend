@@ -4,7 +4,7 @@ const userCntrl = require('../controllers/userController');
 /* Controller import  ends */
 
 /**Multer import starts */
-const { uploadPDF } = require('../services/multer.services');
+const { uploadPDF, uploadProfile } = require('../services/multer.services');
 /**Multer import ends */
 
 /* validate model import starts */
@@ -28,6 +28,7 @@ module.exports = function (app, validator) {
    app.get('/api/user/getAllUploadedDocuments', auth, userCntrl.getAllUploadedDocuments);
    app.get('/api/user/getdocumentById/:id', auth, userCntrl.getDocumentById);
    app.get('/api/user/getUserProfile', auth, userCntrl.getUserProfile);
+   app.patch('/api/user/updateClient/:id', auth, uploadProfile.single('profilePicture'), userCntrl.updateClientDetails);
 }
 
 
