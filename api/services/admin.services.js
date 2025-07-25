@@ -7,8 +7,9 @@ const assignClient = require('../models/assignClients');
 const uploadDocuments = require('../models/uploadDocuments');
 const userModel = require('../models/userModel');
 const logModel = require('../models/userLog');
+const requestDocument = require('../models/documentRequest');
 
-const clientService = () => {
+const SuperAdminService = () => {
 
     const getAllClients = async (query) => {
         try {
@@ -344,6 +345,126 @@ const clientService = () => {
             throw error;
         }
     };
+    const getDocumentManagement = async (query) => {
+        try {
+            const search = query.search?.toLowerCase() || "";
+            const page = parseInt(query.page) || 1;
+            const limit = parseInt(query.limit) || 10;
+            const skip = (page - 1) * limit;
+
+            // Build dynamic search query
+            const searchQuery = {};
+            if (search) {
+                const clientIds = await Client.find({ name: { $regex: search, $options: "i" } }).distinct('_id');
+                const categoryIds = await Category.find({ name: { $regex: search, $options: "i" } }).distinct('_id');
+
+                searchQuery.$or = [
+                    { clientId: { $in: clientIds } },
+                    { category: { $in: categoryIds } },
+                    { doctitle: { $regex: search, $options: "i" } }
+                ];
+            }
+
+            const documents = await requestDocument
+                .find(searchQuery)
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit);
+
+
+            const enrichedDocs = await Promise.all(
+                documents.map(async (doc) => {
+                    const client = await Client.findById(doc.clientId);
+                    const clientName = client?.name || "N/A";
+
+                    const assignTo = await assignClient.findOne({ clientId: doc.clientId });
+                    let assignedToName = "N/A";
+                    if (assignTo?.staffId) {
+                        const staff = await userModel.findById(assignTo.staffId);
+                        if (staff) {
+                            assignedToName = `${staff.first_name} ${staff.last_name}`;
+                        }
+                    }
+
+                    const categories = await Category.find({ _id: { $in: doc.category || [] } });
+                    const categoryNames = categories.map(cat => cat.name);
+
+                    const uploads = await uploadDocuments.find({ request: doc._id });
+                    const totalUploaded = uploads.filter(u => u.isUploaded).length;
+                    const totalRequested = uploads.length;
+
+                    let status = 'pending';
+                    if (totalUploaded === totalRequested && totalRequested > 0) {
+                        status = 'complete';
+                    } else if (totalUploaded > 0) {
+                        status = 'partially fulfilled';
+                    }
+
+
+
+                    return {
+                        doctitle: doc.doctitle || "N/A",
+                        dueDate: doc.dueDate || null,
+                        clientName,
+                        assignedTo: assignedToName,
+                        categories: categoryNames,
+                        status: status,
+
+                    };
+                })
+            );
+            const totalDocsCount = await requestDocument.countDocuments();
+
+            const allDocumentsForSummary = await requestDocument.find({});
+
+            // Prepare header summary
+            let totalComplete = 0;
+            let totalPending = 0;
+            let overdue = 0;
+
+            for (const doc of allDocumentsForSummary) {
+                const uploads = await uploadDocuments.find({ request: doc._id });
+                const totalUploaded = uploads.filter(u => u.isUploaded).length;
+
+                const totalRequested = uploads.length;
+                if (totalUploaded && totalRequested > 0) {
+                    totalComplete++;
+                } else if (totalUploaded == 0) {
+                    totalPending++;
+                }
+
+
+                const dueDate = new Date(doc.dueDate);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                if (dueDate < today) {
+                    overdue++;
+                }
+            }
+
+
+            return {
+                documents: enrichedDocs,
+                totalDocuments: totalDocsCount,
+                currentPage: page,
+                totalPages: Math.ceil(totalDocsCount / limit),
+                headerTotal: {
+                    totalReq: allDocumentsForSummary.length,
+                    totalComplete,
+                    totalPending,
+                    overdue,
+                },
+
+            };
+
+        } catch (error) {
+            console.error("Error in getDocumentManagement:", error);
+            throw error;
+        }
+    };
+
+
 
 
     return {
@@ -351,8 +472,9 @@ const clientService = () => {
         parseClients,
         addBulkClients,
         getAdminDashboard,
-        getAllStaff
+        getAllStaff,
+        getDocumentManagement
     };
 };
 
-module.exports = clientService;
+module.exports = SuperAdminService;

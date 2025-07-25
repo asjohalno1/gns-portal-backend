@@ -50,6 +50,7 @@ module.exports = function (app, validator) {
 
   /**Admin Routes's starts */
   app.get('/api/admin/dashboard', adminCntrl.getAdminDashboard);
+  app.get('/api/admin/documentmanagement', adminCntrl.getDocumentManagement);
   /**Admin Routes's ends */
 
 
