@@ -253,7 +253,7 @@ module.exports.addClient = async (req, res) => {
  */
 module.exports.updateClient = async (req, res) => {
     try {
-        const clientId = req.userInfo.clientId;
+        const clientId = req.params.id;
         const { dateOfBirth, isGoogleDrive, name, email, phoneNumber, address, company, notes, status } = req.body;
         let updatedData = {
             name,
@@ -667,6 +667,89 @@ module.exports.getAllStaff = async (req, res) => {
         res.status(500).json(resModel);
     }
 }
+
+
+/**
+ * @api {get} /api/admin/documentmanagement Get Document Management
+ * @apiName GetDocumentManagement
+ * @apiGroup Admin
+ * @apiDescription API to fetch Document Management.
+ * @apiSampleRequest http://localhost:2001/api/admin/documentmanagement
+ */
+
+module.exports.getDocumentManagement = async (req, res) => {
+    try {
+        const documentManagement = await SuperAdminService().getDocumentManagement(req.query);
+        if (!documentManagement) {
+            resModel.success = false;
+            resModel.message = "Data not found";
+            resModel.data = [];
+            res.status(404).json(resModel);
+        } else {
+            resModel.success = true;
+            resModel.message = "Data Found Successfully";
+            resModel.data = documentManagement;
+            res.status(200).json(resModel);
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+}
+
+/**
+ * @api {get} /api/clientsatff/details/:id  Get Client Staff Details
+ * @apiName Get Client Staff Details
+ * @apiGroup Client
+ * @apiDescription client Service...
+ * @apiSampleRequest http://localhost:2001/api/clientsatff/details/:id
+ */
+module.exports.getclientStaffDetails = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const client = await Client.findById(id);
+        if (!client) {
+            return res.status(400).json({
+                success: false,
+                message: "Client Doesn't Exist",
+                data: null,
+            });
+        }
+
+        // Get staff assigned to this client
+        const assigned = await assignClient.findOne({ clientId: id }).populate('staffId');
+        let assignedStaff = null;
+        if (assigned && assigned.staffId) {
+            assignedStaff = {
+                _id: assigned.staffId._id,
+                first_name: assigned.staffId.first_name,
+                last_name: assigned.staffId.last_name,
+                email: assigned.staffId.email,
+                profile: assigned.staffId.profile,
+                phoneNumber: assigned.staffId.phoneNumber,
+                role_id: assigned.staffId.role_id,
+            };
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Client Details Found Successfully",
+            data: {
+                client,
+                assignedStaff,
+            },
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null,
+        });
+    }
+}
+
 
 
 /**

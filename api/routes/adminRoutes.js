@@ -32,7 +32,7 @@ module.exports = function (app, validator) {
   app.get('/api/client/getAllClient', adminCntrl.getAllClient)
   app.get('/api/staff/getAllStaff', adminCntrl.getAllStaff)
   app.get('/api/client/details/:id', validator.params(adminModel.commonId), adminCntrl.getclientDetails)
-  app.put('/api/client/update', auth, adminCntrl.updateClient)
+  app.put('/api/client/update/:id',validator.params(adminModel.commonId), adminCntrl.updateClient)
   app.post('/api/client/uploadCsv', upload.single('file'), adminCntrl.uploadClientCsv)
   /*** Client Routes's ends */
 
@@ -45,6 +45,7 @@ module.exports = function (app, validator) {
 
   /**Assign Clients Routes Start */
   app.post('/api/client/assign', auth, validator.body(adminModel.assignClients), adminCntrl.assignClients)
+  app.get('/api/clientsatff/details/:id', validator.params(adminModel.commonId), adminCntrl.getclientStaffDetails)
   /**Assign Clients Routes Ends */
 
 
