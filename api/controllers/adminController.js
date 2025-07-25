@@ -211,8 +211,8 @@ module.exports.addClient = async (req, res) => {
         });
         await newAssign.save();
         const getStaff = await Users.findOne({ _id: staffId });
-        const staticRoot = await createClientFolder(getStaff?.first_name,null,email,staffId) ;
-        const clientsRootId = await createClientFolder("Clients", staticRoot,email);
+        const staticRoot = await createClientFolder(getStaff?.first_name, null, email, staffId);
+        const clientsRootId = await createClientFolder("Clients", staticRoot, email);
         await createClientFolder(name, clientsRootId, email);
         if (savedClient) {
             resModel.success = true;
@@ -253,8 +253,8 @@ module.exports.addClient = async (req, res) => {
  */
 module.exports.updateClient = async (req, res) => {
     try {
-        const clientId = req.userInfo.clientId;
-        const {dateOfBirth, isGoogleDrive, name, email, phoneNumber, address, company, notes, status } = req.body;
+        const clientId = req.params.id;
+        const { dateOfBirth, isGoogleDrive, name, email, phoneNumber, address, company, notes, status } = req.body;
         let updatedData = {
             name,
             email: email.toLowerCase(),
@@ -264,10 +264,10 @@ module.exports.updateClient = async (req, res) => {
             notes,
             status: status || false,
             isGoogleDrive,
-            dateOfBirth:dateOfBirth
+            dateOfBirth: dateOfBirth
         };
         const updatedClient = await Client.findByIdAndUpdate(clientId, updatedData, { new: true });
-       // const existingAssign = await assignClient.findOne({ clientId: clientId });
+        // const existingAssign = await assignClient.findOne({ clientId: clientId });
         // if (existingAssign) {
         //     existingAssign.staffId = staffId;
         //     await existingAssign.save();
@@ -667,3 +667,54 @@ module.exports.getAllStaff = async (req, res) => {
         res.status(500).json(resModel);
     }
 }
+
+/**
+ * @api {get} /api/clientsatff/details/:id  Get Client Staff Details
+ * @apiName Get Client Staff Details
+ * @apiGroup Client
+ * @apiDescription client Service...
+ * @apiSampleRequest http://localhost:2001/api/clientsatff/details/:id
+ */
+module.exports.getclientStaffDetails = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const client = await Client.findById(id);
+        if (!client) {
+            return res.status(400).json({
+                success: false,
+                message: "Client Doesn't Exist",
+                data: null,
+            });
+        }
+
+        // Get staff assigned to this client
+        const assigned = await assignClient.findOne({ clientId: id }).populate('staffId');
+        let assignedStaff = null;
+        if (assigned && assigned.staffId) {
+            assignedStaff = {
+                _id: assigned.staffId._id,
+                first_name: assigned.staffId.first_name,
+                last_name: assigned.staffId.last_name,
+                email: assigned.staffId.email,
+                profile: assigned.staffId.profile,
+                phoneNumber: assigned.staffId.phoneNumber,
+                role_id: assigned.staffId.role_id,
+            };
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Client Details Found Successfully",
+            data: {
+                client,
+                assignedStaff,
+            },
+        });
+
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
