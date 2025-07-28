@@ -19,8 +19,9 @@ const allowedOrigins = [
     "http://localhost:2001",
     "http://44.211.113.36:8076",
     "http://44.211.113.36:8076",
-    "http://meanstack.smartdatainc.com",
-    "https://meanstack.smartdatainc.com:8076"
+    "https://meanstack.smartdatainc.com",
+    "https://meanstack.smartdatainc.com:8076",
+    "https://meanstack.smartdatainc.com:8075"
 
 ];
 
