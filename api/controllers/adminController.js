@@ -781,3 +781,102 @@ module.exports.getDocumentManagement = async (req, res) => {
         res.status(500).json(resModel);
     }
 }
+
+
+/**
+ * @api {post} /api/admin/documentrequest Admin Document Request
+ * @apiName AdminDocumentRequest
+ * @apiGroup Admin
+ * @apiDescription API to create a document request for admin.
+ * @apiBody {String} templateId Document template ID.
+ * @apiBody {String} clientId Client ID.
+ * @apiBody {String} subCategoryId Sub-category ID.
+ * @apiBody {String} categoryId Category ID.
+ * @apiHeader {String} Authorization Bearer token
+ * @apiSampleRequest http://localhost:2001/api/admin/documentrequest
+ */
+module.exports.AdminDocumentRequest = async (req, res) => {
+    try {
+        const { templateId, clientId, subCategoryId, categoryId } = req.body;
+        const documentRequest = await SuperAdminService().createDocumentRequest({
+            templateId,
+            clientId,
+            subCategoryId,
+            categoryId
+        });
+
+        if (!documentRequest) {
+            resModel.success = false;
+            resModel.message = "Error While Creating Document Request";
+            resModel.data = null;
+            res.status(400).json(resModel);
+        } else {
+            resModel.success = true;
+            resModel.message = "Document Request Created Successfully";
+            resModel.data = documentRequest;
+            res.status(200).json(resModel);
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+}
+
+
+
+// get all client listing without pagination for admin 
+
+module.exports.getAllClientsWithoutPagination = async (req, res) => {
+    try {
+        const clients = await Client.find().sort({ createdAt: -1 });
+        if (!clients) {
+            resModel.success = false;
+            resModel.message = "Clients not found";
+            resModel.data = [];
+            res.status(404).json(resModel);
+        } else {
+            resModel.success = true;
+            resModel.message = "Clients Found Successfully";
+            resModel.data = clients;
+            res.status(200).json(resModel);
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+}
+
+
+
+module.exports.getAssociatedSubCategory = async (req, res) => {
+    try {
+        const categoryId = req.query.id;
+        console.log(categoryId);
+
+        if (!categoryId) {
+            return res.status(400).json({
+                success: false,
+                message: "Category ID is required",
+                data: null,
+            });
+        }
+
+        const subCategories = await subCategory.find({ categoryId: categoryId });
+
+        resModel.success = true;
+        resModel.message = "Subcategories fetched successfully";
+        resModel.data = subCategories;
+        res.status(200).json(resModel);
+
+    } catch (error) {
+        console.error("Error in getSubCategoriesByCategoryId:", error);
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};

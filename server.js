@@ -17,7 +17,8 @@ const allowedOrigins = [
     "http://localhost:8075",
     "http://localhost:8077",
     "http://localhost:2001",
-    "http://44.211.113.36:8076"
+    "http://44.211.113.36:8076",
+    "http://meanstack.smartdatainc.com"
 ];
 
 // ✅ CORS setup
