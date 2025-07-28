@@ -9,7 +9,11 @@ const app = express();
 // ✅ Allowed frontend origins
 const allowedOrigins = [
     "http://localhost:5173", // dev frontend
-    "http://localhost:2001" // production frontend domain
+    "http://localhost:2001", // production frontend domain
+    "http://44.211.113.36:8076",
+    "http://meanstack.smartdatainc.com",
+    "https://meanstack.smartdatainc.com:8076"
+
 ];
 
 // ✅ CORS setup
@@ -34,7 +38,7 @@ app.use((req, res, next) => {
 });
 
 app.use(bodyParser.urlencoded({ extended: true }))
-app.use(bodyParser.json({limit :'100mb'}))
+app.use(bodyParser.json({ limit: '100mb' }))
 console.log("NODE_ENV:", process.env.NODE_ENV);
 
 app.use('/apidoc', express.static(path.join(__dirname, '/apidoc/doc')));
@@ -54,9 +58,9 @@ app.use((err, req, res, next) => {
     }
     next()
 });
- const { deleteAllClientFolders} = require('./api/services/googleDriveService.js');
- //listFilesInFolder("1cMxxr5kn83InV6wtrO515_Jr4tSlRX3B")
- //deleteAllClientFolders()
+const { deleteAllClientFolders } = require('./api/services/googleDriveService.js');
+//listFilesInFolder("1cMxxr5kn83InV6wtrO515_Jr4tSlRX3B")
+//deleteAllClientFolders()
 
 app.listen(process.env.PORT, () => {
     console.log(`app listening on port ${process.env.PORT}!`)
