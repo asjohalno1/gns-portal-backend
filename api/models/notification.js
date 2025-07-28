@@ -2,7 +2,7 @@
 const mongoose = require('mongoose');
 
 const notificationSchema = new mongoose.Schema({
-  emailId: {
+  clientId: {
     type: String,
     required: true,
   },

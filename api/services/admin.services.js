@@ -6,8 +6,10 @@ let Category = require("../models/category");
 const assignClient = require('../models/assignClients');
 const uploadDocuments = require('../models/uploadDocuments');
 const userModel = require('../models/userModel');
+const logModel = require('../models/userLog');
+const requestDocument = require('../models/documentRequest');
 
-const clientService = () => {
+const SuperAdminService = () => {
 
     const getAllClients = async (query) => {
         try {
@@ -23,38 +25,71 @@ const clientService = () => {
             const limit = parseInt(pageLimit);
             const skip = (page - 1) * limit;
 
-            // Build dynamic filter
+            // 🔍 Build dynamic filter
             const filter = {};
             if (name) {
-                filter.name = { $regex: name, $options: 'i' }; // case-insensitive
+                filter.name = { $regex: name, $options: 'i' };
             }
             if (email) {
                 filter.email = { $regex: email, $options: 'i' };
             }
-            if (status !== undefined) {
-                filter.status = status === 'true' ? true : false
+
+
+            if (status && status.toLowerCase() === 'all') {
+            } else if (status && status.toLowerCase() === 'true') {
+                filter.status = true;
+            } else {
+                filter.status = false;
             }
+
+
 
             const clients = await Client.find(filter)
                 .skip(skip)
                 .limit(limit)
                 .sort({ createdAt: -1 })
-                .select('name email phoneNumber city state status createdAt');
+                .select('_id name email phoneNumber city state status createdAt');
+
+            const clientIds = clients.map(c => c._id);
+            const assignments = await assignClient.find({ clientId: { $in: clientIds } }).populate('staffId');
+
+            const assignmentMap = {};
+            for (const assignment of assignments) {
+                if (assignment.staffId) {
+                    assignmentMap[assignment.clientId.toString()] = {
+                        firstName: assignment.staffId.first_name,
+                        lastName: assignment.staffId.last_name,
+                        email: assignment.staffId.email,
+                        profile: assignment.staffId.profile,
+                    };
+                }
+            }
+
+            const enrichedClients = clients.map(client => {
+                const assignedStaff = assignmentMap[client._id.toString()] || null;
+                return {
+                    ...client.toObject(),
+                    assignedTo: assignedStaff ? `${assignedStaff.firstName} ${assignedStaff.lastName}` : null,
+
+                };
+            });
 
             const totalClients = await Client.countDocuments(filter);
             const totalPages = Math.ceil(totalClients / limit);
 
             return {
-                clients,
+                clients: enrichedClients,
                 totalClients,
                 totalPages,
+                limit,
                 currentPage: page,
-                pageSize: clients.length,
+                pageSize: enrichedClients.length,
             };
         } catch (error) {
             throw new Error(error.message);
         }
     };
+
     function parseCSV(filePath) {
         return new Promise((resolve, reject) => {
             const results = [];
@@ -113,10 +148,12 @@ const clientService = () => {
             const search = query.search?.toLowerCase() || '';
             const page = parseInt(query.page) || 1;
             const limit = parseInt(query.limit) || 10;
+            const statusFilter = query.status || 'all';
             const skip = (page - 1) * limit;
-    
-            const assignedClients = await assignClient.find();
+
+            const assignedClients = await assignClient.find().populate('clientId');
             const userRes = await userModel.find({});
+
             let fullDashboardData = [];
             let summary = {
                 totalClients: assignedClients?.length,
@@ -127,52 +164,52 @@ const clientService = () => {
                 completedToday: 0,
                 activeAssigments: 0
             };
-    
+
             let urgentTasks = {
                 overdue: [],
                 today: [],
                 tomorrow: []
             };
-    
+
             const now = new Date();
-    
+
             for (const assignment of assignedClients) {
                 const client = assignment.clientId;
                 if (!client) continue;
-    
+
                 const docs = await uploadDocuments.find({ clientId: client._id }).sort({ updatedAt: -1 });
                 const totalRequests = docs.length;
                 const completed = docs.filter(doc => doc.status === 'accepted').length;
                 const pending = docs.filter(doc => doc.status === 'pending').length;
                 const overdue = docs.filter(doc => doc.dueDate && new Date(doc.dueDate) < now && doc.status === 'pending').length;
                 const notExpiredLinks = docs.filter(doc => doc.linkExpire && new Date(doc.linkExpire) > now && doc.status === 'pending').length;
-    
+
                 summary.completedDocumentsRequest += completed;
                 summary.activeSecureLink += notExpiredLinks;
                 summary.activeAssigments += notExpiredLinks;
                 summary.overdue += overdue;
-    
+
                 const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
                 const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    
+
                 summary.completedToday += docs.filter(doc =>
                     doc.status === 'accepted' &&
                     doc.reviewedAt &&
                     new Date(doc.reviewedAt) >= startOfDay &&
                     new Date(doc.reviewedAt) < endOfDay
                 ).length;
-    
+
                 let statusUpdate = 'Completed';
                 if (overdue > 0) statusUpdate = 'Overdue';
                 else if (pending > 0) statusUpdate = 'Pending';
-    
+
                 let taskDeadline = '—';
                 let color = 'gray';
-    
+
                 const futureDueDocs = docs
                     .filter(doc => doc.dueDate)
                     .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
-    
+
                 if (futureDueDocs.length) {
                     const nextDoc = futureDueDocs[0];
                     const daysLeft = Math.ceil((new Date(nextDoc.dueDate) - now) / (1000 * 60 * 60 * 24));
@@ -186,26 +223,26 @@ const clientService = () => {
                         taskDeadline = `${daysLeft} Days`;
                     }
                 }
-    
+
                 for (const doc of docs) {
                     if (doc.status !== 'pending' || !doc.dueDate) continue;
-    
+
                     const dueDate = new Date(doc.dueDate);
                     const diffInDays = Math.floor((dueDate - now) / (1000 * 60 * 60 * 24));
                     let categoryName = 'Unnamed Document';
-    
+
                     if (doc.category) {
                         const categoryDoc = await Category.findById(doc.category);
                         if (categoryDoc) {
                             categoryName = categoryDoc.name;
                         }
                     }
-    
+
                     const taskEntry = {
                         clientName: client.name,
                         category: categoryName,
                     };
-    
+
                     if (diffInDays < 0) {
                         taskEntry.daysOverdue = Math.abs(diffInDays);
                         urgentTasks.overdue.push(taskEntry);
@@ -215,16 +252,16 @@ const clientService = () => {
                         urgentTasks.tomorrow.push(taskEntry);
                     }
                 }
-    
+
                 // Determine main category for this client from the most recent document
-                let categoryName = 'Unnamed Document';
+                let categoryName = '-';
                 if (docs[0]?.category) {
                     const categoryDoc = await Category.findById(docs[0].category);
                     if (categoryDoc) {
                         categoryName = categoryDoc.name;
                     }
                 }
-    
+
                 fullDashboardData.push({
                     title: categoryName,
                     name: client.name,
@@ -234,24 +271,39 @@ const clientService = () => {
                         : 'Not Assign Any Document',
                     taskDeadline,
                     statusUpdate,
-                    lastActivity: docs[0]?.updatedAt || client.createdAt
+                    lastActivity: docs[0]?.updatedAt || client.createdAt,
+                    status: statusUpdate.toLowerCase() // Add status for filtering
                 });
             }
-    
-            const recentActivity = [
-                {
-                    title: "tax Return successfully",
-                    message: "shakti saini -Q3 2023"
-                },
-                {
-                    title: "new client added",
-                    message: "smart data Inc"
-                },
-                {
-                    title: "document approved",
-                    message: "shakti approved the ankit a\tax documents"
-                }
-            ];
+
+            // 🔍 Filter by search and status
+            let filteredClients = fullDashboardData.filter(client => {
+                const matchesSearch = search
+                    ? client.name.toLowerCase().includes(search) ||
+                    client.email.toLowerCase().includes(search)
+                    : true;
+
+                const matchesStatus = statusFilter !== 'all'
+                    ? client.status === statusFilter
+                    : true;
+
+                return matchesSearch && matchesStatus;
+            });
+
+            // ✨ Apply pagination
+            const paginatedClients = filteredClients.slice(skip, skip + limit);
+
+            const recentLogs = await logModel.find({})
+                .sort({ createdAt: -1 })
+                .limit(5)
+                .populate('clientId');
+
+            const recentActivity = recentLogs.map(log => ({
+                title: log.title,
+                message: log.clientId?.name
+                    ? `${log.clientId.name} - ${log.description}`
+                    : log.description
+            }));
 
             const teamWork = [
                 {
@@ -267,17 +319,7 @@ const clientService = () => {
                     percentage: 40
                 }
             ];
-    
-            // 🔍 Filter by search
-            let filteredClients = search
-                ? fullDashboardData.filter(client =>
-                    client.name.toLowerCase().includes(search) ||
-                    client.email.toLowerCase().includes(search))
-                : fullDashboardData;
-    
-            // ✨ Apply pagination
-            const paginatedClients = filteredClients.slice(skip, skip + limit);
-    
+
             return {
                 recentActivity,
                 teamWork,
@@ -293,15 +335,146 @@ const clientService = () => {
             throw error;
         }
     };
-    
+
+    const getAllStaff = async () => {
+        try {
+            const staffMembers = await userModel.find({ role_id: '2' });
+            return staffMembers;
+        } catch (error) {
+            console.log("Error", error);
+            throw error;
+        }
+    };
+    const getDocumentManagement = async (query) => {
+        try {
+            const search = query.search?.toLowerCase() || "";
+            const page = parseInt(query.page) || 1;
+            const limit = parseInt(query.limit) || 10;
+            const skip = (page - 1) * limit;
+
+            // Build dynamic search query
+            const searchQuery = {};
+            if (search) {
+                const clientIds = await Client.find({ name: { $regex: search, $options: "i" } }).distinct('_id');
+                const categoryIds = await Category.find({ name: { $regex: search, $options: "i" } }).distinct('_id');
+
+                searchQuery.$or = [
+                    { clientId: { $in: clientIds } },
+                    { category: { $in: categoryIds } },
+                    { doctitle: { $regex: search, $options: "i" } }
+                ];
+            }
+
+            const documents = await requestDocument
+                .find(searchQuery)
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit);
+
+
+            const enrichedDocs = await Promise.all(
+                documents.map(async (doc) => {
+                    const client = await Client.findById(doc.clientId);
+                    const clientName = client?.name || "N/A";
+
+                    const assignTo = await assignClient.findOne({ clientId: doc.clientId });
+                    let assignedToName = "N/A";
+                    if (assignTo?.staffId) {
+                        const staff = await userModel.findById(assignTo.staffId);
+                        if (staff) {
+                            assignedToName = `${staff.first_name} ${staff.last_name}`;
+                        }
+                    }
+
+                    const categories = await Category.find({ _id: { $in: doc.category || [] } });
+                    const categoryNames = categories.map(cat => cat.name);
+
+                    const uploads = await uploadDocuments.find({ request: doc._id });
+                    const totalUploaded = uploads.filter(u => u.isUploaded).length;
+                    const totalRequested = uploads.length;
+
+                    let status = 'pending';
+                    if (totalUploaded === totalRequested && totalRequested > 0) {
+                        status = 'complete';
+                    } else if (totalUploaded > 0) {
+                        status = 'partially fulfilled';
+                    }
+
+
+
+                    return {
+                        doctitle: doc.doctitle || "N/A",
+                        dueDate: doc.dueDate || null,
+                        clientName,
+                        assignedTo: assignedToName,
+                        categories: categoryNames,
+                        status: status,
+
+                    };
+                })
+            );
+            const totalDocsCount = await requestDocument.countDocuments();
+
+            const allDocumentsForSummary = await requestDocument.find({});
+
+            // Prepare header summary
+            let totalComplete = 0;
+            let totalPending = 0;
+            let overdue = 0;
+
+            for (const doc of allDocumentsForSummary) {
+                const uploads = await uploadDocuments.find({ request: doc._id });
+                const totalUploaded = uploads.filter(u => u.isUploaded).length;
+
+                const totalRequested = uploads.length;
+                if (totalUploaded && totalRequested > 0) {
+                    totalComplete++;
+                } else if (totalUploaded == 0) {
+                    totalPending++;
+                }
+
+
+                const dueDate = new Date(doc.dueDate);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                if (dueDate < today) {
+                    overdue++;
+                }
+            }
+
+
+            return {
+                documents: enrichedDocs,
+                totalDocuments: totalDocsCount,
+                currentPage: page,
+                totalPages: Math.ceil(totalDocsCount / limit),
+                headerTotal: {
+                    totalReq: allDocumentsForSummary.length,
+                    totalComplete,
+                    totalPending,
+                    overdue,
+                },
+
+            };
+
+        } catch (error) {
+            console.error("Error in getDocumentManagement:", error);
+            throw error;
+        }
+    };
+
+
 
 
     return {
         getAllClients,
         parseClients,
         addBulkClients,
-        getAdminDashboard
+        getAdminDashboard,
+        getAllStaff,
+        getDocumentManagement
     };
 };
 
-module.exports = clientService;
+module.exports = SuperAdminService;

@@ -1,11 +1,13 @@
 const resModel = require('../lib/resModel');
 let Category = require("../models/category");
 let subCategory = require("../models/subCategory");
-const adminServices = require('../services/admin.services');
+const SuperAdminService = require('../services/admin.services');
 const Client = require('../models/clientModel');
+const Users = require('../models/userModel');
 const Template = require('../models/template');
 const assignClient = require('../models/assignClients')
 const DocumentSubCategory = require('../models/documentSubcategory');
+const { listFilesInFolderStructure, uploadFileToFolder, createClientFolder } = require('../services/googleDriveService.js');
 
 
 /** Category Api's starts */
@@ -184,12 +186,15 @@ module.exports.addClient = async (req, res) => {
     try {
         const { name, email, phoneNumber, address, company, notes, staffId, status } = req.body;
         const existingClient = await Client.findOne({ email });
+
+
         if (existingClient) {
             resModel.success = false;
             resModel.message = "Client already exists";
             resModel.data = null;
-            res.status(201).json(resModel);
+            return res.status(400).json(resModel);
         }
+
         const newClient = new Client({
             name,
             email: email.toLowerCase(),
@@ -205,6 +210,10 @@ module.exports.addClient = async (req, res) => {
             staffId,
         });
         await newAssign.save();
+        const getStaff = await Users.findOne({ _id: staffId });
+        const staticRoot = await createClientFolder(getStaff?.first_name, null, email, staffId);
+        const clientsRootId = await createClientFolder("Clients", staticRoot, email);
+        await createClientFolder(name, clientsRootId, email);
         if (savedClient) {
             resModel.success = true;
             resModel.message = "Client added successfully";
@@ -245,7 +254,7 @@ module.exports.addClient = async (req, res) => {
 module.exports.updateClient = async (req, res) => {
     try {
         const clientId = req.params.id;
-        const { isGoogleDrive, name, email, phoneNumber, address, company, notes, staffId, status } = req.body;
+        const { dateOfBirth, isGoogleDrive, name, email, phoneNumber, address, company, notes, status } = req.body;
         let updatedData = {
             name,
             email: email.toLowerCase(),
@@ -254,20 +263,21 @@ module.exports.updateClient = async (req, res) => {
             company,
             notes,
             status: status || false,
-            isGoogleDrive
+            isGoogleDrive,
+            dateOfBirth: dateOfBirth
         };
         const updatedClient = await Client.findByIdAndUpdate(clientId, updatedData, { new: true });
-        const existingAssign = await assignClient.findOne({ clientId: clientId });
-        if (existingAssign) {
-            existingAssign.staffId = staffId;
-            await existingAssign.save();
-        } else {
-            const newAssign = new assignClient({
-                clientId: clientId,
-                staffId,
-            });
-            await newAssign.save();
-        }
+        // const existingAssign = await assignClient.findOne({ clientId: clientId });
+        // if (existingAssign) {
+        //     existingAssign.staffId = staffId;
+        //     await existingAssign.save();
+        // } else {
+        //     const newAssign = new assignClient({
+        //         clientId: clientId,
+        //         staffId,
+        //     });
+        //     await newAssign.save();
+        // }
         if (updatedClient) {
             resModel.success = true;
             resModel.message = "Client updated successfully";
@@ -327,7 +337,7 @@ module.exports.getclientDetails = async (req, res) => {
  */
 module.exports.getAllClient = async (req, res) => {
     try {
-        const userCheck = await adminServices().getAllClients(req.query);
+        const userCheck = await SuperAdminService().getAllClients(req.query);
         if (userCheck) {
             resModel.success = true;
             resModel.message = "Get All Clients Successfully";
@@ -360,8 +370,8 @@ module.exports.getAllClient = async (req, res) => {
 module.exports.uploadClientCsv = async (req, res) => {
     try {
         const file = req.file;
-        const savedClient = await adminServices().parseClients(file);
-        const clientRes = await adminServices().addBulkClients(savedClient);
+        const savedClient = await SuperAdminService().parseClients(file);
+        const clientRes = await SuperAdminService().addBulkClients(savedClient);
         if (clientRes) {
             resModel.success = true;
             resModel.message = "Files Uploaded successfully";
@@ -607,7 +617,7 @@ module.exports.assignClients = async (req, res) => {
  */
 module.exports.getAdminDashboard = async (req, res) => {
     try {
-        const adminRes = await adminServices().getAdminDashboard(req.query);
+        const adminRes = await SuperAdminService().getAdminDashboard(req.query);
         if (!adminRes) {
             resModel.success = false;
             resModel.message = "Data not found";
@@ -626,3 +636,148 @@ module.exports.getAdminDashboard = async (req, res) => {
         res.status(500).json(resModel);
     }
 };
+
+
+/**
+ * @api {get} /api/client/getAllStaff Get All Staff
+ * @apiName GetAllStaff
+ * @apiGroup Client
+ * @apiDescription API to fetch all staff members.
+ * @apiSampleRequest http://localhost:2001/api/client/getAllStaff
+ */
+
+module.exports.getAllStaff = async (req, res) => {
+    try {
+        const staffMembers = await SuperAdminService().getAllStaff();
+        if (!staffMembers) {
+            resModel.success = false;
+            resModel.message = "Staff not found";
+            resModel.data = [];
+            res.status(404).json(resModel);
+        } else {
+            resModel.success = true;
+            resModel.message = "Staff Found Successfully";
+            resModel.data = staffMembers;
+            res.status(200).json(resModel);
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+}
+
+
+/**
+ * @api {get} /api/admin/documentmanagement Get Document Management
+ * @apiName GetDocumentManagement
+ * @apiGroup Admin
+ * @apiDescription API to fetch Document Management.
+ * @apiSampleRequest http://localhost:2001/api/admin/documentmanagement
+ */
+
+module.exports.getDocumentManagement = async (req, res) => {
+    try {
+        const documentManagement = await SuperAdminService().getDocumentManagement(req.query);
+        if (!documentManagement) {
+            resModel.success = false;
+            resModel.message = "Data not found";
+            resModel.data = [];
+            res.status(404).json(resModel);
+        } else {
+            resModel.success = true;
+            resModel.message = "Data Found Successfully";
+            resModel.data = documentManagement;
+            res.status(200).json(resModel);
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+}
+
+/**
+ * @api {get} /api/clientsatff/details/:id  Get Client Staff Details
+ * @apiName Get Client Staff Details
+ * @apiGroup Client
+ * @apiDescription client Service...
+ * @apiSampleRequest http://localhost:2001/api/clientsatff/details/:id
+ */
+module.exports.getclientStaffDetails = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const client = await Client.findById(id);
+        if (!client) {
+            return res.status(400).json({
+                success: false,
+                message: "Client Doesn't Exist",
+                data: null,
+            });
+        }
+
+        // Get staff assigned to this client
+        const assigned = await assignClient.findOne({ clientId: id }).populate('staffId');
+        let assignedStaff = null;
+        if (assigned && assigned.staffId) {
+            assignedStaff = {
+                _id: assigned.staffId._id,
+                first_name: assigned.staffId.first_name,
+                last_name: assigned.staffId.last_name,
+                email: assigned.staffId.email,
+                profile: assigned.staffId.profile,
+                phoneNumber: assigned.staffId.phoneNumber,
+                role_id: assigned.staffId.role_id,
+            };
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Client Details Found Successfully",
+            data: {
+                client,
+                assignedStaff,
+            },
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null,
+        });
+    }
+}
+
+
+
+/**
+ * @api {get} /api/admin/documentmanagement Get Document Management
+ * @apiName GetDocumentManagement
+ * @apiGroup Admin
+ * @apiDescription API to fetch Document Management.
+ * @apiSampleRequest http://localhost:2001/api/admin/documentmanagement
+ */
+
+module.exports.getDocumentManagement = async (req, res) => {
+    try {
+        const documentManagement = await SuperAdminService().getDocumentManagement(req.query);
+        if (!documentManagement) {
+            resModel.success = false;
+            resModel.message = "Data not found";
+            resModel.data = [];
+            res.status(404).json(resModel);
+        } else {
+            resModel.success = true;
+            resModel.message = "Data Found Successfully";
+            resModel.data = documentManagement;
+            res.status(200).json(resModel);
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+}

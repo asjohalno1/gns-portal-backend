@@ -14,8 +14,14 @@ const uploadDocuments = require('../models/uploadDocuments');
 const notification = require('../models/notification');
 const DocumentSubCategory = require('../models/documentSubcategory');
 const clientModel = require('../models/clientModel.js');
-const { listFilesInFolderStructure, uploadFileToFolder } = require('../services/googleDriveService.js');
+const userLog = require('../models/userLog');
+const subCategoryModel = require('../models/subCategory');
+const logModel = require('../models/userLog');
+const remainder = require('../models/remainer');
 
+
+const { listFilesInFolderStructure, uploadFileToFolder } = require('../services/googleDriveService.js');
+const { default: mongoose } = require('mongoose');
 
 
 
@@ -189,7 +195,7 @@ module.exports.googleWithLogin = async (req, res) => {
         const [firstName, lastName] = name.split(" ");
         const userCheck = await User.findOne({ email });
         if (userCheck) {
-            const accessToken = await jwtService.issueJwtToken({ email, id: userCheck._id })
+            const accessToken = await jwtService.issueJwtToken({ email, id: userCheck._id, name: userCheck?.first_name })
             resModel.success = true;
             resModel.message = "User Login Successfully";
             resModel.data = { token: accessToken, user: userCheck };
@@ -238,25 +244,37 @@ module.exports.googleWithLogin = async (req, res) => {
 module.exports.getUserDetails = async (req, res) => {
     try {
         const { id } = req.params;
-        let _id = id
-        // Find product by ID
-        const user = await User.findById(_id);
+
+        let _id = id;
+        if (!_id || !mongoose.Types.ObjectId.isValid(_id)) {
+            resModel.success = false;
+            resModel.message = "Invalid or missing ID";
+            resModel.data = null;
+            return res.status(400).json(resModel);
+        }
+
+        let user = await User.findById(_id);
+
+        if (!user) {
+            user = await clientModel.findById(_id);
+        }
+
         if (!user) {
             resModel.success = false;
-            resModel.message = "User Does't Exists";
+            resModel.message = "User doesn't exist";
             resModel.data = null;
-            res.status(400).json(resModel)
-        } else {
-            resModel.success = true;
-            resModel.message = "User Details Found Successfully";
-            resModel.data = user;
-            res.status(200).json(resModel);
+            return res.status(404).json(resModel);
         }
+        resModel.success = true;
+        resModel.message = "User Details Found Successfully";
+        resModel.data = user;
+        return res.status(200).json(resModel);
     } catch (error) {
+        console.error("Error in getUserDetails:", error);
         resModel.success = false;
-        resModel.message = "Internel Server Error";
+        resModel.message = "Internal Server Error";
         resModel.data = null;
-        res.status(500).json(resModel)
+        return res.status(500).json(resModel);
     }
 };
 
@@ -305,21 +323,47 @@ module.exports.getAllUser = async (req, res) => {
  * @apiSampleRequest http://localhost:2001/api/user/uploadDocument 
  */
 module.exports.uploadDocument = async (req, res) => {
+    const id = req?.body?.requestId;
+    const staffId = req?.userInfo?.userId
     try {
         const { categoryId, subCategoryId, notes } = req.body;
         let files = req.files;
-        let clientRes = await clientModel.findOne({ _id: req?.userInfo?.clientId });
-        await uploadFileToFolder(clientRes?.name, files, "Bookkeeping", clientRes?.email);
-        // await clientModel.findOneAndUpdate({ _id: req?.userInfo?.clientId }, { folderId: client });
+        // let clientRes = await clientModel.findOne({ _id: req?.userInfo?.clientId });
+        let subCategory = await subCategoryModel.findOne({ _id: subCategoryId });
+        // let userRes = await User.findOne({ _id: staffId });
+        // await uploadFileToFolder(clientRes?.name, files, subCategory?.name, clientRes?.email, userRes?.first_name);
         const uploadInfo = {
-            request: req?.userInfo?.requestId,
+            request: id,
             clientEmail: req?.userInfo?.email.toLowerCase(),
             notes: notes,
-            files: files
+            files: files.map(file => ({
+                filename: file.filename,
+                originalname: file.originalname,
+                path: `/uploads/${file.filename}`,
+                size: file.size,
+            })),
+            isUploaded: true,
+            status: "pending",
 
         };
-        const newUpload = await uploadDocument.findOneAndUpdate({ request: req?.userInfo?.requestId, subCategory: subCategoryId }, uploadInfo, { upsert: true });
+
+        let logInfo = {
+            clientId: req?.userInfo?.clientId,
+            title: "Document Uploaded",
+            description: `Uploaded a new document in the "${subCategory?.name}" section.`
+        }
+        const newLog = new userLog(logInfo)
+        await newLog.save();
+
+        const newUpload = await uploadDocument.findOneAndUpdate({ request: id, subCategory: subCategoryId }, uploadInfo, { upsert: true });
         if (newUpload) {
+            /**Notification */
+            const newNotification = new notification({
+                clientId: req?.userInfo?.clientId,
+                message: `Upload successful: ${subCategory?.name}`,
+                type: "Uploaded Document"
+            });
+            await newNotification.save();
             resModel.success = true;
             resModel.message = "Document Upload Successfully";
             resModel.data = newUpload
@@ -340,6 +384,9 @@ module.exports.uploadDocument = async (req, res) => {
 }
 
 
+
+
+
 /**
  * @api {get} /api/user/dashboardDetails  Get Dashboard Details
  * @apiName  Get Dashboard Details
@@ -349,59 +396,89 @@ module.exports.uploadDocument = async (req, res) => {
  * @apiSampleRequest http://localhost:2001/api/user/dashboardDetails
  */
 module.exports.getClientDashboard = async (req, res) => {
-    const requestId = req?.userInfo?.requestId;
+    const clientId = req?.userInfo?.clientId;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search?.trim().toLowerCase() || '';
+    const status = req.query.status?.trim().toLowerCase();
+    const statusRecentActivity = req.query.statusRecentActivity?.trim().toLowerCase();
+
+
 
     try {
         const now = new Date();
-        const uploadDocument = await uploadDocuments.find({ request: requestId });
-        const totalDocuments = uploadDocument.length;
-        const pendingCount = uploadDocument.filter(doc => doc.status === 'pending').length;
-        const overdueCount = uploadDocument.filter(doc => doc.status === 'pending' && doc.dueDate < now).length;
-        const completedCount = await uploadDocuments.countDocuments({ request: requestId, status: 'completed' });
 
-        // Get populated document request with category
-        const documentRequests = await DocumentRequest.find({ _id: requestId })
-            .populate('category')
-            .sort({ createdAt: -1 });
+        const uploadedDocs = await uploadDocuments
+            .find({ clientId })
+            .populate("category")
+            .populate("subCategory")
+            .populate("request")
+            .populate("isUploaded")
+            .populate({
+                path: "request",
+                select: "_id",
+            });
 
-        // Get related subCategories
-        const subCategoryLinks = await DocumentSubCategory.find({ request: requestId })
-            .populate('subCategory')
-            .populate('category'); // optional, if needed
+        const totalDocuments = uploadedDocs.length;
+        const pendingCount = uploadedDocs.filter((doc) => doc.status === "pending").length;
+        const overdueCount = uploadedDocs.filter(
+            (doc) => doc.status === "pending" && new Date(doc.dueDate) < now
+        ).length;
+        const completedCount = await uploadDocuments.countDocuments({ clientId, isUploaded: true });
 
-        // Group subcategories by request ID
-        const subCatMap = {};
-        subCategoryLinks.forEach(link => {
-            if (!subCatMap[link.request]) subCatMap[link.request] = [];
-            subCatMap[link.request].push(link.subCategory);
-        });
+        let filteredDocs = [...uploadedDocs];
 
-        // Get uploaded docs (recent activity)
-        const recentActivity = await uploadDocuments.find({ request: requestId })
-            .populate('category')
-            .populate('subCategory') // still works if subCategory reference is directly in upload model
-            .sort({ createdAt: -1 })
-            .limit(5);
+        if (status && status !== 'all') {
+            filteredDocs = filteredDocs.filter((doc) => doc.status.toLowerCase() === status);
+        }
+        if (search) {
+            filteredDocs = filteredDocs.filter((doc) => {
+                const subCat = doc.subCategory?.name?.toLowerCase() || '';
+                const cat = doc.category?.name?.toLowerCase() || '';
+                return subCat.includes(search) || cat.includes(search);
+            });
+        }
+        filteredDocs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        const totalFiltered = filteredDocs.length;
+        const paginatedDocs = filteredDocs.slice((page - 1) * limit, page * limit);
 
-        // Construct upcoming deadlines
-        const upcomingDeadlines = uploadDocument
-            .filter(doc => doc.status === 'pending')
-            .flatMap(doc => {
-                const daysLeft = Math.ceil((new Date(doc.dueDate) - now) / (1000 * 60 * 60 * 24));
-                let priority = 'Low';
-                if (daysLeft <= 1) priority = 'High';
-                else if (daysLeft <= 3) priority = 'Medium';
+        let upcomingDeadlines = uploadedDocs
+            .filter((doc) => doc.dueDate)
+            .filter((doc) => {
+                if (statusRecentActivity && statusRecentActivity !== 'all') {
+                    return doc.status?.toLowerCase() === statusRecentActivity;
+                }
+                return true;
+            })
+            .map((doc) => {
+                const diffDays = Math.ceil((new Date(doc.dueDate) - now) / (1000 * 60 * 60 * 24));
+                const daysLeft = diffDays < 0 ? "Expired" : diffDays;
 
-                const subCategories = subCatMap[doc._id] || [];
+                let priority = "-";
+                if (doc.request && doc.request.subcategoryPriorities && doc.subCategory && doc.subCategory._id) {
+                    const subCategoryId = doc.subCategory._id.toString();
+                    let storedPriority;
+                    if (doc.request.subcategoryPriorities instanceof Map) {
+                        storedPriority = doc.request.subcategoryPriorities.get(subCategoryId);
+                    } else {
+                        storedPriority = doc.request.subcategoryPriorities?.[subCategoryId];
+                    }
+                    if (storedPriority) {
+                        priority = storedPriority.charAt(0).toUpperCase() + storedPriority.slice(1).toLowerCase();
+                    }
+                }
 
-                return subCategories.map(subCat => ({
-                    document: subCat?.name || 'Unnamed',
-                    type: doc.category?.name || '',
+                return {
+                    document: doc.subCategory?.name || "Unnamed Document",
+                    type: doc.category?.name || "Unknown",
                     dueDate: doc.dueDate,
                     priority,
-                    daysLeft
-                }));
+                    daysLeft,
+                };
             });
+
+
+        const activeAssignments = await logModel.find({ clientId }).sort({ createdAt: -1 });
 
         res.status(200).json({
             success: true,
@@ -411,31 +488,26 @@ module.exports.getClientDashboard = async (req, res) => {
                     totalDocuments,
                     completed: completedCount,
                     pending: pendingCount,
-                    overdue: overdueCount
+                    overdue: overdueCount,
                 },
-                documentRequests: documentRequests.flatMap(doc => {
-                    const subCategories = subCatMap[doc._id] || [];
-                    return subCategories.map(subCat => ({
-                        document: subCat?.name || '',
-                        type: doc.category?.name || '',
-                        status: doc.status,
-                        dueDate: doc.dueDate
-                    }));
-                }),
                 upcomingDeadlines,
-                recentActivity: recentActivity.map(doc => ({
-                    document: doc.subCategory?.name || '',
-                    type: doc.category?.name || '',
-                    uploadedAt: doc.createdAt
-                }))
-            }
+                recentAssignments: activeAssignments,
+                documentRequest: paginatedDocs,
+                pagination: {
+                    total: totalFiltered,
+                    page,
+                    limit,
+                    totalPages: Math.ceil(totalFiltered / limit),
+                },
+            },
         });
-
     } catch (error) {
-        resModel.success = false;
-        resModel.message = "Internal Server Error";
-        resModel.data = null;
-        res.status(500).json(resModel);
+        console.error("Dashboard Error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null,
+        });
     }
 };
 
@@ -451,13 +523,17 @@ module.exports.getClientDashboard = async (req, res) => {
  */
 module.exports.getClientDocuments = async (req, res) => {
     try {
-        const requestId = req?.userInfo?.requestId;
+        const id = req?.query?.requestId;
 
-        const documents = await uploadDocuments.find({ request: requestId })
+
+        const updateLinkStatus = await DocumentRequest.findOneAndUpdate({ _id: id }, { $set: { linkStatus: "Used" } });
+
+        const documents = await uploadDocuments.find({ request: id })
             .populate('category', 'name') // Populate category name
-            .populate('request', 'status'); // Populate request status
+            .populate('request', 'status') // Populate request status
+            .populate('subCategory', 'name');
 
-        const subCategoryLinks = await DocumentSubCategory.find({ request: requestId })
+        const subCategoryLinks = await DocumentSubCategory.find({ request: id })
             .populate('subCategory', 'name')
             .populate('category', 'name');
 
@@ -503,15 +579,18 @@ module.exports.getClientDocuments = async (req, res) => {
             const subCat = subCatMap[catId] || { _id: null, name: 'N/A' };
 
             const docData = {
+                documentTitle: doc.doctitle,
                 documentName: doc.fileName,
                 documentType: doc.category?.name || 'N/A',
                 documentTypeId: doc.category?._id || null,
-                subCategory: subCat.name,
-                subCategoryId: subCat._id,
+                // subCategory: subCat.name,
+                // subCategoryId: subCat._id,
                 uploadedDate: doc.createdAt,
                 status: doc.request?.status || 'pending',
                 comments: doc.rejectionReason || null,
-                requestId: doc.request?._id
+                requestId: doc.request?._id,
+                subCategory: doc.subCategory?.name,
+                subCategoryId: doc.subCategory?._id,
             };
 
             grouped.all.push(docData);
@@ -519,10 +598,17 @@ module.exports.getClientDocuments = async (req, res) => {
             else if (docData.status === 'pending') grouped.pending.push(docData);
             else if (docData.status === 'rejected') grouped.rejected.push(docData);
 
-            if (subCat._id && subCatStatusMap.has(subCat._id)) {
-                const prev = subCatStatusMap.get(subCat._id);
-                subCatStatusMap.set(subCat._id, { ...prev, uploaded: true });
+            if (doc.subCategory?._id && subCatStatusMap.has(doc.subCategory._id.toString())) {
+                const prev = subCatStatusMap.get(doc.subCategory._id.toString());
+
+                subCatStatusMap.set(doc.subCategory._id.toString(), {
+                    ...prev,
+                    uploaded: true,
+                    isUploaded: doc.isUploaded ?? false,
+                    categoryId: catId,
+                });
             }
+
         });
 
         const categories = Array.from(categoryMap.values());
@@ -562,12 +648,37 @@ module.exports.getClientDocuments = async (req, res) => {
  */
 module.exports.getAllNotifications = async (req, res) => {
     try {
-        const id = req?.userInfo?.requestId;
-        const notificationRes = await notification.find({ _id: id });
+        const id = req?.userInfo?.clientId;
+        const notificationRes = await notification.find({ clientId: id });
+        const upcomingRemainders = await remainder.find({ clientId: id });
+        let formatReminders = (reminders) => {
+            const today = new Date();
+            const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+            return reminders.map(reminder => {
+                const title = reminder.customMessage.replace(/<[^>]+>/g, '').trim();
+
+                const day = reminder.days[0]; // assuming only one day
+                const hourMin = reminder.scheduleTime;
+
+                const targetDayIndex = dayNames.indexOf(day);
+                const todayIndex = today.getDay();
+
+                let schedule;
+                if ((targetDayIndex - todayIndex + 7) % 7 === 1) {
+                    schedule = `Scheduled for tomorrow at ${hourMin}`;
+                } else {
+                    schedule = `Every ${day} at ${hourMin}`;
+                }
+
+                return { title, schedule };
+            });
+        };
+        let data = formatReminders(upcomingRemainders);
         if (notificationRes) {
             resModel.success = true;
             resModel.message = "Get All Notifications Successfully";
-            resModel.data = { notification: notificationRes, upcomingRemainders: [] };
+            resModel.data = { notification: notificationRes, upcomingRemainders: data };
             res.status(200).json(resModel);
         }
         else {
@@ -587,16 +698,28 @@ module.exports.getAllNotifications = async (req, res) => {
 
 
 exports.getClientDocu = async (req, res) => {
-    const clientId = req?.userInfo?.clientId;
-    const clientRes = await clientModel.findOne({ _id: clientId });
+    try {
+        const staffId = req?.userInfo?.id;
+        const staffRes = await User.findOne({ _id: staffId });
+        const data = await listFilesInFolderStructure(staffRes?.folderId);
+        if (!data) {
+            resModel.success = true;
+            resModel.message = "No Google Drive documents found";
+            resModel.data = [];
+            res.status(200).json(resModel)
+        } else {
+            resModel.success = true;
+            resModel.message = "Fetched Google Drive documents successfully";
+            resModel.data = data;
+            res.status(200).json(resModel)
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
 
-    const data = await listFilesInFolderStructure(clientRes.name);
-
-    res.status(200).json({
-        success: true,
-        message: "Fetched Google Drive documents successfully",
-        data
-    });
 };
 
 
@@ -607,3 +730,218 @@ exports.getClientDocu = async (req, res) => {
 
 
 
+exports.getAllUploadedDocuments = async (req, res) => {
+    try {
+        const clientId = req?.userInfo?.clientId;
+        const { search = '', status = 'all', page = 1, limit = 10 } = req.query;
+        const skip = (page - 1) * limit;
+
+        let query = {
+            clientId,
+            isUploaded: true
+        };
+
+        if (status !== 'all') {
+            query.status = status.toLowerCase();
+        }
+        if (search) {
+            const [matchingCategories, matchingSubCategories] = await Promise.all([
+                Category.find({
+                    name: { $regex: search, $options: 'i' }
+                }).select('_id').lean(),
+                SubCategory.find({
+                    name: { $regex: search, $options: 'i' }
+                }).select('_id').lean(),
+            ]);
+
+            const matchingCategoryIds = matchingCategories.map(cat => String(cat._id));
+            const matchingSubCategoryIds = matchingSubCategories.map(sub => String(sub._id));
+
+            query.$or = [
+                { category: { $in: matchingCategoryIds } },
+                { subCategory: { $in: matchingSubCategoryIds } },
+                { status: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        const totalDocuments = await uploadDocument.countDocuments(query);
+
+        const uploadedDocuments = await uploadDocument.find(query)
+            .skip(skip)
+            .limit(parseInt(limit))
+            .sort({ createdAt: -1 })
+            .lean();
+
+        const categoryIds = [...new Set(uploadedDocuments.map(doc => String(doc.category)))];
+        const subCategoryIds = [...new Set(uploadedDocuments.map(doc => String(doc.subCategory)))];
+
+        const [categories, subCategories] = await Promise.all([
+            Category.find({ _id: { $in: categoryIds } }).lean(),
+            SubCategory.find({ _id: { $in: subCategoryIds } }).lean(),
+        ]);
+
+        const categoryMap = Object.fromEntries(categories.map(cat => [String(cat._id), cat.name]));
+        const subCategoryMap = Object.fromEntries(subCategories.map(sub => [String(sub._id), sub.name]));
+
+        const formattedDocs = uploadedDocuments.map(doc => ({
+            id: doc._id,
+            DocumentName: categoryMap[String(doc.category)] || "N/A",
+            DocumentType: subCategoryMap[String(doc.subCategory)] || "N/A",
+            uploadedAt: doc.createdAt, //FUTURE UPDATE 
+            dueDate: doc.dueDate,
+            status: doc.status,
+            documentPath: doc.documentPath,
+            isUploaded: doc.isUploaded,
+            requestId: doc.request,
+        }));
+
+        res.status(200).json({
+            success: true,
+            message: "Fetched documents successfully",
+            data: formattedDocs,
+            pagination: {
+                total: totalDocuments,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                totalPages: Math.ceil(totalDocuments / limit)
+            }
+        });
+    } catch (error) {
+        console.error("Error in getAllUploadedDocuments:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null,
+        });
+    }
+};
+
+
+module.exports.getDocumentById = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!id) {
+            return res.status(400).json({
+                success: false,
+                message: "Document ID is required"
+            });
+        }
+
+        const document = await uploadDocument.findById(id).select('files doctitle isUploaded status comments');
+
+        if (!document) {
+            return res.status(404).json({
+                success: false,
+                message: "Document not found"
+            });
+        }
+
+        if (!document.files || document.files.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "No files found in this document"
+            });
+        }
+
+        const file = document.files[0];
+
+        res.status(200).json({
+            success: true,
+            message: "Document found",
+            data: {
+                title: document.doctitle,
+                fileName: file.filename,
+                originalName: file.originalname,
+                filePath: file.path,
+                fileSize: file.size,
+                isUploaded: document.isUploaded,
+                status: document.status,
+                comments: document.comments
+            }
+        });
+    } catch (error) {
+        console.error("Error in getDocumentById:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null
+        });
+    }
+};
+
+
+module.exports.getUserProfile = async (req, res) => {
+
+
+    try {
+        const clientId = req.userInfo?.clientId;
+        console.log(clientId);
+        const user = await clientModel.findById(clientId).select("-password");
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User Not Found",
+                data: null,
+            });
+        }
+
+        resModel.success = true;
+        resModel.message = "User Profile Found Successfully";
+        resModel.data = user;
+        res.status(200).json(resModel);
+    } catch (error) {
+        console.error("Error in getUserProfile:", error);
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
+
+
+
+module.exports.updateClientDetails = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updateData = req.body;
+        if (req.file) {
+            updateData.profilePicture = `/uploads/profile-images/${req.file.filename}`;
+        }
+
+        if (!id) {
+            return res.status(400).json({
+                success: false,
+                message: "Client ID is required",
+                data: null,
+            });
+        }
+        const updatedClient = await clientModel.findByIdAndUpdate(id, updateData, {
+            new: true,
+            runValidators: true,
+        });
+
+        if (!updatedClient) {
+            return res.status(404).json({
+                success: false,
+                message: "Client not found",
+                data: null,
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Client details updated successfully",
+            data: updatedClient,
+        });
+    } catch (error) {
+        console.error("Error updating client:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            data: null,
+        });
+    }
+};

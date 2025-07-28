@@ -1,34 +1,458 @@
 // emailTemplate.js
 
-module.exports = function generateTemplate({ name, link }) {
-  return `
-    <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
-      <img src="https://i.imgur.com/SpLq3ZQ.png" alt="CPA Logo" style="max-width: 150px;" />
+module.exports = function generateTemplate({ name,link,doctitle,deadline,docList,instructions}) {
+const listItems = docList.map(item => `<li style="margin-bottom: 6px;">${item}</li>`).join('');
+return `
+<div>
 
-      <h2 style="color: #333;">Hi ${name},</h2>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Request - CS Accountancy</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-      <p style="font-size: 16px; color: #555;">
-        This secure, no-login link is valid for a single use to upload your documents!
-      </p>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f5f5f5;
+        padding: 20px;
+        line-height: 1.6;
+      }
 
-      <p style="font-size: 16px; color: #555;">
-        Simply click the secure link below to safely and quickly upload the documents we've requested.
-      </p>
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
 
-      <a href="${link}" style="display: inline-block; margin: 20px 0; font-size: 16px; color: #1a73e8;">
-        ${link}
-      </a>
+      .header {
+        background: #E5F0FB;
+        padding: 20px;
+        text-align: center;
+        color: #2c3e50;
+        margin: 30px 30px 0;
+        border-radius: 10px;
+      }
 
-      <hr style="margin: 40px auto; width: 60%;" />
+      .request-title {
+        font-weight: 600;
+        font-style: Medium;
+        font-size: 20px;
+        line-height: 100%;
+        letter-spacing: 0%;
+        text-align: center;
+        margin-top: 20px;
+        margin-bottom: 5px;
+      }
 
-      <div style="font-size: 14px; color: #888;">
-        <p>© CPAportal Copyright © 2020</p>
-        <div style="margin-top: 10px;">
-          <a href="#"><img src="https://i.imgur.com/f0lU5Lm.png" width="20" /></a>
-          <a href="#"><img src="https://i.imgur.com/MNizvVg.png" width="20" style="margin: 0 10px;" /></a>
-          <a href="#"><img src="https://i.imgur.com/DuE9Zbs.png" width="20" /></a>
+      .secure-title {
+        font-weight: 400;
+        font-size: 20px;
+        line-height: 100%;
+        letter-spacing: 0%;
+        text-align: center;
+      }
+
+      .header p {
+        font-size: 16px;
+        opacity: 0.8;
+      }
+
+      .content {
+        padding: 30px;
+      }
+
+      .greeting {
+        font-weight: 400;
+        font-size: 14px;
+        line-height: 28px;
+      }
+
+      .document-info {
+        background-color: #F8FAFC;
+        padding: 10px;
+        margin: 16px 0;
+
+
+      }
+
+      .document-title {
+        font-weight: 400;
+        color: #2C3E50;
+        margin-bottom: 20px;
+        font-size: 14px;
+        line-height: 24px;
+
+      }
+
+      .document-title span {
+        font-weight: 600;
+      }
+
+
+      .required-docs {
+        color: #000;
+        font-weight: 400;
+        font-size: 14px;
+        line-height: 24px;
+      }
+
+      .doc-list {
+        list-style: none;
+        padding-left: 10px;
+        font-weight: 400;
+        font-size: 14px;
+        line-height: 24px;
+        color: #2C3E50;
+      }
+
+      .doc-list li {
+        padding: 0;
+        position: relative;
+        padding-left: 13px;
+      }
+
+      .doc-list li:before {
+        content: "•";
+        color: #1e5799;
+        font-weight: bold;
+        position: absolute;
+        left: 0;
+      }
+
+      .doc-list li:last-child {
+        border-bottom: none;
+      }
+
+      .cta-section {
+        text-align: center;
+        margin: 0;
+        padding: 10px;
+        background-color: #f8f9fa;
+      }
+
+      .cta-text {
+        margin-bottom: 10px;
+        font-size: 14px;
+        color: #333333;
+        line-height: 24px;
+      }
+
+      .secure-button {
+        color: white;
+        border: none;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        transition: all 0.3s ease;
+        font-weight: 700;
+        font-size: 14px;
+        line-height: 24px;
+        text-align: center;
+
+      }
+
+      .secure-button:hover {
+        background: linear-gradient(135deg, #357abd 0%, #2d5d8a 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+      }
+
+      .security-note {
+        margin-top: 10px;
+        color: #2E7ED4;
+        font-weight: 400;
+        font-size: 12px;
+        text-align: center;
+      }
+
+      .security-icon {
+        color: #4a90e2;
+      }
+
+      .important-notes {
+        margin: 25px 10px;
+      }
+
+      .notes-title {
+        font-weight: 400;
+        color: #2c3e50;
+        margin-bottom: 10px;
+        font-size: 16px;
+      }
+
+      .notes-list {
+        list-style: none;
+        padding-left: 0;
+        font-weight: 400;
+        font-size: 14px;
+        line-height: 24px;
+        margin-left: 10px;
+      }
+
+      .notes-list li {
+        padding: 0;
+        position: relative;
+        padding-left: 15px;
+        color: #555;
+      }
+
+      .notes-list li:before {
+        content: "•";
+        color: #4a90e2;
+        font-weight: bold;
+        position: absolute;
+        left: 0;
+      }
+
+      .footer-text {
+        color: #2C3E50;
+        font-weight: 400;
+        font-size: 14px;
+        line-height: 28px;
+      }
+
+      .thank-you {
+        margin-top: 30px;
+        color: #2C3E50;
+        font-weight: 400;
+        font-size: 14px;
+        line-height: 28px;
+      }
+
+      .social-links {
+        text-align: center;
+        margin: 30px 0 0;
+        padding: 20px 0 0;
+        border-top: 1px solid #e9ecef;
+        width: 125px
+      }
+
+      .social-icons {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-bottom: 15px;
+      }
+
+      .social-icon {
+        width: 40px;
+        height: 40px;
+        background-color: #f8f9fa;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #666;
+        text-decoration: none;
+        transition: all 0.3s ease;
+      }
+
+      .social-icon:hover {
+        background-color: #4a90e2;
+        color: white;
+        transform: translateY(-2px);
+      }
+
+      .copyright {
+        font-size: 12px;
+        color: #999;
+        text-align: center;
+      }
+
+      .required-box {
+        padding: 0 10px;
+      }
+
+      .secure-button {
+        padding: 8px 10px;
+        border-radius: 10px;
+        font-size: 14px;
+        background-color: #2E7ED4;
+      }
+
+      .footer-social {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .text-center {
+        width: 100%;
+        text-align: center;
+      }
+
+      @media (max-width: 600px) {
+        body {
+          padding: 10px;
+        }
+
+        .content {
+          padding: 20px;
+        }
+
+        .header {
+          padding: 20px;
+        }
+
+
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <div class="header">
+        <div>
+          <svg width="140" height="33" viewBox="0 0 140 33" fill="none" xmlns="http://www.w3.org/2000/svg"
+            xmlns:xlink="http://www.w3.org/1999/xlink">
+            <rect width="140" height="33" fill="url(#pattern0_20_2137)" />
+            <defs>
+              <pattern id="pattern0_20_2137" patternContentUnits="objectBoundingBox" width="1" height="1">
+                <use xlink:href="#image0_20_2137" transform="matrix(0.00280112 0 0 0.0118835 0 -0.00505051)" />
+              </pattern>
+              <image id="image0_20_2137" width="357" height="85" preserveAspectRatio="none"
+                xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAWUAAABVCAMAAACmVgWQAAACalBMVEVHcEwAv/4Awf8ARHkAMlkAr/ABsPEAr/AAM1sGfbEAQncAAAAnseoAQXUAjMkAAAAALVwAAAAAAAAAAAAAPnMAAAAAAAAAPXEARnwAAAAARXoAAAAAAAAAAAAAP3UASH4ARHoAPnMAP3UAru8ATIIAAAAAQnfz9vkAAAAAW5IAQ3kAAAAAOWwAuPIAAAAAq+sAqusAXZQAZ6AAtPEAP3QAgLsAUIcAAAAAOGsAVIvP7v0AWZCy5PsAL18AL14AcKkAMWIAaqMAb6kAP3QAda9s0PcAYZkAQXYAMGAAMWIASH4AjswAXZQAhcIVMl4AcqwAgb0Agr4hw/QAdrAAfLcACRL///8ANGYAiscAYpoAhsNczfYAUYgBuPLe8/4Ai8gzxvT///8Au/IVwfP///////+o4PoUwfMrxfQAf7yO2Ph20vcCmN0Aru8AVY1ByPVhzfZQy/Vqsde27P6f6PsRresAndz///8APnMAP3QAQXcAMWEAMmQAR38ANWcARXwAOW0AQnoALl0AO3AAN2oAVZYAU5MATYYAru8AAAAAWJoATosAS4IALFoAVIwASIMAUI4AUpAAicYAg78AeLMAfbgAPXQAdK4AUYcAb6gAaqMAZ58AHkwAX5YAWZAAY5sAXJMAIlIACDsAD0UAtPIAwf8AJlcAFk8BX6EAKV8AJ2oAktEAASzO2uUAOYQBzP8ARowAMHAAuvfFz9tHZouWrcUAOXi0xdbp7vMAMHr4+vyGmbIAG1o0W4NthKIAn94cS36lus9RdJsAH2Lf6PAva6EkQm3Z4etwmL1Pgq82UXYA4P8dWpM8y/k6oa1HAAAAd3RSTlMAh4CMF6fnaA4GX+0LI0/Hh5XWt7+qLntsPzHhhCHNwJyj27A+aUn9To6xdZJbXOntn1uY+SfU+FR6Hr8xque8anLV5oRB0fLF2uzq3j39m6prTefIrqz31OyPV/h5SLtly4BxbIlo8N3kh6Dr6/TMtMHu6/zczS/lUAIAAB4gSURBVHja7Z0Jd1NHlsfVY03Pk5cIy8jGsk3AY2xj056GBmySkA6BDjtJOjkhyWTpnk7PTGaSnunT3QftiyUvwja2IXGAiEUSkpAwtuUFY2y826z9naZuVb2qeotid85kTs7AHxBV991by+9dlUrPerIByfTx3/3A+thkeOZl+stPf1h9+ZdCwzMvU6fTFQTZ7XaHw+HECgR8WB5QN6gDdBGrq+scVn//Vay2tuttZ5GuwMO1m0pdvnmp8zllg+mfemKRSCSKlaTqQWptTSdTVDNptzcE8vv9QaQBLDgdIHw6ekGBO1NYQyNdfUj97f3tI2d//jdRNhWuy1b441qGCtek7I0gokgukBvJ6/WGXDOpVNo/f38RNH7fl12aWco6AiCa5BQsSvGuji6kXgS3f2XlEdLKSv/Q0EjbWVD7TR3KJ1944YU9Bq1e+PT948fff+ukwvctZDv+6Qsatw/3qJrkbe6BykltmbsVviCKudADbMQ540WHD/EA3y6EgxDMI2moljJATqdSrvuzE7fvnpFV92ByenE+M5MN+JSUO3o7RoDz1FT/o4kxFrA8+XBlZKg9B+XC80hvaRm/f57qQw7vU9n2KTMJblzvi23ioOOk/DZ2lcEcp3Enz6v1qeDOTimLl+eg6XcPG+Bx6vq2geotVhUpA2cEORpPj088OKNV3djD+czSgIdTBsjAOHtncaFO7X77YftQmy7lkxeQ3ldbP7zA9K5sO3SBSz4XF0Q/pnehLk//TaGDt7GnPPX3oXIIwbmg1ltsFOAAEuN30drntBs+Fa5CA2uI+35aqJPLiPHqNEOs1eRidingUawYXYHs4piu8/Kjob42LWXT21+DJKX10Ndc8kCRI9PnNHe+FvUupwxVRlk4tou1yNwOqZoRPd7lZT4GbvmcxFOZFM3sgWA2UNrF29p12ZuMu6fPfLfGFjMZQplARok8kdN5YWRITRkgfAU6qczvrwTROe0Rbe9QClDmOgA2Zj8kdiBTZtGg16kbdMfF3U3vUG9OWRH/Do3nVa49hgPkf7HjPVrK8egsPPHX5pztZutyZoWnvlYPno58qaH8+jcgtn6R2X1D9Pqbb/7ym9cpOdH2jQmfDGahx+TGfwkVRhn70MkSv5NC15DLv8TCvb6DiyR2D/E2CpSJhaLDAYzyIahBC2+9+dY7qAsSvUs7CE7ZnYw9vn1mXVqYX/L0AuXu3syj73a9u/KFmrJ0CetN0XaA2F4/iVGScZ68RIRrxgMSpsRC97yDiwdkylBhlKEiU4YyO/Q6i9FEid4vaEZ2QIg/xCZCj5kA5K499PCbGldO2RtPTZ9Zr+4tLgW6IZUB8hr6i0GlmstYQIHpA27iCIifUTDZBLeTrMyct8uUhSO7FL29DmUgpo3ikeDBKRPLL4X4Q8pDu7jzId6VhI/ZlJRd8Z5JLaHl25NIfEvH9TBzB20wsk81uftgWeVdp87lA98SmQTwxFKkSHli2yXaDmETZfAGrhgpLyjLvHZC5Q1KmfYm8RiIV0dxA2indrRkFifEgDeoL5eNDIlN6QODgrIrtnpXhWthdnw1GYnHYvFIcnV8eky9amSzHYE7DxSL8PT4vN/tDc6PT4uNvaeivPPatQ8+uHbtmk00gdh4CR5sA1ZcL2ObROePK7uEI4wyjuTNcL83oLhP0Z5I2fQBGdsJgbIi/oTQTRG2A0iuE8x1J5sRpxx7rGI4nowNxuLRZCvaQbvTyVQ8tTqrXLVvz2czD8X6YjqVSocG7tzJZpaCs/f4kd8rKb9x5crLO69cuXJAGNwVUJHyZGAbhShDAJMM3oYdtlNetMxDZcpXiHbSvpE4ZR7Fm9wJRiMzbVLEnxACDlxhjTFtx67Mc5dI2aWCvLAaG4xHe1whv90+4CDXjwbS8dT4A0W2Z7MCyumZlMsf6Oonb6xHMvO3c1CWrl+/vn0TPDCT8TqIYOHksbFQNNmwaSdrCPQy5QVlRllobhcqnnjj+vUPCGU4wsHwKO68C6JreS5D/An0jw9qu9wLaI/yNUfu2UhHzymj5QLhYpp8HItFki5vkMqO5HA4A56BVFqx01sQUnk2ng45u9ra2kFtbWdvDo1QzH9+RfXih67j7YMH4ENUexUEg+cygon5iH4M0l6onaC8oMwoQ0WmDD5gsLEQgbKq3+3gt13hsgnV9kJ8EaYsBLzBu+f6AIxG6BaPnlOOxpPiMroYG0SMQ0E/iFFGmDHn1QXBVYTs9ve2tfX39xPKiPPIyDKcsvHPDUptQldNdxnRwx9MsmkfqiGj8mSA6eomhe2A0u9lqP1B4mVGGSp7STkffPb94dy5fZgyqpGSKorXTTCaneJwr/L4EzzAhGyiI+/6ai06X3j0nHIoHr8trK6nBiPR1pA/FAppKAPnzMysDuQxtFp0tfX1McqAeWjlTN3i0szxQu04agwwQhs3sao4O+woaju38bAiLa8tAuVdUK5Fh19emzKA+8iQD8F8HCxeRdl2jralTY7ttKMiTtk9OCHgig9Goy5grE854HPOjN/TUL6fCvUiyErKZ0cePk15Hep3JXvRTwKKDB+hx3zZ1HAR6SNJ4bYPmcBR1BZsY2cjD1cJ9BehyHIZKnIuY599tP29UONkeBQBh8NawCgxyrhLFs8DaqDI5sB4wsReJP/t5dYv4+PCkhyLRZPekNebizLC7FuaV++fH6RdzvY+DWW0aPgGbqreYUsfoWsfkmEvesxj4DuQYEwiUbCpyG/tADHy+3C1lvCCYp4YK1OGco0NHOWeGGUexX1fNNhwBKMMNRvYNsnxecyZ+XE1wLANRmXDpi+8dRzyYCzagxjnpgyYPUvzECJoIhXq6NdQRrp5VnNNrqa7u+MYmh/670XZVt2NpKLcgEwXq9U2kJFRhlpHC+EFRUZZaC8fDuQb0MMW7IbEKLMoqjxSOyb6bMJ9QHwDUMYB1BlkU1OuwUMsgscaTvn4Al+TYxjyWpQRZtVbvumUHRirKLcBZkZZHPWLBMQxEx0DTAuMXJTHXh3bMSNvCpTPD+lThgOAp5qeJ06QR/HqJoJyi6KTfWA7xgJoJ6Aig1owmZbabvDnlH/KWNVFBtFy4XavRRkwP1JSjjv7uzSU9X8itcXjgSmUeZBoIkjdHmRsUBEFBzV58DvGl0xwkSlDmVEG+2ZK2YM7zEOPRXAEqUzZYB4HhGot6FTQaN5JHsR7auAQ7QaKIKOGch40WYYetgrGPzFWjwHy+igHliZFygupQLuWcpsu5WMwTZg8Uj4xGT0+9EdFea8uZSROOR/H6VJGYpSRthpq0OMmQMAp8ygqG9Rs1EkSKW8x1BLHLWtTroExVqOHFm57hSck2sK5vW5G2R9yJZM9Lr9dS9nXm/WJS3NdKNO+zly2QTgCUwP/0/kV+UAqytVgU1MG2zETo4xqjDKUGWWwb+ZOcAaP4dbKoCZQhmqe2N5hCYGFtmpkymRspsM+H2oxD3fDY8FdJejJ40EHhUPvMVLxWKTV6+KUk0nn9WtXOlw9OpQ93co1Yzbe37e+XM6nM5B2A8TvRVnibYF0KSMxyqSdBp9vt4kw45TFKIIQFu8WsG5SUCauRkOZSBlJSZn3HlCMvZCDGowkATKh7HdHL84NDw8/ScxdTYYcGsoeX2ZBvN68mmlbXy7nQRNGoBgIOI9RygFU1lAGo5oy2ATKqBYIUMrQLqOMyowyHEDlTQFwxTVGmUXxGvRYA9YtMuUAsZbx+DzmrUu5Fk3GCb0wfcauJMfjUbdbphxyRy89SVwJBq92Die+Svu1lHvvZMcEzMvObP+6cnkjauUgKSDZCGUnSE0ZbBt5ncUc5pTRgJzOfH6IUYaKTBnK1dAJdFELtTJlgztoxShXjCwcKNOKDf231dCCu+Gxu41ayqbDTlARt/xWSOUet4tRjlx+MhcbjEdiPXOJ4Utph4aypzt7Z1nxk6dMb/86cvkgamQjI0EIGfUob4buNutTFgDkpBwQKAcOktN2GFirKbNcxmdgkzzI3ZLQSTUYId7Gu2mAWCenzLWVhDC9xCglY1Hhs0U9jtHhnkGfwx6IXkwkOoN+NWXAnFHumh/2To2slctkllvZ6PMI5d04b7WUnd+fMs9lGgNGxOQ7crkMKi3MbBM6OUjZSZJAmWcsF+9+o86CsQCpzClHvnpyK+4Pop1cyDuXSJxL61Du7c6sKDAvP+yaGlojl1scSHiWtVBqoE8xKKuJQpfq937gx5+kZQ5QC3N3MMpCe/kkhnS9yeCU+2dRjPJW8LSx+E2UMpQPS6ShfAPvBtypPxc/sllnhzE+GHXxXHb33Bq+EAmG/Ah0+nwicTXpVFOmmOsUnO9OrAxNjQDkXLmcx7gUQekgXYNpWUtUUg0fVKSkXLsWZRoj7XY4NhoOaig7ZMrVuENGdgujDGcJ4iErDrNu8mjva1NmkHpiSTen7EIJPOdy+WXKnqgeZfgR9tO7ImV0sW7sUd/QUH/OXN7Iz/9BTmyzDtEtjKhoY+F8njXrokxdjBtz5rIR/KrJCs3jOWU474eNaKj2PKHh/DUp82V5LBbvUVFOfBsJAmX33HBn0qtLGWHO8h888R/LPhqBT3yqc5mh3S0kawspMnpcZQJCLVYR+nopl0F/W/RymaPdSsq7YZUwiZRpqRYI5jF/aGtNyp8I7/talStGYnTUHg36gz3do0+uxTwOPcpIXbqf33rw8OnQkF4uFw0g7d6KVY2KdMA7BkBAnCsf25ST2KT0a8CtGQkvKDPKUNkstgOUbeCxgzXKoijlMihXk7HthrKN9Mk6KYL4LbQbqIIa9Cjj7rUvfrN0WeavfsOdiU530h6Knn9yYdAbGAgOgBBqgTLoYiCzMnZGq4WVoREt5Ra7Sg1kJrgMs+WqwTY+Vh6+iW1DoHaQ8oIyoyyE5uOYIigeRMYGVBEoC/1utauUz8dGTmW13b6xgXdzkHavpawc+e/5haKkgnLSk7jROTznika+eXJ+MOKxD/jJxaMBgKz6ZO1UdrYuB2c15Ty7SgcFosoNhbQbGyXRZgOLYwfb/UN147opw+wPVysps/aAoUpb1ZR30Pg8ORhkW4sy32Ksqih7IxeGOzsTc8Gvn3w7GPXY3ec6O2/dujV3o/OWZ0D7WfzM/PQ9Hc4TbUOqq/gNdrWKCFFW5tpMEkpLfiNjDtoitLwlN2VWzJXLkl2tg2rKtVDklPNIY+unfCrWo6Acam2dSyDMw52RQbfHbvf7us8PJxKJy0F3K1w7AFHWwLlvCHFe1mKuezQ0wijzJ1k1kR1E92EsedR5X60lz96V0dPAZ9YgnsyNGspGKOnlMkdYTXSQBTHKPBmAMo84vCbl38o0eoByq5DL/mTyFsI82ulIOmEkAxF3J3o9DKfS2TuCgHYv3FfSP5QJ6n1WfGGo7UtOuSgIkuQpQiWPAAtiKZLZRmz5CvLY1EKR0xh+RF4kq6HSQClzL+gRhClzA6FcRmKIjKQfNjSgzOPlhekwrm3VUgazHmV1Lnuj6blhwDx8JRrEmAfmRv86dvvBbY2eYsx97SOZzPiCBvNk+xeccosfqZohgxoZjBGKcEjUQTAFT4voa/w8pkgR8hqu1Qit7aCUcaWIOmEJlLnjVihuYNeqmN9reBCEchmJB8o0BMT3RqJdS/neqVirmMuh1si1J7fQG0CEOYEwD9gdweDcjbtn9PQ0iyAj9bX1ZdHCod4/3/7CwLQhhLSf7dWgdppk9v4Q1mYbrlEmxHa6hdiw41FsgulLvAiy4dpRCbPD5dfkXkBFpI2QEMM8gTJtmX92AY+UjYJStpF4OBesOdae0cgog/GIzqsfUOa53JO8gPZvg0mC+XoS5XLIM/dXXcj35qOePky5r6+tbSiTHVdtoJcL+aS8SGyONi+Ipp8Xy+09sqFsx1G6pL6KbSHvkR1lG468agJTC3HbWLYBHQTB1Lhz6NUdKJwcKaKUxQo5VKYc0A4+ABvLB2jsKKYMdqDMO2EZv99LdHRHWdn+0zWMMjLpUX48KK7LrsiFJ3Noa9EaIZivJh3O9JXR5RyUk5gyvY/ybP9UZl65cLxnYCSgefYEk05Dlabca24iLzzQdK91c3lfpZxwzQWOIL7H3sHCieRZ5uNakejEKR/BbbC+4IklRhnlgcmUt2IzoyyxQYNsDD7uX7tfHh8U1+XIpeFhbyzgD7bibE6Menqc6a8hlXVUxyjTq/joo1uZ8THR5RP5GeYCwWAoMajKnPa7mIAygeLiOkpMNihzo4k1ZnQp1Foj88JVSrkFVwTKbASv8T54N7XyAaDMGwPKrD0uG8tlqB3RvvebFnLZG/Ulhs/H8N3A6eQcYO60R7s7/6xP+W5QRbkd3Uw5NDUrngh5TK1IpzmY/VA/wmtMzLaD2yCXMY5WwUZyj7fOxUjm4yqlLOGKQBmqO1jv+w38eUYcaX8yZSOOB8o6o7Hpz4tfx5gU3pW40B5u+FrMQTCTffNc9JvhXHdBudO9KsoondumVoQF5jPaew8S0KLa0AMyshG/2kO1n6M7Sk08roW7McjsANXp1zgHbCiiNdzcDr6Esd6wF+ATjxzlg1QGcNmOsE6L2LlTzvMllpCROKMc7U7cGL4SDwJlv70ndAMw35qDVNbTsldLGX/is62O+fyWptUGpBZhhBtARTyBNhxBs2g9ukGk99p+bNsvuh09jWaxX7ODMkE8OnJkg1HVCWuxFiq1vHEyIggF2YRTBnU4VzX68YLn/qOtMJxadSxTHX/5Y5Qj3yY6hy9RykF70pNAmIdvnXp8X9DqJDtB/nRHl5oy/WAt0yuGdcpkLJI0RmORUWWRjEZTrng48n8sCQaYW+/xhbmVUb6UQLmb9BLKCPO5xCh6ExiNpQTFFtiia9ejDJinHgr3PDzL+oxlZDzililfgyXiYiSIKSPM0SujNzoTN4Jen/xlGJ5A4AH/KEa6S5/ySFsd38w9y3rpDN/Lufm6jKDO9SSDhPKAO4I3GrdcIZ98Df/OuTNM87ly+ezQAl+Yn2mxz2OMDfZQyq7orWFYiJNRsmKk0+dH5xKA2Q2YHcA580ignMxJmXs929+q8xnj8DjmlffL/lG8e3NGkm5va9TZ+cQdu5EA8G63M+SEZBY/vnV/pjcH5ZEV5vSS4VlW4RllMruRQpFzw4B59Ktuu6P7m+EnwcEeDwZ/y+m+1Nkx4Mv23hMoR7U7OYK572Yd32Q803pPWJlD8tWiiKcTcb6RGEUJ/ORWZNDpS3tuDN/oRKSfXI70epZg98DiUh5dymefU9Z5/auLpLyUcijSc3kuMYw0et4xGPcF7M508Pwoqt/wDQZ7s4E6BWVfDsojl4UNc+FLhS8xvfLSK1i/gj9Mv/7Vr0X97Nc/W0P/gP7CH/T3R6pCzWfxJwdb3YSy198aj/o9Hd32aCzm9wzY7Y6AN2m/eNEejwU6fEuKa5uL8UDfmusyYP0E9K9Y/4H1n0T/jfTHP/7xv5D+nejfiEZF3ViXOn9k+gW7r4RpdpBQRgoFQ1H4OoFk0OcIkjuEfe5IPBLq8Kjv3ZmO58rlIbaw1MmJDLSxWAr/M9Vv0F+s3/3md1gfo79Y/0L1E6RfkD859ffkD/z9gfSPf5NOUsrHhcQcj4l3PABaB7uvBFU8vb2egCeTXVZeLkoGc1GeVL0rMdH/TFCiFq4f1xfx/a/K9EX6roh5rbt3fFn26XAWNKNPeeTmvefvsNm9q48FYo9jADknZQR5iULmmkz19q1xHeMTw7Mtdh82y+Z0KDdlXybDVgHxfUmblrJ4GePe/+PFYC3x7xQQyU2nUqEclAOOGfiIp0Z33VP9muvLfUOTzy/JKb4fI/VAXABW4+mQHuVAdmaxjvvVTbDiWOZOv0gZQ5448/z9NYh/18upe4q795LxtF9F2enMzmSV++TBZY75zpSS8hCD/L2ve1aVS/oHjNIaPwgwia4/Cul+b9GDWVd8xi1QdgSXZgIP74o+E3HxKx+WF6emehFkoNzWPjL1dPJMjlSWiisKKipNuvjKDSBzATxWhpvrTeEmHbeCYrlUX2w2m0tUPqXhUu5aCfV6g56kkvLvTa20Kveh0tzfvxxbrVNwXp6+n06lZtywQHvTMzPZ8QlwECEnXUsiyslHXVNTQ70jI0NTQ08fis+NzwyC6sPNxZXWcFhvhtvCBlAjUCwP10uSVKzn1swol4RLSkos4ZKclMOIclUx1LWqDFu+N+UC6FJf5nBuymjR0Hy1yMTs/WDI7Q7Z52fhm4I1kJ13AnXKWx0erjy9/vTRw0lgzPQnxTIQtuJerXr51RTWLefO5ZICgrVRSblKzOWcChdDkn8/VVi1Nj4mrfh3I54aO6NR3fLt2w8Yfq7peNTl6OjIrKgP3NN+DfNxcXWwiGMot1RUbIOCtdxoMRvqC8IWSyPJ5W0FYbOl3GDFaVhcUWFGBSgVFJiNFkbZSlozV0AQPo7CS5uNlRUF5iqZspE0gmzQmZDKBksFZWBFzZbjc4uc8CkzliATxEk4uspahcZUWW4psEDV2lxgMUuoU0tBgdWIl65yc0FBE4ygGU0CtVVqrqgorlJSRnL/Dd/zuQiZ3LGur/kcc39eKKy84SYxXYvrK8NAp9lcgPCWl4SLK1F6WZoNUK6sLJWwuzncVG8OV+FSZZO1AjgoKFss8ukLm9H8CirM25osECCsyyUQKiY96piuLVJBwbYmM5TRaJrwiKrCliZkqpdHXA5Hi8OWRtSuEXLAUgwvLVbrtsbmAgnWugpovh7OU3Mxooues02NFlTX+87asbWg0a1eqzuAICOthXkhnT4uUC4Xns0mmDMZv5nAr0d4AYgFymFIIRh3YxjnqwVKEj4525TPzm3IC4KAqhWCzFCsqMCUoV4OPlXiKxO0YkI+Fr6Slkv0fFSVojgLbh75GMFGzkclbgOnhQUe2NoPrZWDtYKeeRh+zt8+4I7HZ++txbhuMZ5yeX0d9L4SuLEyt6aXMnYl5VKhXF9eXl4Kg2y2GDAuRpm8EsIUgW8p8itG9Qqz6tWvOFxRUdEMLXDKsC4TjBKjDKF6i3spJKbEzpqV9E9D4Ei9SLkY87OU8HXZaLVYimE45HW7spmdeakiXFyqSxlhbo2fmv5OznXTp+I9Lr+nl32XeHZ+Ipfz7fGZkL9PvONBCjcKuw1zBZKliXDLTbnAAm5mzBBUwSk3oz0G2YeUkAS2wtkz0qcNo8x6EJauCtgEhvFxGYe5QvWUQ/y1lK20H7BaKitLmitlyuAAlMmGtSBcYtKhDPJGY6dmx3Jimz0Vi7i8gd5eeu8q+tt1h3/CU7Xpzs4EA12XvyzU2+dIfC8AMHJS5nNnJUDDVgxWxMearWx/XBk2Mcq8ER5ZbEWCBkzhYv6CCGLpDWwlSrlKSbkYF0mfxWrKVOVsi6n9HQ+hZCz1eFqH29j0/Wgs0hpy9vYK34uP1JXNsN00vyN7PDvjdXacPau8d1UKF5TiATTSQVZVAgyay2EtZZhhE9SbIGobHObrspVTbgQOjSQ3oVgF7BhluturbJRTGWwgMFfiCnpKSBhLI4qxQhMSXsjwKm9hlEkaF5gZ5SZoQqBsbsaEm6BY8B2/FSbkTsXiq7MTY8t08bi3PDYxuxqPoZ2F1+FR/iaNXsDcl52x899vcndsYtE+M4Nc22/eVH8/RinaopVYwrDRMjajhApbJDQTK10OC0qAfjOmhg1NOMVKis2EUthiLSgBftp3ABVhK7xBwSnUXILaJRsJktvQntlaAY0oA0vCEjAtsTaHSyG0wor2MRir1RoukIAislkq4KgVggj1ShQhwYpRbLVAH/AsoA71aH7lCLvFWhLW2WOI95X4valYLB49tfoYafVUMo5qPS5v0OnxaH73zgji3NcfWJqB39WDNB9Mz6TcDl8HYqz3W2GaSszWctJ3pdnchJOYZlaptQSV6pugCECkxiqcGCgCCrjUaGii3siTZjVtzGqoh71XI3GjDfNGLHz/2ig3YazE212zuZKc52KLtZREmqEJ2uc2wzYjKmzDB+rxY0kxuFvNxRL0AaMFB+JvrYKWzCWla/yGI8Q56Heno6lUPB5PwXddh/wDTp8vgKS6dxUEV5fb+zsC2Uw6nfH6nZ7ervazN+X7sJ/tzxV9J+VQiFwpIheLnIBXe7c74dxFP8HVj67Fkc+Ig9rOPqespNzDOANm9U/+7EjkTneKGUQwsxdALHzpsx2rDfScMqP8c7Rx4IoSib9/Lp0DfnCA6E6AZXgv1cjISBcFP9L2nDKi3Hnh6wu5dH5N3ZL/wF99Pf8tiojyxz/5gfWs/97V/wFQAhxbMQbamgAAAABJRU5ErkJggg==" />
+            </defs>
+          </svg>
+        </div>
+        <h1 class="request-title">Document Request</h1>
+        <p class="secure-title">Secure Document Upload Required</p>
+      </div>
+
+      <div class="content">
+        <div class="greeting">
+          Hello ${name},
+          <div>
+            We hope this message finds you well. To proceed, we kindly request you to upload the required
+            documents
+            using the secure link provided. Please ensure the documents are uploaded before the ${deadline}, as
+            the
+            link will become inactive afterward.</div>
+        </div>
+
+        <div class="document-info">
+          <div class="document-title">Document Request Title: <span>${doctitle}</span></div>
+          <div class="required-box">
+            <div class="required-docs">Required Documents Listed:</div>
+            <ul class="doc-list">
+              ${listItems}
+            </ul>
+          </div>
+        </div>
+
+        <div class="cta-section">
+          <div class="cta-text">
+            Simply click the secure link below to safely and quickly upload the documents we've requested.
+          </div>
+          <a href="${link}" style="
+          display: inline-block;
+          margin: 20px 0;
+          padding: 12px 24px;
+          font-size: 16px;
+          color: white;
+          background-color: #1a73e8;
+          text-decoration: none;
+          border-radius: 5px;
+        ">
+            Click Here to Access Secure Link
+          </a>
+          <div class="text-center">
+            <div class="security-note">
+              <span class="security-icon">🔒</span>
+              Your documents are protected with bank-level encryption and will be processed securely according
+              to
+              our privacy policy.
+            </div>
+          </div>
+        </div>
+
+        <div class="important-notes">
+          <div class="notes-title">Important Notes:</div>
+          <ul class="notes-list">
+            ${instructions}
+            <!-- <li>This secure link will expire in 7 days for your security</li>
+            <li>Accepted formats: PDF, JPG, PNG (max 10MB per file)</li>
+            <li>All documents must be clear and legible</li>
+            <li>You will receive a confirmation email once your documents are received</li>
+            <li>Finance Reports</li>
+            <li>Bank Statements</li> -->
+          </ul>
+        </div>
+
+        <div class="footer-text">
+          If you have any questions or need assistance, please don't hesitate to contact our support team.
+        </div>
+
+        <div class="thank-you">
+          Thank you for your cooperation.
+        </div>
+        <div class="footer-social">
+          <div class="social-links">
+            <div class="social-icons">
+              <a href="#" class="social-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <g clip-path="url(#clip0_20_2125)">
+                    <path
+                      d="M22.162 5.65599C21.3986 5.99368 20.589 6.21546 19.76 6.31399C20.6337 5.79142 21.2877 4.969 21.6 3.99999C20.78 4.48799 19.881 4.82999 18.944 5.01499C18.3146 4.34157 17.4804 3.89495 16.5709 3.74457C15.6615 3.59419 14.7279 3.74848 13.9153 4.18344C13.1026 4.6184 12.4564 5.30967 12.0771 6.14978C11.6978 6.98989 11.6067 7.93177 11.818 8.82899C10.1551 8.74564 8.52832 8.31351 7.04328 7.56065C5.55823 6.80779 4.24812 5.75104 3.19799 4.45899C2.82628 5.09744 2.63095 5.82321 2.63199 6.56199C2.63199 8.01199 3.36999 9.29299 4.49199 10.043C3.828 10.0221 3.17862 9.84277 2.59799 9.51999V9.57199C2.59819 10.5377 2.93236 11.4736 3.54384 12.221C4.15532 12.9685 5.00647 13.4815 5.95299 13.673C5.33661 13.84 4.6903 13.8646 4.06299 13.745C4.32986 14.5762 4.85 15.3032 5.55058 15.8241C6.25117 16.345 7.09712 16.6338 7.96999 16.65C7.10247 17.3313 6.10917 17.835 5.04687 18.1322C3.98458 18.4293 2.87412 18.5142 1.77899 18.382C3.69069 19.6114 5.91609 20.2641 8.18899 20.262C15.882 20.262 20.089 13.889 20.089 8.36199C20.089 8.18199 20.084 7.99999 20.076 7.82199C20.8949 7.23016 21.6016 6.49701 22.163 5.65699L22.162 5.65599Z"
+                      fill="#999999" />
+                  </g>
+                  <defs>
+                    <clipPath id="clip0_20_2125">
+                      <rect width="24" height="24" fill="white" />
+                    </clipPath>
+                  </defs>
+                </svg>
+
+              </a>
+              <a href="#" class="social-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <g clip-path="url(#clip0_20_2128)">
+                    <path
+                      d="M15.402 21V14.034H17.735L18.084 11.326H15.402V9.598C15.402 8.814 15.62 8.279 16.744 8.279H18.178V5.857C17.4838 5.78334 16.7861 5.74762 16.088 5.75C14.021 5.75 12.606 7.012 12.606 9.33V11.326H10.268V14.034H12.606V21H4C3.73478 21 3.48043 20.8946 3.29289 20.7071C3.10536 20.5196 3 20.2652 3 20V4C3 3.73478 3.10536 3.48043 3.29289 3.29289C3.48043 3.10536 3.73478 3 4 3H20C20.2652 3 20.5196 3.10536 20.7071 3.29289C20.8946 3.48043 21 3.73478 21 4V20C21 20.2652 20.8946 20.5196 20.7071 20.7071C20.5196 20.8946 20.2652 21 20 21H15.402Z"
+                      fill="#999999" />
+                  </g>
+                  <defs>
+                    <clipPath id="clip0_20_2128">
+                      <rect width="24" height="24" fill="white" />
+                    </clipPath>
+                  </defs>
+                </svg>
+
+              </a>
+              <a href="#" class="social-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <g clip-path="url(#clip0_20_2131)">
+                    <path
+                      d="M18.335 18.339H15.67V14.162C15.67 13.166 15.65 11.884 14.28 11.884C12.891 11.884 12.679 12.968 12.679 14.089V18.339H10.013V9.75H12.573V10.92H12.608C12.966 10.246 13.836 9.533 15.136 9.533C17.836 9.533 18.336 11.311 18.336 13.624V18.339H18.335ZM7.003 8.575C6.79956 8.57526 6.59806 8.53537 6.41006 8.45761C6.22207 8.37984 6.05127 8.26574 5.90746 8.12184C5.76365 7.97793 5.64965 7.80706 5.57201 7.61901C5.49437 7.43097 5.4546 7.22944 5.455 7.026C5.4552 6.71983 5.54618 6.4206 5.71644 6.16615C5.8867 5.91169 6.12859 5.71343 6.41153 5.59645C6.69447 5.47947 7.00574 5.44902 7.30598 5.50894C7.60622 5.56886 7.88196 5.71648 8.09831 5.93311C8.31466 6.14974 8.46191 6.42566 8.52145 6.72598C8.58099 7.0263 8.55013 7.33753 8.43278 7.62032C8.31543 7.9031 8.11687 8.14474 7.86219 8.31467C7.60751 8.4846 7.30817 8.5752 7.002 8.575H7.003ZM8.339 18.339H5.666V9.75H8.34V18.339H8.339ZM19.67 3H4.329C3.593 3 3 3.58 3 4.297V19.703C3 20.42 3.594 21 4.328 21H19.666C20.4 21 21 20.42 21 19.703V4.297C21 3.58 20.4 3 19.666 3H19.669H19.67Z"
+                      fill="#999999" />
+                  </g>
+                  <defs>
+                    <clipPath id="clip0_20_2131">
+                      <rect width="24" height="24" fill="white" />
+                    </clipPath>
+                  </defs>
+                </svg>
+
+              </a>
+            </div>
+          </div>
+        </div>
+        <div class="copyright">
+          CPAportal©Copyright © 2020
         </div>
       </div>
     </div>
-  `;
+  </body>
+
+</div>
+`;
 };

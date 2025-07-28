@@ -1,15 +1,23 @@
+const http = require('http');
+const https = require('https');
+const fs = require('fs');
 const express = require('express');
 const bodyParser = require('body-parser')
 const validator = require('express-joi-validation').createValidator({ passError: true })
 const cors = require('cors');
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, `.env.${process.env.NODE_ENV}`) })
+let dotenv = require('dotenv')
+dotenv.config({ path: path.resolve(__dirname, `.env.${process.env.NODE_ENV}`) });
 const app = express();
 
 // ✅ Allowed frontend origins
 const allowedOrigins = [
-    "http://localhost:5173", // dev frontend
-    "http://localhost:2001", // production frontend domain
+    "http://localhost:5173",
+    "http://localhost:8076",
+    "http://localhost:8075",
+    "http://localhost:8077",
+    "http://localhost:2001",
+    "http://44.211.113.36:8076",
     "http://44.211.113.36:8076",
     "http://meanstack.smartdatainc.com",
     "https://meanstack.smartdatainc.com:8076"
@@ -43,7 +51,8 @@ console.log("NODE_ENV:", process.env.NODE_ENV);
 
 app.use('/apidoc', express.static(path.join(__dirname, '/apidoc/doc')));
 require('./api/routes')(app, validator);
-
+// Serve from the *actual* upload folder
+app.use('/uploads', express.static(path.join(__dirname, 'api/uploads')));
 /**Reminder */
 // let remainder = require('./api/services/mail.services');
 // remainder("saini@yopmail.com","reminder","https://www.google.com")

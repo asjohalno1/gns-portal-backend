@@ -12,9 +12,25 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const sendEmail = async (email, subject, link, name = "User") => {
+const sendEmail = async (email, subject, link, name,doctitle,deadline,docList,instructions) => {
   try {
-    const htmlContent = generateTemplate({ name, link });
+    const htmlContent = await generateTemplate({ name,link,doctitle,deadline,docList,instructions });
+
+    const info = await transporter.sendMail({
+      from: 'shaktisainisd@gmail.com',
+      to: email,
+      subject: subject,
+      html: htmlContent,
+    });
+  } catch (error) {
+    console.error("Error sending email:", error);
+  }
+};
+
+
+const sendEmailRemainder = async (email, subject, link, name = "User", msg) => {
+  try {
+    const htmlContent = await reminderTemplate({ name, link, msg });
 
     const info = await transporter.sendMail({
       from: 'shaktisainisd@gmail.com',
@@ -30,23 +46,5 @@ const sendEmail = async (email, subject, link, name = "User") => {
 };
 
 
-const sendEmailRemainder = async (email,subject,link,name = "User",msg) => {
-  try {
-    const htmlContent = reminderTemplate({ name,link,msg});
 
-    const info = await transporter.sendMail({
-      from: 'shaktisainisd@gmail.com',
-      to: email,
-      subject: subject,
-      html: htmlContent,
-    });
-
-    console.log("Message sent: %s", info.messageId);
-  } catch (error) {
-    console.error("Error sending email:", error);
-  }
-};
-
-
-
-module.exports = {sendEmail,sendEmailRemainder};
+module.exports = { sendEmail, sendEmailRemainder };

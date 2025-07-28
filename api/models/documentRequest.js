@@ -6,13 +6,22 @@ const documentRequestSchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Staff
   clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client' },
   // clientEmail: String, // Client
-  category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
+  category: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category' }],
   subCategory: [{ type: mongoose.Schema.Types.ObjectId, ref: 'subCategory' }],
   dueDate: Date,
   status: {
     type: String,
     enum: ['pending', 'accepted', 'rejected'],
     default: 'pending'
+  },
+  subcategoryPriorities: {  // New field to store priorities as a map
+    type: Map,
+    of: {
+      type: String,
+      enum: ['low', 'medium', 'high'],
+      default: 'medium'
+    },
+    default: {}
   },
   notifyMethod: { type: String, enum: ["email", "sms", "portal"], required: true },
   remainderSchedule: { type: String, enum: ["ThreeDays", "OneDays", "overDue"], required: true },
