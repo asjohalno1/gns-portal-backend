@@ -127,8 +127,8 @@ module.exports.signInUser = async (req, res) => {
         // Generate JWT token
         const accessToken = await jwtService.issueJwtToken({
             email,
+            id: userCheck._id,
             first_name: userCheck.first_name,
-            id: userCheck._id, // MongoDB uses _id instead of id
         });
 
         // Remove password from response

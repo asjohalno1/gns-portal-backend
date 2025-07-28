@@ -52,7 +52,7 @@ module.exports = function (app, validator) {
   /**Admin Routes's starts */
   app.get('/api/admin/dashboard', adminCntrl.getAdminDashboard);
   app.get('/api/admin/documentmanagement', adminCntrl.getDocumentManagement);
-  app.post('/api/admin/documentRequest', adminCntrl.AdminDocumentRequest);
+  app.post('/api/admin/documentRequest', auth, adminCntrl.AdminDocumentRequest);
   app.get('/api/admin/getAllClientsAdmin', adminCntrl.getAllClientsWithoutPagination);
   app.get('/api/admin/getAssociatedSubCategory', adminCntrl.getAssociatedSubCategory);
   /**Admin Routes's ends */

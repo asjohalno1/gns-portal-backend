@@ -797,33 +797,17 @@ module.exports.getDocumentManagement = async (req, res) => {
  */
 module.exports.AdminDocumentRequest = async (req, res) => {
     try {
-        const { templateId, clientId, subCategoryId, categoryId } = req.body;
-        const documentRequest = await SuperAdminService().createDocumentRequest({
-            templateId,
-            clientId,
-            subCategoryId,
-            categoryId
-        });
-
-        if (!documentRequest) {
-            resModel.success = false;
-            resModel.message = "Error While Creating Document Request";
-            resModel.data = null;
-            res.status(400).json(resModel);
-        } else {
-            resModel.success = true;
-            resModel.message = "Document Request Created Successfully";
-            resModel.data = documentRequest;
-            res.status(200).json(resModel);
-        }
+        const response = await SuperAdminService().createDocumentRequest(req.body, req.userInfo);
+        res.status(response.status).json(response);
     } catch (error) {
-        resModel.success = false;
-        resModel.message = "Internal Server Error";
-        resModel.data = null;
-        res.status(500).json(resModel);
+        console.error("AdminDocumentRequest Error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null
+        });
     }
-}
-
+};
 
 
 // get all client listing without pagination for admin 

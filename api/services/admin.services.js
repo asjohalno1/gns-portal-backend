@@ -8,7 +8,14 @@ const uploadDocuments = require('../models/uploadDocuments');
 const userModel = require('../models/userModel');
 const logModel = require('../models/userLog');
 const requestDocument = require('../models/documentRequest');
-
+const template = require('../models/template');
+const DocumentSubCategory = require('../models/documentSubcategory');
+const DocumentRequest = require('../models/documentRequest');
+const uploadDocument = require('../models/uploadDocuments');
+const Remainder = require('../models/remainer');
+const subCategory = require('../models/subCategory');
+const jwt = require('../services/jwt.services');
+const mailServices = require('../services/mail.services');
 const SuperAdminService = () => {
 
     const getAllClients = async (query) => {
@@ -465,245 +472,229 @@ const SuperAdminService = () => {
     };
 
 
-    const createDocumentRequest = async (req, res) => {
-        const resModel = {
-            success: false,
-            message: "",
-            data: null
-        };
 
-        try {
-            let {
-                templateId,
-                doctitle,
-                clientId,
-                categoryId,
-                subCategoryId,
-                dueDate,
-                instructions,
-                notifyMethod,
-                remainderSchedule,
-                expiration,
-                linkMethod,
-                subcategoryPriorities = {},
-                scheduler
-            } = req.body;
+    const createDocumentRequest = async (payload, userInfo) => {
+        const {
+            templateId,
+            doctitle,
+            clientId,
+            categoryId: inputCategoryId,
+            subCategoryId: inputSubCategoryId,
+            dueDate,
+            instructions: inputInstructions,
+            notifyMethod: inputNotifyMethod,
+            remainderSchedule: inputRemainderSchedule,
+            expiration,
+            linkMethod,
+            subcategoryPriorities = {},
+            scheduler
+        } = payload;
+        console.log(payload)
+        const resModel = { success: false, message: "", data: null };
 
-            if (!Array.isArray(clientId) || !Array.isArray(categoryId) || !Array.isArray(subCategoryId)) {
-                resModel.message = "clientId, categoryId and subCategoryId must be arrays";
-                return res.status(400).json(resModel);
+        if (!Array.isArray(clientId) || !Array.isArray(inputCategoryId) || !Array.isArray(inputSubCategoryId)) {
+            resModel.message = "clientId, categoryId and subCategoryId must be arrays";
+            return { status: 400, ...resModel };
+        }
+
+        const validPriorities = ['low', 'medium', 'high'];
+        for (const [subCatId, priority] of Object.entries(subcategoryPriorities)) {
+            if (!inputSubCategoryId.includes(subCatId)) {
+                resModel.message = `Subcategory ${subCatId} in priorities not found in request`;
+                return { status: 400, ...resModel };
             }
-            function getRemainingWholeHours(dueDateStr) {
-                const now = new Date(); // current time
-                const dueDate = new Date(dueDateStr); // parse due date
-
-                const diffInMs = dueDate - now; // time difference in milliseconds
-
-                if (diffInMs <= 0) {
-                    return "Deadline has passed.";
-                }
-
-                const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60)); // convert to full hours only
-                return diffInHours;
+            if (!validPriorities.includes(priority)) {
+                resModel.message = `Invalid priority '${priority}' for subcategory ${subCatId}`;
+                return { status: 400, ...resModel };
             }
+        }
 
-            const validPriorities = ['low', 'medium', 'high'];
-            for (const [subCatId, priority] of Object.entries(subcategoryPriorities)) {
-                if (!subCategoryId.includes(subCatId)) {
-                    resModel.message = `Subcategory ${subCatId} in priorities not found in request`;
-                    return res.status(400).json(resModel);
-                }
-                if (!validPriorities.includes(priority)) {
-                    resModel.message = `Invalid priority '${priority}' for subcategory ${subCatId}`;
-                    return res.status(400).json(resModel);
-                }
+        let categoryId = inputCategoryId;
+        let subCategoryId = inputSubCategoryId;
+        let notifyMethod = inputNotifyMethod;
+        let remainderSchedule = inputRemainderSchedule;
+        let instructions = inputInstructions;
+
+        if (templateId) {
+            const templateData = await template.findById(templateId);
+            if (!templateData) {
+                resModel.message = "Template not found";
+                return { status: 404, ...resModel };
             }
 
-            let templateData = null;
-            if (templateId) {
-                templateData = await template.findById(templateId);
-                if (!templateData) {
-                    resModel.message = "Template not found";
-                    return res.status(404).json(resModel);
-                }
+            const subcategoryRes = await DocumentSubCategory.find({ template: templateId });
+            categoryId = templateData.categoryId ? [templateData.categoryId] : categoryId;
+            subCategoryId = subcategoryRes.length > 0
+                ? subcategoryRes.map(quest => quest.subCategory)
+                : subCategoryId;
+            notifyMethod = templateData.notifyMethod || notifyMethod;
+            remainderSchedule = templateData.remainderSchedule || remainderSchedule;
+            instructions = templateData.message || instructions;
+        }
 
-                const subcategoryRes = await DocumentSubCategory.find({ template: templateId });
-                categoryId = templateData.categoryId ? [templateData.categoryId] : categoryId;
-                subCategoryId = subcategoryRes.length > 0
-                    ? subcategoryRes.map(quest => quest.subCategory)
-                    : subCategoryId;
-                notifyMethod = templateData.notifyMethod || notifyMethod;
-                remainderSchedule = templateData.remainderSchedule || remainderSchedule;
-                instructions = templateData.message || instructions;
-            }
+        const currentDate = new Date();
+        const expiryDate = new Date(currentDate.getTime() + expiration * 24 * 60 * 60 * 1000);
+        const results = [];
 
-            const currentDate = new Date();
-            const expiryDate = new Date(currentDate.getTime() + expiration * 24 * 60 * 60 * 1000);
+        for (const client of clientId) {
+            const createdRequests = [];
+            const createdSubCategories = [];
+            const uploadedDocs = [];
+            const createdReminders = [];
 
-            const results = [];
+            try {
+                const prioritiesMap = {};
+                subCategoryId.forEach(subCatId => {
+                    prioritiesMap[subCatId] = subcategoryPriorities[subCatId] || 'medium';
+                });
 
-            for (const client of clientId) {
-                const createdRequests = [];
-                const createdSubCategories = [];
-                const uploadedDocs = [];
-                const createdReminders = [];
+                const requestInfo = {
+                    createdBy: userInfo.id,
+                    clientId: client,
+                    category: categoryId,
+                    subCategory: subCategoryId,
+                    subcategoryPriorities: prioritiesMap,
+                    dueDate,
+                    instructions,
+                    notifyMethod,
+                    remainderSchedule,
+                    templateId: templateId || null,
+                    expiration: expiryDate,
+                    linkMethod,
+                    doctitle
+                };
 
-                try {
-                    const prioritiesMap = {};
-                    subCategoryId.forEach(subCatId => {
-                        prioritiesMap[subCatId] = subcategoryPriorities[subCatId] || 'medium';
-                    });
+                const newRequest = new DocumentRequest(requestInfo);
+                const requestRes = await newRequest.save();
+                createdRequests.push(requestRes);
+                results.push(requestRes);
 
-                    const requestInfo = {
-                        createdBy: req.userInfo.id,
-                        clientId: client,
-                        category: categoryId,
-                        subCategory: subCategoryId,
-                        subcategoryPriorities: prioritiesMap,
-                        dueDate,
-                        instructions,
-                        notifyMethod,
-                        remainderSchedule,
-                        templateId: templateId || null,
-                        expiration: expiryDate,
-                        linkMethod,
-                        doctitle
-                    };
+                for (const catId of categoryId) {
+                    const validSubCats = await subCategory.find({
+                        _id: { $in: subCategoryId },
+                        categoryId: catId
+                    }).lean();
 
-                    const newRequest = new DocumentRequest(requestInfo);
-                    const requestRes = await newRequest.save();
-                    createdRequests.push(requestRes);
-                    results.push(requestRes);
+                    for (const subCat of validSubCats) {
+                        const priority = prioritiesMap[subCat._id.toString()] || 'medium';
 
-                    for (const catId of categoryId) {
-                        const validSubCats = await SubCategory.find({
-                            _id: { $in: subCategoryId },
-                            categoryId: catId
-                        }).lean();
+                        const docSubCat = await DocumentSubCategory.create({
+                            request: requestRes._id,
+                            category: catId,
+                            subCategory: subCat._id,
+                            priority
+                        });
+                        createdSubCategories.push(docSubCat);
 
-                        for (const subCat of validSubCats) {
-                            const priority = prioritiesMap[subCat._id.toString()] || 'medium';
-
-                            const docSubCat = await DocumentSubCategory.create({
-                                request: requestRes._id,
-                                category: catId,
-                                subCategory: subCat._id,
-                                priority
-                            });
-                            createdSubCategories.push(docSubCat);
-
-                            const uploaded = await uploadDocument.create({
-                                request: requestRes._id,
-                                category: catId,
-                                subCategory: subCat._id,
-                                dueDate,
-                                clientId: client,
-                                doctitle,
-                                priority,
-                                staffId: req.userInfo.id
-                            });
-                            uploadedDocs.push(uploaded);
-                        }
-                    }
-
-                    // Scheduler (optional)
-                    if (scheduler) {
-                        const reminderData = {
-                            staffId: req.userInfo.id,
-                            clientId: [client],
-                            documentId: requestRes._id,
-                            customMessage: instructions,
-                            scheduleTime: scheduler.scheduleTime,
-                            frequency: scheduler.frequency,
-                            days: scheduler.days || [],
-                            notifyMethod: scheduler.notifyMethod,
-                            active: true,
-                            isDefault: false,
-                            status: "scheduled"
-                        };
-
-                        const newReminder = new Remainder(reminderData);
-                        await newReminder.save();
-                        createdReminders.push(newReminder);
-
-                        let expression = await remainderServices(scheduler?.scheduleTime, scheduler?.days);
-                        await cronJobService(expression, client, doctitle, scheduler?.notifyMethod, "", dueDate);
-                    }
-
-                    // Generate token + send email/sms
-                    const clientRes = await Client.findById(client);
-                    if (!clientRes) {
-                        console.warn(`Client ${client} not found`);
-                        continue;
-                    }
-
-                    const tokenInfo = {
-                        clientId: client,
-                        userId: req.userInfo.id,
-                        requestId: requestRes._id,
-                        email: clientRes.email
-                    };
-                    let expiration = getRemainingWholeHours(dueDate);
-                    const expiresIn = parseInt(expiration);
-                    const requestLink = await jwt.linkToken(tokenInfo, expiresIn);
-
-                    let docRes = await subCategory.find({ _id: subCategoryId });
-                    let docList = docRes.map(doc => doc.name);
-
-                    if (linkMethod === "email") {
-                        await DocumentRequest.findByIdAndUpdate(
-                            requestRes._id,
-                            { requestLink, linkStatus: "sent" }
-                        );
-                        await mailServices.sendEmail(
-                            clientRes.email,
-                            "Document Request",
-                            requestLink,
-                            clientRes.name,
-                            doctitle,
+                        const uploaded = await uploadDocument.create({
+                            request: requestRes._id,
+                            category: catId,
+                            subCategory: subCat._id,
                             dueDate,
-                            docList,
-                            instructions
-                        );
-                    } else if (linkMethod === "sms" && clientRes.phoneNumber) {
-                        // await twilioServices(clientRes.phoneNumber, requestLink);
+                            clientId: client,
+                            doctitle,
+                            priority,
+                            staffId: userInfo.id
+                        });
+                        uploadedDocs.push(uploaded);
                     }
-
-                } catch (schedulerError) {
-                    // Manual rollback if anything inside scheduler block or before it fails
-                    for (const r of createdRequests) {
-                        await DocumentRequest.findByIdAndDelete(r._id);
-                    }
-                    for (const s of createdSubCategories) {
-                        await DocumentSubCategory.findByIdAndDelete(s._id);
-                    }
-                    for (const d of uploadedDocs) {
-                        await uploadDocument.findByIdAndDelete(d._id);
-                    }
-                    for (const rem of createdReminders) {
-                        await Remainder.findByIdAndDelete(rem._id);
-                    }
-
-                    console.error("Error in scheduler or document creation. Rolled back:", schedulerError);
-                    resModel.message = "Error in scheduler or document creation: " + schedulerError.message;
-                    return res.status(500).json(resModel);
                 }
-            }
 
-            if (results.length > 0) {
-                resModel.success = true;
-                resModel.message = `Successfully created ${results.length} document request(s)`;
-                resModel.data = results.length === 1 ? results[0] : results;
-                return res.status(200).json(resModel);
-            } else {
-                resModel.message = "No document requests were created";
-                return res.status(400).json(resModel);
+                if (scheduler) {
+                    const reminderData = {
+                        staffId: userInfo.id,
+                        clientId: [client],
+                        documentId: requestRes._id,
+                        customMessage: instructions,
+                        scheduleTime: scheduler.scheduleTime,
+                        frequency: scheduler.frequency,
+                        days: scheduler.days || [],
+                        notifyMethod: scheduler.notifyMethod,
+                        active: true,
+                        isDefault: false,
+                        status: "scheduled"
+
+                    };
+
+                    const newReminder = new Remainder(reminderData);
+                    await newReminder.save();
+                    createdReminders.push(newReminder);
+
+                    const expression = await remainderServices(scheduler.scheduleTime, scheduler.days);
+                    await cronJobService(expression, client, doctitle, scheduler.notifyMethod, "", dueDate);
+                }
+
+                const clientRes = await Client.findById(client);
+                if (!clientRes) continue;
+
+                const tokenInfo = {
+                    clientId: client,
+                    userId: userInfo.id,
+                    requestId: requestRes._id,
+                    email: clientRes.email
+                };
+
+                function getRemainingWholeHours(dueDateStr) {
+                    const now = new Date(); // current time
+                    const dueDate = new Date(dueDateStr); // parse due date
+
+                    const diffInMs = dueDate - now; // time difference in milliseconds
+
+                    if (diffInMs <= 0) {
+                        return "Deadline has passed.";
+                    }
+
+                    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60)); // convert to full hours only
+                    return diffInHours;
+                }
+
+                const hoursLeft = getRemainingWholeHours(dueDate);
+
+                if (typeof hoursLeft !== 'number' || isNaN(hoursLeft) || hoursLeft <= 0) {
+                    throw new Error("Invalid or expired due date. Cannot generate link.");
+                }
+
+                const requestLink = await jwt.linkToken(tokenInfo, hoursLeft * 3600);
+
+                const docRes = await subCategory.find({ _id: subCategoryId });
+                const docList = docRes.map(doc => doc.name);
+
+                if (linkMethod === "email") {
+                    await DocumentRequest.findByIdAndUpdate(requestRes._id, { requestLink, linkStatus: "sent" });
+                    await mailServices.sendEmail(
+                        clientRes.email,
+                        "Document Request",
+                        requestLink,
+                        clientRes.name,
+                        doctitle,
+                        dueDate,
+                        docList,
+                        instructions
+                    );
+                }
+                // else if (linkMethod === "sms" && clientRes.phoneNumber) {
+                //     await twilioServices(clientRes.phoneNumber, requestLink);
+                // }
+
+            } catch (err) {
+                // rollback
+                for (const r of createdRequests) await DocumentRequest.findByIdAndDelete(r._id);
+                for (const s of createdSubCategories) await DocumentSubCategory.findByIdAndDelete(s._id);
+                for (const d of uploadedDocs) await uploadDocument.findByIdAndDelete(d._id);
+                for (const rem of createdReminders) await Remainder.findByIdAndDelete(rem._id);
+                return { status: 500, message: "Error in scheduler or document creation: " + err.message };
             }
-        } catch (error) {
-            console.error("Error in documentRequest:", error);
-            resModel.message = "Internal Server Error";
-            // resModel.error = process.env.NODE_ENV === 'development' ? error.message : undefined;
-            return res.status(500).json(resModel);
+        }
+
+        if (results.length > 0) {
+            return {
+                status: 200,
+                success: true,
+                message: `Successfully created ${results.length} document request(s)`,
+                data: results.length === 1 ? results[0] : results
+            };
+        } else {
+            return { status: 400, message: "No document requests were created" };
         }
     };
 
