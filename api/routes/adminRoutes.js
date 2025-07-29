@@ -24,6 +24,7 @@ module.exports = function (app, validator) {
   /** SubCategory Routes's starts */
   app.post('/api/subcategory/add', validator.body(adminModel.addSubCategory), adminCntrl.addSubCategory)
   app.get('/api/subcategory/getAllSubCategory', adminCntrl.getAllSubCategory)
+  app.get('/api/subcategory/getAllSubCategoryByCategory/:id', adminCntrl.getAllSubCategoryByCategory)
   /** SubCategory Routes's ends */
 
 

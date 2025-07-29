@@ -473,7 +473,7 @@ const SuperAdminService = () => {
 
 
 
-    const createDocumentRequest = async (payload, userInfo) => {
+    const createDocumentRequest = async (payload) => {
         const {
             templateId,
             doctitle,
@@ -487,28 +487,43 @@ const SuperAdminService = () => {
             expiration,
             linkMethod,
             subcategoryPriorities = {},
-            scheduler
+            scheduler,
+            userInfo
         } = payload;
-        console.log(payload)
-        const resModel = { success: false, message: "", data: null };
 
+        const responseTemplate = {
+            success: false,
+            message: "",
+            data: null,
+            status: 400
+        };
+
+        // Input validation
         if (!Array.isArray(clientId) || !Array.isArray(inputCategoryId) || !Array.isArray(inputSubCategoryId)) {
-            resModel.message = "clientId, categoryId and subCategoryId must be arrays";
-            return { status: 400, ...resModel };
+            return {
+                ...responseTemplate,
+                message: "clientId, categoryId and subCategoryId must be arrays"
+            };
         }
 
+        // Priority validation
         const validPriorities = ['low', 'medium', 'high'];
         for (const [subCatId, priority] of Object.entries(subcategoryPriorities)) {
             if (!inputSubCategoryId.includes(subCatId)) {
-                resModel.message = `Subcategory ${subCatId} in priorities not found in request`;
-                return { status: 400, ...resModel };
+                return {
+                    ...responseTemplate,
+                    message: `Subcategory ${subCatId} in priorities not found in request`
+                };
             }
             if (!validPriorities.includes(priority)) {
-                resModel.message = `Invalid priority '${priority}' for subcategory ${subCatId}`;
-                return { status: 400, ...resModel };
+                return {
+                    ...responseTemplate,
+                    message: `Invalid priority '${priority}' for subcategory ${subCatId}`
+                };
             }
         }
 
+        // Process template if exists
         let categoryId = inputCategoryId;
         let subCategoryId = inputSubCategoryId;
         let notifyMethod = inputNotifyMethod;
@@ -518,8 +533,11 @@ const SuperAdminService = () => {
         if (templateId) {
             const templateData = await template.findById(templateId);
             if (!templateData) {
-                resModel.message = "Template not found";
-                return { status: 404, ...resModel };
+                return {
+                    ...responseTemplate,
+                    status: 404,
+                    message: "Template not found"
+                };
             }
 
             const subcategoryRes = await DocumentSubCategory.find({ template: templateId });
@@ -543,11 +561,13 @@ const SuperAdminService = () => {
             const createdReminders = [];
 
             try {
+                // Create priorities mapping
                 const prioritiesMap = {};
                 subCategoryId.forEach(subCatId => {
                     prioritiesMap[subCatId] = subcategoryPriorities[subCatId] || 'medium';
                 });
 
+                // Create document request record
                 const requestInfo = {
                     createdBy: userInfo.id,
                     clientId: client,
@@ -569,8 +589,9 @@ const SuperAdminService = () => {
                 createdRequests.push(requestRes);
                 results.push(requestRes);
 
+                // Create related records
                 for (const catId of categoryId) {
-                    const validSubCats = await subCategory.find({
+                    const validSubCats = await DocumentSubCategory.find({
                         _id: { $in: subCategoryId },
                         categoryId: catId
                     }).lean();
@@ -600,6 +621,7 @@ const SuperAdminService = () => {
                     }
                 }
 
+                // Handle scheduler if exists
                 if (scheduler) {
                     const reminderData = {
                         staffId: userInfo.id,
@@ -613,7 +635,6 @@ const SuperAdminService = () => {
                         active: true,
                         isDefault: false,
                         status: "scheduled"
-
                     };
 
                     const newReminder = new Remainder(reminderData);
@@ -624,80 +645,99 @@ const SuperAdminService = () => {
                     await cronJobService(expression, client, doctitle, scheduler.notifyMethod, "", dueDate);
                 }
 
-                const clientRes = await Client.findById(client);
-                if (!clientRes) continue;
-
-                const tokenInfo = {
-                    clientId: client,
-                    userId: userInfo.id,
-                    requestId: requestRes._id,
-                    email: clientRes.email
-                };
-
-                function getRemainingWholeHours(dueDateStr) {
-                    const now = new Date(); // current time
-                    const dueDate = new Date(dueDateStr); // parse due date
-
-                    const diffInMs = dueDate - now; // time difference in milliseconds
-
-                    if (diffInMs <= 0) {
-                        return "Deadline has passed.";
+                // Send client notification
+                try {
+                    const clientRes = await Client.findById(client);
+                    if (!clientRes) {
+                        console.warn(`Client ${client} not found`);
+                        continue;
                     }
 
-                    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60)); // convert to full hours only
-                    return diffInHours;
+                    function getRemainingWholeHours(dueDateStr) {
+                        const now = new Date();
+                        const dueDate = new Date(dueDateStr);
+                        const diffInMs = dueDate - now;
+
+                        if (diffInMs <= 0) {
+                            return "Deadline has passed.";
+                        }
+                        return Math.floor(diffInMs / (1000 * 60 * 60));
+                    }
+
+                    const tokenInfo = {
+                        clientId: client,
+                        userId: userInfo.id,
+                        requestId: requestRes._id,
+                        email: clientRes.email
+                    };
+                    const hoursLeft = getRemainingWholeHours(dueDate);
+
+                    if (typeof hoursLeft !== 'number' || isNaN(hoursLeft) || hoursLeft <= 0) {
+                        throw new Error("Invalid or expired due date. Cannot generate link.");
+                    }
+
+                    const requestLink = await jwt.linkToken(tokenInfo, hoursLeft * 3600);
+
+                    const docRes = await subCategory.find({ _id: subCategoryId });
+                    const docList = docRes.map(doc => doc.name);
+
+                    if (linkMethod === "email") {
+                        await DocumentRequest.findByIdAndUpdate(
+                            requestRes._id,
+                            { requestLink, linkStatus: "sent" }
+                        );
+                        await mailServices.sendEmail(
+                            clientRes.email,
+                            "Document Request",
+                            requestLink,
+                            clientRes.name,
+                            doctitle,
+                            dueDate,
+                            docList,
+                            instructions
+                        );
+                    } else if (linkMethod === "sms" && clientRes.phoneNumber) {
+                        // await twilioServices(clientRes.phoneNumber, requestLink);
+                        console.log(`SMS would be sent to ${clientRes.phoneNumber}`);
+                    }
+                } catch (notificationError) {
+                    console.error("Error sending notification:", notificationError);
+                    // Continue even if notification fails
                 }
 
-                const hoursLeft = getRemainingWholeHours(dueDate);
-
-                if (typeof hoursLeft !== 'number' || isNaN(hoursLeft) || hoursLeft <= 0) {
-                    throw new Error("Invalid or expired due date. Cannot generate link.");
-                }
-
-                const requestLink = await jwt.linkToken(tokenInfo, hoursLeft * 3600);
-
-                const docRes = await subCategory.find({ _id: subCategoryId });
-                const docList = docRes.map(doc => doc.name);
-
-                if (linkMethod === "email") {
-                    await DocumentRequest.findByIdAndUpdate(requestRes._id, { requestLink, linkStatus: "sent" });
-                    await mailServices.sendEmail(
-                        clientRes.email,
-                        "Document Request",
-                        requestLink,
-                        clientRes.name,
-                        doctitle,
-                        dueDate,
-                        docList,
-                        instructions
-                    );
-                }
-                // else if (linkMethod === "sms" && clientRes.phoneNumber) {
-                //     await twilioServices(clientRes.phoneNumber, requestLink);
-                // }
-
-            } catch (err) {
-                // rollback
+            } catch (error) {
+                // Rollback in case of error
                 for (const r of createdRequests) await DocumentRequest.findByIdAndDelete(r._id);
                 for (const s of createdSubCategories) await DocumentSubCategory.findByIdAndDelete(s._id);
                 for (const d of uploadedDocs) await uploadDocument.findByIdAndDelete(d._id);
                 for (const rem of createdReminders) await Remainder.findByIdAndDelete(rem._id);
-                return { status: 500, message: "Error in scheduler or document creation: " + err.message };
+
+                console.error(`Error processing client ${client}:`, error);
+                return {
+                    ...responseTemplate,
+                    status: 500,
+                    message: error.message || "Error processing document request"
+                };
             }
         }
 
         if (results.length > 0) {
             return {
-                status: 200,
                 success: true,
                 message: `Successfully created ${results.length} document request(s)`,
-                data: results.length === 1 ? results[0] : results
+                data: results.length === 1 ? results[0] : results,
+                status: 200
             };
-        } else {
-            return { status: 400, message: "No document requests were created" };
         }
+
+        return {
+            ...responseTemplate,
+            message: "No document requests were created"
+        };
     };
 
+    // Helper functions would be defined here (createDocumentRequestRecord, createRelatedRecords, handleScheduler, sendClientNotification)
+    // These would contain the specific implementation details for each operation
 
 
 

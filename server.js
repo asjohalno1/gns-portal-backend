@@ -19,7 +19,12 @@ const allowedOrigins = [
     "http://localhost:2001",
     "http://44.211.113.36:8076",
     "http://meanstack.smartdatainc.com",
-    "https://meanstack.smartdatainc.com:8076"
+    "https://meanstack.smartdatainc.com:8076",
+    "http://44.211.113.36:8076",
+    "https://meanstack.smartdatainc.com",
+    "https://meanstack.smartdatainc.com:8076",
+    "https://meanstack.smartdatainc.com:8075"
+
 ];
 
 // ✅ CORS setup
@@ -44,10 +49,8 @@ app.use((req, res, next) => {
 });
 
 app.use(bodyParser.urlencoded({ extended: true }))
-
-
 app.use(bodyParser.json({ limit: '100mb' }))
-
+console.log("NODE_ENV:", process.env.NODE_ENV);
 
 app.use('/apidoc', express.static(path.join(__dirname, '/apidoc/doc')));
 require('./api/routes')(app, validator);
@@ -67,23 +70,11 @@ app.use((err, req, res, next) => {
     }
     next()
 });
-const { deleteAllFolders } = require('./api/services/googleDriveService.js');
+const { deleteAllClientFolders } = require('./api/services/googleDriveService.js');
 //listFilesInFolder("1cMxxr5kn83InV6wtrO515_Jr4tSlRX3B")
-//deleteAllFolders()
+//deleteAllClientFolders()
 
-
-// Use https.createServer instead of http.createServer
-const server = process.env.NODE_ENV == "staging" ? https.createServer(
-    {
-        key: fs.readFileSync("/home/ubuntu/ssl/privkey.pem"),
-        cert: fs.readFileSync("/home/ubuntu/ssl/fullchain.pem"),
-    }, app) : http.createServer(app);
-
-// app.listen(process.env.PORT, () => {
-//     console.log(`app listening on port ${process.env.PORT}!`)
-// });
-
-server.listen(process.env.PORT, () => {
+app.listen(process.env.PORT, () => {
     console.log(`app listening on port ${process.env.PORT}!`)
 });
 
