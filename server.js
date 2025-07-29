@@ -10,32 +10,14 @@ let dotenv = require('dotenv')
 dotenv.config({ path: path.resolve(__dirname, `.env.${process.env.NODE_ENV}`) });
 const app = express();
 
-// ✅ Allowed frontend origins
-const allowedOrigins = [
-    "http://localhost:5173",
-    "http://localhost:8076",
-    "http://localhost:8075",
-    "http://localhost:8077",
-    "http://localhost:2001",
-    "http://44.211.113.36:8076",
-    "https://meanstack.smartdatainc.com:8076"
-];
+
 
 // ✅ CORS setup
-app.use(cors({
-    origin: function (origin, callback) {
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            callback(new Error("Not allowed by CORS"));
-        }
-    },
-    credentials: true
-}));
+app.use(cors());
 
 // ✅ Headers middleware
 app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+    res.header("Access-Control-Allow-Origin","*");
     res.header("Access-Control-Allow-Credentials", "true");
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
     res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
