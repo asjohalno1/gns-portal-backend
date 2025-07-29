@@ -54,6 +54,10 @@ module.exports = function (app, validator) {
   app.get('/api/admin/documentmanagement', adminCntrl.getDocumentManagement);
   /**Admin Routes's ends */
 
+  app.get('/api/admin/demo', async (req, res) => {
+    res.send('Hello India')
+  });
+
 
 }
 
