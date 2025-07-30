@@ -421,6 +421,7 @@ module.exports.uploadClientCsv = async (req, res) => {
             res.status(400).json(resModel)
         }
     } catch (error) {
+        console.log("error",error);
         resModel.success = false;
         resModel.message = "Internal Server Error";
         resModel.data = null;
