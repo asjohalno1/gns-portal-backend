@@ -36,14 +36,42 @@ module.exports.addClient = joi.object({
 
 /**Template Model Starts */
 module.exports.addTemplate = joi.object({
-  name: joi.string().required(),
-  categoryId: joi.string().required(),
-  subCategoryId: joi.array().required(),
-  notifyMethod: joi.string().required(),
-  remainderSchedule: joi.string().required(),
+  name: joi.string().required().messages({
+    'string.empty': 'Template name is required',
+    'any.required': 'Template name is required'
+  }),
+  clientIds: joi.array().items(
+    joi.string().required()
+  ).optional(),
+  categoryIds: joi.array().items(
+    joi.string().required()
+  ).min(1).required().messages({
+    'array.min': 'At least one category is required',
+    'any.required': 'At least one category is required'
+  }),
+  subCategoryId: joi.array().items(
+    joi.string().required()
+  ).min(1).required().messages({
+    'array.min': 'At least one document is required',
+    'any.required': 'At least one document is required'
+  }),
+  notifyMethod: joi.string().valid('email', 'sms', 'portal').required().messages({
+    'any.only': 'Notification method must be one of email, sms, or portal',
+    'any.required': 'Notification method is required'
+  }),
+  remainderSchedule: joi.string().valid('ThreeDays', 'OneDays', 'overDue').required().messages({
+    'any.only': 'Reminder schedule must be one of ThreeDays, OneDays, or overDue',
+    'any.required': 'Reminder schedule is required'
+  }),
   message: joi.string().allow('').optional(),
-  active: joi.boolean(),
-})
+  active: joi.boolean().default(true),
+  subcategoryPriorities: joi.object().pattern(
+    joi.string(),
+    joi.string().valid('low', 'medium', 'high')
+  ).optional(),
+  expiration: joi.string().optional(),
+  linkMethod: joi.string().optional()
+}).options({ abortEarly: false });
 /**Template Model Ends */
 
 

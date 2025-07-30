@@ -56,6 +56,7 @@ module.exports = function (app, validator) {
   app.post('/api/admin/documentRequest', auth, adminCntrl.AdminDocumentRequest);
   app.get('/api/admin/getAllClientsAdmin', adminCntrl.getAllClientsWithoutPagination);
   app.get('/api/admin/getAssociatedSubCategory', adminCntrl.getAssociatedSubCategory);
+  app.get('/api/admin/getAllRequestedDocuments', adminCntrl.getAllRequestedDocuments);
   /**Admin Routes's ends */
 
   app.get('/api/admin/demo', async (req, res) => {
