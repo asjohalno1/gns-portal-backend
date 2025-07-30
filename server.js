@@ -33,17 +33,6 @@ app.use((req, res, next) => {
 
     next();
 });
-// ✅ Serve frontend assets for client/token-handler app
-app.use(
-    '/client/token-handler/assets',
-    express.static(path.join(__dirname, 'dist/client/token-handler/assets'))
-);
-
-// ✅ Serve index.html for all SPA routes under /client/token-handler/*
-app.get('/client/token-handler/*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'dist/client/token-handler/index.html'));
-});
-
 
 // ✅ Middleware
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -66,6 +55,15 @@ app.use((err, req, res, next) => {
         return res.status(400).json({ status: false, message: err.error.message, data: null });
     }
     next();
+});
+app.use(
+    "/dist/client/token-handler/assets",
+    express.static(path.join(__dirname, "dist/client/token-handler/assets"))
+);
+
+// ✅ Serve the main index.html for all routes under token-handler
+app.get("/dist/client/token-handler/*", (req, res) => {
+    res.sendFile(path.join(__dirname, "dist/client/token-handler/index.html"));
 });
 
 // ✅ Optional: Google Drive cleanup utility
