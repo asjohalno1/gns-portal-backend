@@ -24,6 +24,7 @@ module.exports = function (app, validator) {
   /** SubCategory Routes's starts */
   app.post('/api/subcategory/add', validator.body(adminModel.addSubCategory), adminCntrl.addSubCategory)
   app.get('/api/subcategory/getAllSubCategory', adminCntrl.getAllSubCategory)
+  app.get('/api/subcategory/getAllSubCategoryByCategory/:id', adminCntrl.getAllSubCategoryByCategory)
   /** SubCategory Routes's ends */
 
 
@@ -32,7 +33,7 @@ module.exports = function (app, validator) {
   app.get('/api/client/getAllClient', adminCntrl.getAllClient)
   app.get('/api/staff/getAllStaff', adminCntrl.getAllStaff)
   app.get('/api/client/details/:id', validator.params(adminModel.commonId), adminCntrl.getclientDetails)
-  app.put('/api/client/update/:id',validator.params(adminModel.commonId), adminCntrl.updateClient)
+  app.put('/api/client/update/:id', validator.params(adminModel.commonId), adminCntrl.updateClient)
   app.post('/api/client/uploadCsv', upload.single('file'), adminCntrl.uploadClientCsv)
   /*** Client Routes's ends */
 
@@ -45,13 +46,16 @@ module.exports = function (app, validator) {
 
   /**Assign Clients Routes Start */
   app.post('/api/client/assign', auth, validator.body(adminModel.assignClients), adminCntrl.assignClients)
-  app.get('/api/clientsatff/details/:id', validator.params(adminModel.commonId), adminCntrl.getclientStaffDetails)
+  app.get('/api/clientsatff/details/:id', validator.params(adminModel.commonId), adminCntrl.getclientStaffDetails);
   /**Assign Clients Routes Ends */
 
 
   /**Admin Routes's starts */
   app.get('/api/admin/dashboard', adminCntrl.getAdminDashboard);
   app.get('/api/admin/documentmanagement', adminCntrl.getDocumentManagement);
+  app.post('/api/admin/documentRequest', auth, adminCntrl.AdminDocumentRequest);
+  app.get('/api/admin/getAllClientsAdmin', adminCntrl.getAllClientsWithoutPagination);
+  app.get('/api/admin/getAssociatedSubCategory', adminCntrl.getAssociatedSubCategory);
   /**Admin Routes's ends */
 
   app.get('/api/admin/demo', async (req, res) => {
