@@ -25,7 +25,7 @@ app.use((req, res, next) => {
     res.header("Access-Control-Allow-Credentials", "true");
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
     res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
-    
+
     // Handle OPTIONS preflight requests quickly
     if (req.method === "OPTIONS") {
         return res.sendStatus(200);
@@ -33,6 +33,17 @@ app.use((req, res, next) => {
 
     next();
 });
+// ✅ Serve frontend assets for client/token-handler app
+app.use(
+    '/client/token-handler/assets',
+    express.static(path.join(__dirname, 'dist/client/token-handler/assets'))
+);
+
+// ✅ Serve index.html for all SPA routes under /client/token-handler/*
+app.get('/client/token-handler/*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist/client/token-handler/index.html'));
+});
+
 
 // ✅ Middleware
 app.use(bodyParser.urlencoded({ extended: true }));
