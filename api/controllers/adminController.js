@@ -17,6 +17,7 @@ const cronJobService = require('../services/cron.services');
 
 
 const { listFilesInFolderStructure, uploadFileToFolder, createClientFolder } = require('../services/googleDriveService.js');
+const { documentRequest } = require('./staffController.js');
 
 
 /** Category Api's starts */
@@ -450,56 +451,75 @@ module.exports.uploadClientCsv = async (req, res) => {
  */
 module.exports.addTemplate = async (req, res) => {
     try {
-        const { name, categoryId, subCategoryId, notifyMethod, remainderSchedule, message, active } = req.body;
-        const existingTemplate = await Template.findOne({ name, categoryId, subCategoryId });
+        const {
+            name,
+            clientIds,
+            categoryIds,
+            subCategoryId,
+            notifyMethod,
+            remainderSchedule,
+            message,
+            active,
+            subcategoryPriorities,
+            expiration,
+            linkMethod
+        } = req.body;
+
+        const existingTemplate = await Template.findOne({
+            name,
+            userId: req.userInfo.id
+        });
+
         if (existingTemplate) {
-            resModel.success = false;
-            resModel.message = "Template already exists";
-            resModel.data = null;
-            res.status(201).json(resModel);
+            return res.status(400).json({
+                success: false,
+                message: "Template with this name already exists",
+                data: null
+            });
         }
 
         const newTemplate = new Template({
             name,
-            categoryId,
+            clientIds: clientIds || [],
+            categoryIds: categoryIds || [],
             notifyMethod,
             remainderSchedule,
             message,
+            subcategoryPriorities: subcategoryPriorities || {},
+            expiration: expiration || "24",
+            linkMethod: linkMethod || "email",
             active: active !== undefined ? active : true,
             userId: req.userInfo.id
         });
 
         const savedTemplate = await newTemplate.save();
+
         // Create subcategory entries (if any)
         if (Array.isArray(subCategoryId)) {
-            for (const subCatId of subCategoryId) {
-                await DocumentSubCategory.create({
-                    templateId: savedTemplate._id,
-                    category: categoryId,
-                    subCategory: subCatId
-                });
-            }
+            const subCategoryDocs = subCategoryId.map(subCatId => ({
+                templateId: savedTemplate._id,
+                subCategory: subCatId,
+                priority: subcategoryPriorities?.[subCatId] || "medium"
+            }));
+
+            await DocumentSubCategory.insertMany(subCategoryDocs);
         }
-        if (!savedTemplate) {
-            resModel.success = false;
-            resModel.message = "Error while creating Template";
-            resModel.data = null;
-            res.status(400).json(resModel);
-        } else {
-            resModel.success = true;
-            resModel.message = "Template added successfully";
-            resModel.data = savedTemplate;
-            res.status(200).json(resModel);
-        }
+
+        res.status(200).json({
+            success: true,
+            message: "Template added successfully",
+            data: savedTemplate
+        });
 
     } catch (error) {
-        resModel.success = false;
-        resModel.message = "Internal Server Error";
-        resModel.data = null;
-        res.status(500).json(resModel);
+        console.error("Error creating template:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null
+        });
     }
 };
-
 
 /**
  * @api {put} /api/template/update/:id Update Template
@@ -574,25 +594,57 @@ module.exports.updateTemplate = async (req, res) => {
 module.exports.getAllTemplates = async (req, res) => {
     try {
         const templates = await Template.find().sort({ createdAt: -1 });
-        if (!templates) {
-            resModel.success = false;
-            resModel.message = "Templates not found";
-            resModel.data = null;
-            res.status(404).json(resModel);
-        } else {
-            resModel.success = true;
-            resModel.message = "Templates Found Successfully";
-            resModel.data = templates;
-            res.status(200).json(resModel);
+
+        if (!templates || templates.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Templates not found",
+                data: null,
+            });
         }
+
+        const enrichedTemplates = await Promise.all(
+            templates.map(async (template) => {
+                const clientList = await Client.find({ _id: { $in: template.clientIds } });
+                const clientNames = clientList.map(c => c.name);
+
+                const categoryList = await Category.find({ _id: { $in: template.categoryIds } });
+                const categoryNames = categoryList.map(c => c.name);
+
+                return {
+                    _id: template._id,
+                    name: template.name,
+                    userId: template.userId,
+                    clientNames,
+                    categoryNames,
+                    notifyMethod: template.notifyMethod,
+                    remainderSchedule: template.remainderSchedule,
+                    message: template.message,
+                    active: template.active,
+                    subcategoryPriorities: template.subcategoryPriorities,
+                    expiration: template.expiration,
+                    linkMethod: template.linkMethod,
+                    createdAt: template.createdAt,
+                    updatedAt: template.updatedAt
+                };
+            })
+        );
+
+        res.status(200).json({
+            success: true,
+            message: "Templates Found Successfully",
+            data: enrichedTemplates,
+        });
+
     } catch (error) {
-        resModel.success = false;
-        resModel.message = "Internal Server Error";
-        resModel.data = null;
-        res.status(500).json(resModel);
+        console.error("Error in getAllTemplates:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null,
+        });
     }
 };
-
 /**Templates Api's Ends */
 
 
@@ -1155,3 +1207,106 @@ module.exports.getAssociatedSubCategory = async (req, res) => {
         res.status(500).json(resModel);
     }
 };
+
+
+
+module.exports.getAllRequestedDocuments = async (req, res) => {
+    try {
+        const search = req.query.search?.toLowerCase() || "";
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        const searchQuery = {};
+        if (search) {
+            const clientIds = await Client.find({ name: { $regex: search, $options: "i" } }).distinct("_id");
+            const subCategoryIds = await subCategory.find({ name: { $regex: search, $options: "i" } }).distinct("_id");
+
+            searchQuery.$or = [
+                { clientId: { $in: clientIds } },
+                { subCategory: { $in: subCategoryIds } },
+                { doctitle: { $regex: search, $options: "i" } },
+            ];
+        }
+
+        const docs = await uploadDocument
+            .find(searchQuery)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+
+        const enrichedDocs = await Promise.all(
+            docs.map(async (doc) => {
+                const client = await Client.findById(doc.clientId);
+                const clientName = client?.name || "N/A";
+
+                const subCat = await subCategory.findById(doc.subCategory);
+                const DocType = subCat?.name || "N/A";
+
+                const RemaindersCount = await Remainder.countDocuments({ clientId: doc.clientId });
+
+                const LinkstatusData = await DocumentRequest.findById(doc.request);;
+
+                return {
+                    title: doc.doctitle || "N/A",
+                    clientName,
+                    DocType,
+                    RemaindersCount,
+                    status: LinkstatusData.linkStatus,
+                    createdAt: doc.createdAt,
+                    expire: doc.dueDate,
+                };
+            })
+        );
+
+        const totalCount = await uploadDocument.countDocuments(searchQuery);
+
+        res.status(200).json({
+            success: true,
+            message: "Requested documents fetched successfully",
+            data: {
+                documents: enrichedDocs,
+                totalDocuments: totalCount,
+                currentPage: page,
+                totalPages: Math.ceil(totalCount / limit),
+            },
+        });
+
+    } catch (error) {
+        console.error("Error in getAllRequestedDocuments:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null,
+        });
+    }
+};
+
+
+
+// module.exports.getAllTemplates = async (req, res) => {
+//     try {
+//         const templates = await Template.find({
+//             userId: req.userInfo.id,
+//             active: true
+//         })
+//             .populate({
+//                 path: 'subcategories',
+//                 model: 'DocumentSubCategory',
+//                 select: 'subCategory priority'
+//             })
+//             .sort({ createdAt: -1 });
+
+//         res.status(200).json({
+//             success: true,
+//             data: templates
+//         });
+
+//     } catch (error) {
+//         console.error("Error fetching templates:", error);
+//         res.status(500).json({
+//             success: false,
+//             message: "Failed to fetch templates"
+//         });
+//     }
+// };
