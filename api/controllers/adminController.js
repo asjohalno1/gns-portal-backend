@@ -1132,7 +1132,7 @@ module.exports.AdminDocumentRequest = async (req, res) => {
 // get all client listing without pagination for admin 
 module.exports.getAllClientsWithoutPagination = async (req, res) => {
     try {
-        const clients = await Client.find().sort({ createdAt: -1 });
+        const clients = await Client.find({status:true}).sort({ createdAt: -1 });
 
         if (!clients || clients.length === 0) {
             return res.status(404).json({
