@@ -455,14 +455,9 @@ module.exports.getClientDashboard = async (req, res) => {
                 const daysLeft = diffDays < 0 ? "Expired" : diffDays;
 
                 let priority = "-";
-                if (doc.request && doc.request.subcategoryPriorities && doc.subCategory && doc.subCategory._id) {
-                    const subCategoryId = doc.subCategory._id.toString();
-                    let storedPriority;
-                    if (doc.request.subcategoryPriorities instanceof Map) {
-                        storedPriority = doc.request.subcategoryPriorities.get(subCategoryId);
-                    } else {
-                        storedPriority = doc.request.subcategoryPriorities?.[subCategoryId];
-                    }
+                if (doc.subcategoryPriorities && Array.isArray(doc.subCategory) && doc.subCategory.length > 0) {
+                    const firstSubCatId = doc.subCategory[0].toString();
+                    const storedPriority = doc.subcategoryPriorities[firstSubCatId];
                     if (storedPriority) {
                         priority = storedPriority.charAt(0).toUpperCase() + storedPriority.slice(1).toLowerCase();
                     }
