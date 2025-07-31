@@ -624,7 +624,8 @@ module.exports.getAllTemplates = async (req, res) => {
                     expiration: template.expiration,
                     linkMethod: template.linkMethod,
                     createdAt: template.createdAt,
-                    updatedAt: template.updatedAt
+                    updatedAt: template.updatedAt,
+                    // dueDate: template.dueDate
                 };
             })
         );
@@ -958,7 +959,22 @@ module.exports.AdminDocumentRequest = async (req, res) => {
         }
 
         const currentDate = new Date();
-        const expiryDate = new Date(currentDate.getTime() + expiration * 24 * 60 * 60 * 1000);
+        // If expiration is a string (like "2025-08-02"), convert it to a Date directly
+        let expiryDate;
+        if (typeof expiration === 'string') {
+            expiryDate = new Date(expiration);
+            if (isNaN(expiryDate.getTime())) {
+                resModel.message = "Invalid expiration date format";
+                return res.status(400).json(resModel);
+            }
+        } else if (typeof expiration === 'number') {
+            // If it's a number of days (optional legacy support)
+            expiryDate = new Date(currentDate.getTime() + expiration * 24 * 60 * 60 * 1000);
+        } else {
+            resModel.message = "Expiration must be a valid date string or number of days";
+            return res.status(400).json(resModel);
+        }
+
 
         const results = [];
 
