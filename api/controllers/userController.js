@@ -258,7 +258,6 @@ module.exports.getUserDetails = async (req, res) => {
         let user = await User.findById(id);
         if (!user) {
             user = await clientModel.findById(id);
-            console.log("User from clientModel:", user);
         }
 
         if (!user) {
@@ -424,7 +423,7 @@ module.exports.getClientDashboard = async (req, res) => {
             .populate("isUploaded")
             .populate({
                 path: "request",
-                select: "_id",
+                select: "_id subcategoryPriorities",
             });
 
         const totalDocuments = uploadedDocs.length;
@@ -466,12 +465,11 @@ module.exports.getClientDashboard = async (req, res) => {
 
                 if (doc.request && doc.request.subcategoryPriorities && doc.subCategory && doc.subCategory._id) {
                     const subCatId = doc.subCategory._id.toString();
-                    const storedPriority = doc.request.subcategoryPriorities[subCatId];
+                    const storedPriority = doc.request.subcategoryPriorities.get(subCatId); // Use .get() for Map
                     if (storedPriority) {
                         priority = storedPriority.charAt(0).toUpperCase() + storedPriority.slice(1).toLowerCase();
                     }
                 }
-
                 return {
                     document: doc.subCategory?.name || "Unnamed Document",
                     type: doc.category?.name || "Unknown",
