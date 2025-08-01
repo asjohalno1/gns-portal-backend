@@ -234,49 +234,59 @@ module.exports.googleWithLogin = async (req, res) => {
     }
 }
 
-/**
- * @api {get} /api/user/details/:id  Get User Details
- * @apiName Get User Details
- * @apiGroup User
- * @apiDescription User Service...
- * @apiSampleRequest http://localhost:2001/api/user/details/:id
- */
+    /**
+     * @api {get} /api/user/details/:id  Get User Details
+     * @apiName Get User Details
+     * @apiGroup User
+     * @apiDescription User Service...
+     * @apiSampleRequest http://localhost:2001/api/user/details/:id
+     */
+    ;
+
 module.exports.getUserDetails = async (req, res) => {
     try {
         const { id } = req.params;
 
-        let _id = id;
-        if (!_id || !mongoose.Types.ObjectId.isValid(_id)) {
-            resModel.success = false;
-            resModel.message = "Invalid or missing ID";
-            resModel.data = null;
-            return res.status(400).json(resModel);
+        if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid or missing ID",
+                data: null
+            });
         }
 
-        let user = await User.findById(_id);
-
-        if (!user) {
-            user = await clientModel.findById(_id);
-        }
+        let user = await User.findById(id);
+        console.log("User from User model:", user);
 
         if (!user) {
-            resModel.success = false;
-            resModel.message = "User doesn't exist";
-            resModel.data = null;
-            return res.status(404).json(resModel);
+            user = await clientModel.findById(id);
+            console.log("User from clientModel:", user);
         }
-        resModel.success = true;
-        resModel.message = "User Details Found Successfully";
-        resModel.data = user;
-        return res.status(200).json(resModel);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User doesn't exist",
+                data: null
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "User Details Found Successfully",
+            data: user
+        });
+
     } catch (error) {
         console.error("Error in getUserDetails:", error);
-        resModel.success = false;
-        resModel.message = "Internal Server Error";
-        resModel.data = null;
-        return res.status(500).json(resModel);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null
+        });
     }
 };
+
 
 /**
  * @api {get} /api/user/getAllUser  Get All User
@@ -872,7 +882,6 @@ module.exports.getUserProfile = async (req, res) => {
 
     try {
         const clientId = req.userInfo?.clientId;
-        console.log(clientId);
         const user = await clientModel.findById(clientId).select("-password");
 
         if (!user) {

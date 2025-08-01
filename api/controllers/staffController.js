@@ -1840,7 +1840,6 @@ module.exports.updateStaff = async (req, res) => {
             updateData.profile = `/uploads/profile-images/${req.file.filename}`;
             const existingUser = await Users.findById(staffId);
             if (existingUser?.profile) {
-                console.log(existingUser.profile);
                 const oldFilePath = path.join(__dirname, '..', existingUser.profile);
                 if (fs.existsSync(oldFilePath)) {
                     fs.unlinkSync(oldFilePath);
