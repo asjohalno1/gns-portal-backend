@@ -256,8 +256,6 @@ module.exports.getUserDetails = async (req, res) => {
         }
 
         let user = await User.findById(id);
-        console.log("User from User model:", user);
-
         if (!user) {
             user = await clientModel.findById(id);
             console.log("User from clientModel:", user);
