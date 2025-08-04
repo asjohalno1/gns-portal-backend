@@ -35,7 +35,7 @@ module.exports.addCategory = async (req, res) => {
     try {
         const { name } = req.body;
         let categoryInfo = {
-            name: name.toLowerCase()
+            name: name
         }
         const newCategory = new Category(categoryInfo)
         let CategoryRes = await newCategory.save();
@@ -110,7 +110,7 @@ module.exports.addSubCategory = async (req, res) => {
     try {
         const { name, categoryId } = req.body;
         let categoryInfo = {
-            name: name.toLowerCase(),
+            name: name,
             categoryId: categoryId
         }
         const newSubCategory = new subCategory(categoryInfo)
