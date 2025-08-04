@@ -1,6 +1,6 @@
 // emailTemplate.js
 
-module.exports = function generateTemplate({ name,link,doctitle,deadline,docList,instructions}) {
+module.exports = function generateTemplate({ name,link,doctitle,deadline,docList,instructions,title,description,linkNote}) {
 const listItems = docList.map(item => `<li style="margin-bottom: 6px;">${item}</li>`).join('');
 return `
 <div>
@@ -325,18 +325,15 @@ return `
           </svg>
         </div>
         <h1 class="request-title">Document Request</h1>
-        <p class="secure-title">Secure Document Upload Required</p>
+        <p class="secure-title">${title}</p>
       </div>
 
       <div class="content">
         <div class="greeting">
           Hello ${name},
           <div>
-            We hope this message finds you well. To proceed, we kindly request you to upload the required
-            documents
-            using the secure link provided. Please ensure the documents are uploaded before the ${deadline}, as
-            the
-            link will become inactive afterward.</div>
+            ${description}
+          </div>
         </div>
 
         <div class="document-info">
@@ -367,16 +364,13 @@ return `
           </a>
           <div class="text-center">
             <div class="security-note">
-              <span class="security-icon">🔒</span>
-              Your documents are protected with bank-level encryption and will be processed securely according
-              to
-              our privacy policy.
+             ${linkNote}
             </div>
           </div>
         </div>
 
         <div class="important-notes">
-          <div class="notes-title">Important Notes:</div>
+          <div class="notes-title">Instructions:</div>
           <ul class="notes-list">
             ${instructions}
             <!-- <li>This secure link will expire in 7 days for your security</li>

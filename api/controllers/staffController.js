@@ -1,5 +1,6 @@
 const { request } = require('http');
 const resModel = require('../lib/resModel');
+const emailTemplate = require('../models/emailTemplates.js');
 let Category = require("../models/category");
 let DocumentRequest = require("../models/documentRequest");
 const SubCategory = require('../models/subCategory');
@@ -241,6 +242,7 @@ module.exports.documentRequest = async (req, res) => {
                         requestRes._id,
                         { requestLink, linkStatus: "sent" }
                     );
+                    const existingTemplates = await emailTemplate.find();
                     await mailServices.sendEmail(
                         clientRes.email,
                         "Document Request",
@@ -249,7 +251,10 @@ module.exports.documentRequest = async (req, res) => {
                         doctitle,
                         dueDate,
                         docList,
-                        instructions
+                        instructions,
+                        existingTemplates[0]?.title,
+                        existingTemplates[0]?.description,
+                        existingTemplates[0]?.linkNote
                     );
                 } else if (linkMethod === "sms" && clientRes.phoneNumber) {
                     // await twilioServices(clientRes.phoneNumber, requestLink);

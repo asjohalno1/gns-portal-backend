@@ -14,6 +14,7 @@ const uploadDocument = require('../models/uploadDocuments')
 const Remainder = require('../models/remainer');
 const remainderServices = require('../services/remainder.services');
 const cronJobService = require('../services/cron.services');
+const emailTemplate = require('../models/emailTemplates.js');
 
 
 const { listFilesInFolderStructure, uploadFileToFolder, createClientFolder } = require('../services/googleDriveService.js');
@@ -422,10 +423,10 @@ module.exports.uploadClientCsv = async (req, res) => {
             res.status(400).json(resModel)
         }
     } catch (error) {
-        console.log("error",error);
+        console.log("error", error);
         resModel.success = false;
         resModel.message = "Internal Server Error";
-        resModel.data = {error:error};
+        resModel.data = { error: error };
         res.status(500).json(resModel);
     }
 };
@@ -1148,7 +1149,7 @@ module.exports.AdminDocumentRequest = async (req, res) => {
 // get all client listing without pagination for admin 
 module.exports.getAllClientsWithoutPagination = async (req, res) => {
     try {
-        const clients = await Client.find({status:true}).sort({ createdAt: -1 });
+        const clients = await Client.find({ status: true }).sort({ createdAt: -1 });
 
         if (!clients || clients.length === 0) {
             return res.status(404).json({
@@ -1326,3 +1327,94 @@ module.exports.getAllRequestedDocuments = async (req, res) => {
 //         });
 //     }
 // };
+
+/**
+ * @api {post} /api/client/addEmailTemplate Add Email Template 
+ * @apiName Add Email Template 
+ * @apiGroup Client
+ * @apiBody {String} title  Title.
+ * @apiBody {String} description Description.
+ * @apiBody {String} linkNote Link Note.
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription API for adding a new client.
+ * @apiSampleRequest http://localhost:2001/api/client/addEmailTemplate
+ */
+module.exports.addEmailTemplate = async (req, res) => {
+    try {
+        const { title, description ,linkNote} = req.body;
+        const existingTemplates = await emailTemplate.find();
+        if (existingTemplates.length > 0) {
+            let payload = {
+                title: title,
+                description: description,
+                linkNote: linkNote
+            }
+            const updatedTemplate = await emailTemplate.findByIdAndUpdate(existingTemplates[0]?._id, payload, { new: true });
+            if (updatedTemplate) {
+                resModel.success = true;
+                resModel.message = "Template Updated Successfully";
+                resModel.data = updatedTemplate;
+                res.status(200).json(resModel);
+            } else {
+                resModel.success = true;
+                resModel.message = "Error While Updating Template";
+                resModel.data = null;
+                res.status(400).json(resModel)
+            }
+
+        } else {
+            const emailTemplates = new emailTemplate({
+                title,
+                description,
+                linkNote
+            });
+            const addTemplates = await emailTemplates.save();
+            if (addTemplates) {
+                resModel.success = true;
+                resModel.message = "Template Added Successfully";
+                resModel.data = addTemplates;
+                res.status(200).json(resModel);
+            } else {
+                resModel.success = true;
+                resModel.message = "Error While Creating Template";
+                resModel.data = null;
+                res.status(400).json(resModel)
+            }
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
+/**
+ * @api {get} /api/client/getAllEmailTemplate  Get All Email Template
+ * @apiName Get All Email Template
+ * @apiGroup Client
+ * @apiDescription Client Service...
+ * @apiSampleRequest http://localhost:2001/api/client/getAllEmailTemplate
+ */
+module.exports.getAllEmailTemplate = async (req, res) => {
+    try {
+        const templatesRes =  await emailTemplate.find();
+        if (templatesRes) {
+            resModel.success = true;
+            resModel.message = "Get All Templates Successfully";
+            resModel.data = templatesRes;
+            res.status(200).json(resModel);
+        }
+        else {
+            resModel.success = true;
+            resModel.message = "Templates Not Found";
+            resModel.data = [];
+            res.status(200).json(resModel)
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+}

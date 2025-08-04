@@ -59,9 +59,10 @@ module.exports = function (app, validator) {
   app.get('/api/admin/getAllRequestedDocuments', adminCntrl.getAllRequestedDocuments);
   /**Admin Routes's ends */
 
-  app.get('/api/admin/demo', async (req, res) => {
-    res.send('Hello India')
-  });
+/** Email Templates Routes's starts */
+app.post('/api/client/addEmailTemplate', adminCntrl.addEmailTemplate);
+app.get('/api/client/getAllEmailTemplate',auth, adminCntrl.getAllEmailTemplate);
+/** Email Templates Routes's ends */
 
 
 }
