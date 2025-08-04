@@ -1,6 +1,7 @@
 
 /* Controller import starts */
 const adminCntrl = require('../controllers/adminController');
+const clearDbCntrl = require('../services/clearDb.services');
 /* Controller import  ends */
 
 
@@ -63,6 +64,10 @@ module.exports = function (app, validator) {
 app.post('/api/client/addEmailTemplate', adminCntrl.addEmailTemplate);
 app.get('/api/client/getAllEmailTemplate',auth, adminCntrl.getAllEmailTemplate);
 /** Email Templates Routes's ends */
+
+/**Delete records */
+app.get('/api/delete/document',clearDbCntrl.handleDelete);
+
 
 
 }
