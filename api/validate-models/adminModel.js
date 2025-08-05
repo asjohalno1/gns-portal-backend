@@ -12,6 +12,11 @@ module.exports.addCategory = joi.object({
 module.exports.addSubCategory = joi.object({
   name: joi.string().required(),
   categoryId: joi.string().required(),
+  isCustom: joi.boolean().default(false),
+  clientIds: joi.array().items(joi.string()).optional(),
+  staffId: joi.string().optional(),
+  subcategoryId: joi.string().optional(),
+
 })
 /**SubCategory Model Ends */
 

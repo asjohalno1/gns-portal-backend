@@ -110,22 +110,46 @@ module.exports.getAllCategory = async (req, res) => {
  */
 module.exports.addSubCategory = async (req, res) => {
     try {
-        const { name, categoryId } = req.body;
+        const staffId = req.userInfo.id;
+        const { name, categoryId, isCustom, clientIds, subcategoryId } = req.body;
+
         let categoryInfo = {
             name: name,
-            categoryId: categoryId
+            categoryId: categoryId,
+            staffId: staffId,
+        };
+
+        // For custom subcategories
+        if (isCustom) {
+            categoryInfo.isCustom = true;
+            categoryInfo.staffId = staffId;
+            categoryInfo.clientIds = clientIds;
         }
-        const newSubCategory = new subCategory(categoryInfo)
-        let subCategoryRes = await newSubCategory.save();
+
+        let subCategoryRes;
+        if (subcategoryId) {
+            // Update existing subcategory
+            subCategoryRes = await subCategory.findByIdAndUpdate(
+                subcategoryId,
+                categoryInfo,
+                { new: true }
+            );
+        } else {
+
+            const newSubCategory = new subCategory(categoryInfo);
+            subCategoryRes = await newSubCategory.save();
+        }
+
         if (subCategoryRes) {
             resModel.success = true;
-            resModel.message = "SubCategory Added Successfully";
-            resModel.data = subCategoryRes
-            res.status(200).json(resModel)
-
+            resModel.message = subcategoryId
+                ? "SubCategory Updated Successfully"
+                : "SubCategory Added Successfully";
+            resModel.data = subCategoryRes;
+            res.status(200).json(resModel);
         } else {
             resModel.success = false;
-            resModel.message = "Error while creating SubCategory";
+            resModel.message = "Error while processing SubCategory";
             resModel.data = null;
             res.status(400).json(resModel);
         }
@@ -135,7 +159,6 @@ module.exports.addSubCategory = async (req, res) => {
         resModel.message = "Internal Server Error";
         resModel.data = null;
         res.status(500).json(resModel);
-
     }
 }
 

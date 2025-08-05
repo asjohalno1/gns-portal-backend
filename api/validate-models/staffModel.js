@@ -5,7 +5,8 @@ const joi = require('joi');
 module.exports.addDocumentRequest = joi.object({
   clientId: joi.array().items(joi.string()).required(),
   categoryId: joi.array().items(joi.string()).required(),
-  subCategoryId: joi.array().required(),
+  subCategoryId: joi.array().items(joi.string()).required(),
+  editedSubcategories: joi.array().items(joi.string()).default([]), // New field
   dueDate: joi.string().required(),
   expiration: joi.string().required(),
   linkMethod: joi.string().required(),
@@ -30,9 +31,7 @@ module.exports.addDocumentRequest = joi.object({
       joi.string().valid("email", "sms", "portal", "AiCall")
     ).min(1).required(),
     customMessage: joi.string().allow('').optional()
-  })
-
-
+  }).optional()
 });
 /** Document Request Model Ends */
 
