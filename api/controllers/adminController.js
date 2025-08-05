@@ -1368,7 +1368,7 @@ module.exports.addEmailTemplate = async (req, res) => {
             const emailTemplates = new emailTemplate({
                 title,
                 description,
-                linkNote
+                listType
             });
             const addTemplates = await emailTemplates.save();
             if (addTemplates) {
