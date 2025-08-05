@@ -4,7 +4,7 @@ const emailTemplateSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
     description: { type: String, default: true },
-    linkNote: { type: String, default: true },
+    listType: { type: String, default: true },
   },
   { timestamps: true }
 );

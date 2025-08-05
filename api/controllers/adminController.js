@@ -1334,21 +1334,21 @@ module.exports.getAllRequestedDocuments = async (req, res) => {
  * @apiGroup Client
  * @apiBody {String} title  Title.
  * @apiBody {String} description Description.
- * @apiBody {String} linkNote Link Note.
+ * @apiBody {String} listType list Type.
  * @apiHeader {String} Authorization Bearer token
  * @apiDescription API for adding a new client.
  * @apiSampleRequest http://localhost:2001/api/client/addEmailTemplate
  */
 module.exports.addEmailTemplate = async (req, res) => {
     try {
-        const { title, description, linkNote,_id } = req.body;
+        const { title, description, listType,_id } = req.body;
         if (_id) {
             const existingTemplates = await emailTemplate.findOne({_id:_id});
             if (existingTemplates) {
                 let payload = {
                     title: title,
                     description: description,
-                    linkNote: linkNote
+                    listType: listType
                 }
                 const updatedTemplate = await emailTemplate.findByIdAndUpdate(existingTemplates?._id, payload, { new: true });
                 if (updatedTemplate) {
