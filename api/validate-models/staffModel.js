@@ -37,7 +37,7 @@ module.exports.addDocumentRequest = joi.object({
 /** Document Request Model Ends */
 
 module.exports.commonId = joi.object({
-  id: joi.string().required(),
+  id: joi.string().optional(),
 })
 
 /**Add Folder Model Start */

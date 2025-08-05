@@ -12,6 +12,8 @@ const mailServices = require('../services/mail.services');
 const DocumentRequest = require('../models/documentRequest');
 const uploadDocument = require('../models/uploadDocuments')
 const Remainder = require('../models/remainer');
+const RemainderTemplate = require('../models/remainderTemplate');
+
 const remainderServices = require('../services/remainder.services');
 const cronJobService = require('../services/cron.services');
 const emailTemplate = require('../models/emailTemplates.js');
@@ -1174,6 +1176,7 @@ module.exports.getAllClientsWithoutPagination = async (req, res) => {
             return {
                 clientId: client._id,
                 clientName: client.name,
+                email: client.email,
                 staff: staffData,
             };
         }));
@@ -1341,7 +1344,7 @@ module.exports.getAllRequestedDocuments = async (req, res) => {
  */
 module.exports.addEmailTemplate = async (req, res) => {
     try {
-        const { title, description ,linkNote} = req.body;
+        const { title, description, linkNote } = req.body;
         const existingTemplates = await emailTemplate.find();
         if (existingTemplates.length > 0) {
             let payload = {
@@ -1398,7 +1401,7 @@ module.exports.addEmailTemplate = async (req, res) => {
  */
 module.exports.getAllEmailTemplate = async (req, res) => {
     try {
-        const templatesRes =  await emailTemplate.find();
+        const templatesRes = await emailTemplate.find();
         if (templatesRes) {
             resModel.success = true;
             resModel.message = "Get All Templates Successfully";
@@ -1417,4 +1420,53 @@ module.exports.getAllEmailTemplate = async (req, res) => {
         resModel.data = null;
         res.status(500).json(resModel);
     }
+}
+
+
+module.exports.getAllDocumentTitle = async (req, res) => {
+    try {
+
+        const dataRes = await DocumentRequest.find({}).select('doctitle');
+        if (dataRes) {
+            resModel.success = true;
+            resModel.message = "Data Found Successfully";
+            resModel.data = dataRes;
+            res.status(200).json(resModel);
+        } else {
+            resModel.success = false;
+            resModel.message = "Data Not Found";
+            resModel.data = [];
+            res.status(200).json(resModel);
+        }
+
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
+module.exports.getAllReminderTemplates = async (req, res) => {
+    try {
+
+        const templates = await RemainderTemplate.find({ active: true }).sort({ createdAt: -1 });
+        if (!templates) {
+            resModel.success = false;
+            resModel.message = "Templates not found.";
+            resModel.data = [];
+            res.status(200).json(resModel);
+        } else {
+            resModel.success = true;
+            resModel.message = "Templates fetched successfully.";
+            resModel.data = templates;
+            res.status(200).json(resModel);
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+
 }

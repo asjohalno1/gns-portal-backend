@@ -65,6 +65,11 @@ module.exports = function (app, validator) {
   app.get('/api/client/getAllEmailTemplate', adminCntrl.getAllEmailTemplate);
   /** Email Templates Routes's ends */
 
+  // get all document admin
+
+  app.get('/api/admin/document/title', adminCntrl.getAllDocumentTitle);
+  app.get('/api/admin/getAllReminderTemplates', adminCntrl.getAllReminderTemplates);
+
   /**Delete records */
   app.get('/api/delete/document', clearDbCntrl.handleDelete);
 
