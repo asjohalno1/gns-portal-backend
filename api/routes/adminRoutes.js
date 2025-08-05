@@ -23,7 +23,7 @@ module.exports = function (app, validator) {
   /** Category Routes's ends */
 
   /** SubCategory Routes's starts */
-  app.post('/api/subcategory/add', validator.body(adminModel.addSubCategory), adminCntrl.addSubCategory)
+  app.post('/api/subcategory/add', auth, validator.body(adminModel.addSubCategory), adminCntrl.addSubCategory)
   app.get('/api/subcategory/getAllSubCategory', adminCntrl.getAllSubCategory)
   app.get('/api/subcategory/getAllSubCategoryByCategory/:id', adminCntrl.getAllSubCategoryByCategory)
   /** SubCategory Routes's ends */
@@ -64,6 +64,11 @@ module.exports = function (app, validator) {
   app.post('/api/client/addEmailTemplate', adminCntrl.addEmailTemplate);
   app.get('/api/client/getAllEmailTemplate', adminCntrl.getAllEmailTemplate);
   /** Email Templates Routes's ends */
+
+  // get all document admin
+
+  app.get('/api/admin/document/title', adminCntrl.getAllDocumentTitle);
+  app.get('/api/admin/getAllReminderTemplates', adminCntrl.getAllReminderTemplates);
 
   /**Delete records */
   app.get('/api/delete/document', clearDbCntrl.handleDelete);

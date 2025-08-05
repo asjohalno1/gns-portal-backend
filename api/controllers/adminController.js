@@ -12,6 +12,8 @@ const mailServices = require('../services/mail.services');
 const DocumentRequest = require('../models/documentRequest');
 const uploadDocument = require('../models/uploadDocuments')
 const Remainder = require('../models/remainer');
+const RemainderTemplate = require('../models/remainderTemplate');
+
 const remainderServices = require('../services/remainder.services');
 const cronJobService = require('../services/cron.services');
 const emailTemplate = require('../models/emailTemplates.js');
@@ -108,22 +110,46 @@ module.exports.getAllCategory = async (req, res) => {
  */
 module.exports.addSubCategory = async (req, res) => {
     try {
-        const { name, categoryId } = req.body;
+        const staffId = req.userInfo.id;
+        const { name, categoryId, isCustom, clientIds, subcategoryId } = req.body;
+
         let categoryInfo = {
             name: name,
-            categoryId: categoryId
+            categoryId: categoryId,
+            staffId: staffId,
+        };
+
+        // For custom subcategories
+        if (isCustom) {
+            categoryInfo.isCustom = true;
+            categoryInfo.staffId = staffId;
+            categoryInfo.clientIds = clientIds;
         }
-        const newSubCategory = new subCategory(categoryInfo)
-        let subCategoryRes = await newSubCategory.save();
+
+        let subCategoryRes;
+        if (subcategoryId) {
+            // Update existing subcategory
+            subCategoryRes = await subCategory.findByIdAndUpdate(
+                subcategoryId,
+                categoryInfo,
+                { new: true }
+            );
+        } else {
+
+            const newSubCategory = new subCategory(categoryInfo);
+            subCategoryRes = await newSubCategory.save();
+        }
+
         if (subCategoryRes) {
             resModel.success = true;
-            resModel.message = "SubCategory Added Successfully";
-            resModel.data = subCategoryRes
-            res.status(200).json(resModel)
-
+            resModel.message = subcategoryId
+                ? "SubCategory Updated Successfully"
+                : "SubCategory Added Successfully";
+            resModel.data = subCategoryRes;
+            res.status(200).json(resModel);
         } else {
             resModel.success = false;
-            resModel.message = "Error while creating SubCategory";
+            resModel.message = "Error while processing SubCategory";
             resModel.data = null;
             res.status(400).json(resModel);
         }
@@ -133,7 +159,6 @@ module.exports.addSubCategory = async (req, res) => {
         resModel.message = "Internal Server Error";
         resModel.data = null;
         res.status(500).json(resModel);
-
     }
 }
 
@@ -1174,6 +1199,7 @@ module.exports.getAllClientsWithoutPagination = async (req, res) => {
             return {
                 clientId: client._id,
                 clientName: client.name,
+                email: client.email,
                 staff: staffData,
             };
         }));
@@ -1419,4 +1445,53 @@ module.exports.getAllEmailTemplate = async (req, res) => {
         resModel.data = null;
         res.status(500).json(resModel);
     }
+}
+
+
+module.exports.getAllDocumentTitle = async (req, res) => {
+    try {
+
+        const dataRes = await DocumentRequest.find({}).select('doctitle');
+        if (dataRes) {
+            resModel.success = true;
+            resModel.message = "Data Found Successfully";
+            resModel.data = dataRes;
+            res.status(200).json(resModel);
+        } else {
+            resModel.success = false;
+            resModel.message = "Data Not Found";
+            resModel.data = [];
+            res.status(200).json(resModel);
+        }
+
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
+module.exports.getAllReminderTemplates = async (req, res) => {
+    try {
+
+        const templates = await RemainderTemplate.find({ active: true }).sort({ createdAt: -1 });
+        if (!templates) {
+            resModel.success = false;
+            resModel.message = "Templates not found.";
+            resModel.data = [];
+            res.status(200).json(resModel);
+        } else {
+            resModel.success = true;
+            resModel.message = "Templates fetched successfully.";
+            resModel.data = templates;
+            res.status(200).json(resModel);
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+
 }
