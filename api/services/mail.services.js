@@ -12,9 +12,9 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const sendEmail = async (email, subject, link, name,doctitle,deadline,docList,instructions,title,description) => {
+const sendEmail = async (email, subject, link, name,doctitle,deadline,docList,instructions,title,description,linkNote) => {
   try {
-    const htmlContent = await generateTemplate({ name,link,doctitle,deadline,docList,instructions,title,description});
+    const htmlContent = await generateTemplate({ name,link,doctitle,deadline,docList,instructions,title,description,linkNote});
 
     const info = await transporter.sendMail({
       from: 'shaktisainisd@gmail.com',
