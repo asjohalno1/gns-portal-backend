@@ -351,6 +351,9 @@ module.exports.uploadDocument = async (req, res) => {
             })),
             isUploaded: true,
             status: "pending",
+            uploadedAt: new Date(),
+
+
 
         };
 
@@ -587,12 +590,13 @@ module.exports.getClientDocuments = async (req, res) => {
                 documentTypeId: doc.category?._id || null,
                 // subCategory: subCat.name,
                 // subCategoryId: subCat._id,
-                uploadedDate: doc.createdAt,
+                uploadedDate: doc.uploadedAt,
                 status: doc.request?.status || 'pending',
                 comments: doc.rejectionReason || null,
                 requestId: doc.request?._id,
                 subCategory: doc.subCategory?.name,
                 subCategoryId: doc.subCategory?._id,
+
             };
 
             grouped.all.push(docData);

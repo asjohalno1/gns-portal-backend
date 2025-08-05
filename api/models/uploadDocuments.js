@@ -24,6 +24,7 @@ const uploadedDocumentSchema = new mongoose.Schema({
   reviewedAt: { type: Date },
   comments: String,// Optional
   isUploaded: { type: Boolean, default: false },
+  uploadedAt: { type: Date, default: null }
 },
   { timestamps: true });
 
