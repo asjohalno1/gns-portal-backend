@@ -1341,27 +1341,29 @@ module.exports.getAllRequestedDocuments = async (req, res) => {
  */
 module.exports.addEmailTemplate = async (req, res) => {
     try {
-        const { title, description ,linkNote} = req.body;
-        const existingTemplates = await emailTemplate.find();
-        if (existingTemplates.length > 0) {
-            let payload = {
-                title: title,
-                description: description,
-                linkNote: linkNote
-            }
-            const updatedTemplate = await emailTemplate.findByIdAndUpdate(existingTemplates[0]?._id, payload, { new: true });
-            if (updatedTemplate) {
-                resModel.success = true;
-                resModel.message = "Template Updated Successfully";
-                resModel.data = updatedTemplate;
-                res.status(200).json(resModel);
-            } else {
-                resModel.success = true;
-                resModel.message = "Error While Updating Template";
-                resModel.data = null;
-                res.status(400).json(resModel)
-            }
+        const { title, description, linkNote,_id } = req.body;
+        if (_id) {
+            const existingTemplates = await emailTemplate.findOne({_id:_id});
+            if (existingTemplates) {
+                let payload = {
+                    title: title,
+                    description: description,
+                    linkNote: linkNote
+                }
+                const updatedTemplate = await emailTemplate.findByIdAndUpdate(existingTemplates?._id, payload, { new: true });
+                if (updatedTemplate) {
+                    resModel.success = true;
+                    resModel.message = "Template Updated Successfully";
+                    resModel.data = updatedTemplate;
+                    res.status(200).json(resModel);
+                } else {
+                    resModel.success = true;
+                    resModel.message = "Error While Updating Template";
+                    resModel.data = null;
+                    res.status(400).json(resModel)
+                }
 
+            }
         } else {
             const emailTemplates = new emailTemplate({
                 title,
@@ -1398,7 +1400,7 @@ module.exports.addEmailTemplate = async (req, res) => {
  */
 module.exports.getAllEmailTemplate = async (req, res) => {
     try {
-        const templatesRes =  await emailTemplate.find();
+        const templatesRes = await emailTemplate.find();
         if (templatesRes) {
             resModel.success = true;
             resModel.message = "Get All Templates Successfully";
