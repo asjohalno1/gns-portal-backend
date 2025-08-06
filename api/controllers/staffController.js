@@ -849,13 +849,38 @@ module.exports.getAllFolder = async (req, res) => {
 // In your reminder controller
 module.exports.sendReminder = async (req, res) => {
     try {
-        let { days, isDefault, clientId, templateId, customMessage, scheduleTime, frequency, notifyMethod, documentId } = req.body;
-        const staffId = req.userInfo.id;
+        let {
+            days,
+            isDefault,
+            clientId,
+            templateId,
+            customMessage,
+            scheduleTime,
+            frequency,
+            notifyMethod,
+            documentId
+        } = req.body;
+
+        const staffId = req.userInfo?.id;
+        if (!staffId) {
+            console.warn("Missing staffId from req.userInfo");
+        }
+
+        // Apply default reminder values if isDefault is true
         if (isDefault) {
-            let defaultReminder = await DefaultSettingRemainder.findOne({ staffId })
-            scheduleTime = defaultReminder?.scheduleTime || "15:30";
-            frequency = defaultReminder?.frequency || "Daily";
-            notifyMethod = defaultReminder?.notifyMethod || ["email"];
+            let defaultReminder = await DefaultSettingRemainder.findOne({ staffId });
+            scheduleTime = defaultReminder?.scheduleTime || scheduleTime || "15:30";
+            frequency = defaultReminder?.frequency || frequency || "Daily";
+            notifyMethod = defaultReminder?.notifyMethod || notifyMethod || ["email"];
+        }
+        // Validate clientId
+        if (!Array.isArray(clientId) || clientId.length === 0) {
+            console.error("clientId is either not an array or is empty.");
+            return res.status(400).json({
+                success: false,
+                message: "Invalid or missing clientId.",
+                data: null
+            });
         }
 
         const newReminder = new Remainder({
@@ -870,9 +895,7 @@ module.exports.sendReminder = async (req, res) => {
             active: true,
             status: "scheduled",
             days
-
         });
-
         const savedReminder = await newReminder.save();
         if (!savedReminder) {
             return res.status(400).json({
@@ -884,11 +907,10 @@ module.exports.sendReminder = async (req, res) => {
 
         let expression = await remainderServices(scheduleTime, days);
         await cronJobService(expression, clientId, templateId, notifyMethod, documentId, "", customMessage);
-        /**Notification */
         let document = await DocumentRequest.findOne({ _id: documentId });
         for (let i of clientId) {
             const newNotification = new notification({
-                clientlId: i,
+                clientId: i,
                 message: `Requires Document: ${document?.doctitle}`,
                 type: "warning"
             });
@@ -899,6 +921,7 @@ module.exports.sendReminder = async (req, res) => {
             message: "Reminder scheduled successfully.",
             data: savedReminder
         });
+
     } catch (error) {
         return res.status(500).json({
             success: false,

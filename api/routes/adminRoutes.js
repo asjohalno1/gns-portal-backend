@@ -69,6 +69,7 @@ module.exports = function (app, validator) {
 
   app.get('/api/admin/document/title', adminCntrl.getAllDocumentTitle);
   app.get('/api/admin/getAllReminderTemplates', adminCntrl.getAllReminderTemplates);
+  app.get('/api/admin/getAllScheduledReminder', adminCntrl.getAllScheduledList);
 
   /**Delete records */
   app.get('/api/delete/document', clearDbCntrl.handleDelete);

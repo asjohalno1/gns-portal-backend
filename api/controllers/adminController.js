@@ -1493,3 +1493,59 @@ module.exports.getAllReminderTemplates = async (req, res) => {
     }
 
 }
+
+
+
+module.exports.getAllScheduledList = async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        const totalCount = await Remainder.countDocuments({});
+
+        const reminders = await Remainder.find({})
+            .skip(skip)
+            .limit(limit)
+            .populate({
+                path: "clientId",
+                select: "name",
+                model: "Client",
+            })
+            .populate({
+                path: "documentId",
+                select: "doctitle",
+                model: "DocumentRequest",
+            })
+            .select("clientId documentId notifyMethod scheduleTime status")
+            .sort({ createdAt: -1 });
+
+        const formattedData = reminders.map((reminder) => ({
+            clientName: reminder.clientId && reminder.clientId.length > 0
+                ? reminder.clientId.map((client) => client?.name || "Unknown Client").join(", ")
+                : "No Clients Assigned",
+            docTitle: reminder.documentId?.doctitle || "Untitled",
+            notifyMethod: reminder.notifyMethod,
+            scheduleTime: reminder.scheduleTime,
+            status: reminder.status,
+        }));
+
+        return res.status(200).json({
+            success: true,
+            message: "Reminders fetched successfully",
+            data: formattedData,
+            pagination: {
+                totalCount,
+                currentPage: page,
+                totalPages: Math.ceil(totalCount / limit),
+            },
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null,
+        });
+    }
+};
+
