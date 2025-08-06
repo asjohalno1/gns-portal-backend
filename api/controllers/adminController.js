@@ -318,7 +318,7 @@ module.exports.addClient = async (req, res) => {
 module.exports.updateClient = async (req, res) => {
     try {
         const clientId = req.params.id;
-        const { dateOfBirth, isGoogleDrive, name, email, phoneNumber, address, company, notes, status } = req.body;
+        const { dateOfBirth, isGoogleDrive, name, email, phoneNumber, address, company, notes, status, staffId } = req.body;
         let updatedData = {
             name,
             email: email.toLowerCase(),
@@ -331,17 +331,17 @@ module.exports.updateClient = async (req, res) => {
             dateOfBirth: dateOfBirth
         };
         const updatedClient = await Client.findByIdAndUpdate(clientId, updatedData, { new: true });
-        // const existingAssign = await assignClient.findOne({ clientId: clientId });
-        // if (existingAssign) {
-        //     existingAssign.staffId = staffId;
-        //     await existingAssign.save();
-        // } else {
-        //     const newAssign = new assignClient({
-        //         clientId: clientId,
-        //         staffId,
-        //     });
-        //     await newAssign.save();
-        // }
+        const existingAssign = await assignClient.findOne({ clientId: clientId });
+        if (existingAssign) {
+            existingAssign.staffId = staffId;
+            await existingAssign.save();
+        } else {
+            const newAssign = new assignClient({
+                clientId: clientId,
+                staffId,
+            });
+            await newAssign.save();
+        }
         if (updatedClient) {
             resModel.success = true;
             resModel.message = "Client updated successfully";
@@ -1511,7 +1511,6 @@ module.exports.getAllReminderTemplates = async (req, res) => {
 module.exports.deletedClient = async (req, res) => {
     try {
         const clientId = req.params.id;
-
         let updatedData = {
             isDeleted: true
         };
