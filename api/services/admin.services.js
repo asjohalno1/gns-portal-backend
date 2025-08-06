@@ -58,7 +58,7 @@ const SuperAdminService = () => {
                 .skip(skip)
                 .limit(limit)
                 .sort({ createdAt: -1 })
-                .select('_id name email phoneNumber city state status createdAt');
+                .select('_id name email phoneNumber city state status createdAt updatedAt');
 
             const clientIds = clients.map(c => c._id);
             const assignments = await assignClient.find({ clientId: { $in: clientIds } }).populate('staffId');
