@@ -35,6 +35,7 @@ module.exports = function (app, validator) {
   app.get('/api/staff/getAllStaff', adminCntrl.getAllStaff)
   app.get('/api/client/details/:id', validator.params(adminModel.commonId), adminCntrl.getclientDetails)
   app.put('/api/client/update/:id', validator.params(adminModel.commonId), adminCntrl.updateClient)
+  app.delete('/api/client/delete/:id', validator.params(adminModel.commonId), adminCntrl.deletedClient)
   app.post('/api/client/uploadCsv', upload.single('file'), adminCntrl.uploadClientCsv)
   /*** Client Routes's ends */
 

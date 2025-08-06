@@ -43,10 +43,13 @@ const SuperAdminService = () => {
 
 
             if (status && status.toLowerCase() === 'all') {
+                filter.isDeleted = false;
             } else if (status && status.toLowerCase() === 'true') {
                 filter.status = true;
+                filter.isDeleted = false;
             } else {
                 filter.status = false;
+                filter.isDeleted = false;
             }
 
 

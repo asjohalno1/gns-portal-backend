@@ -1367,9 +1367,9 @@ module.exports.getAllRequestedDocuments = async (req, res) => {
  */
 module.exports.addEmailTemplate = async (req, res) => {
     try {
-        const { title, description, listType,_id } = req.body;
+        const { title, description, listType, _id } = req.body;
         if (_id) {
-            const existingTemplates = await emailTemplate.findOne({_id:_id});
+            const existingTemplates = await emailTemplate.findOne({ _id: _id });
             if (existingTemplates) {
                 let payload = {
                     title: title,
@@ -1495,3 +1495,39 @@ module.exports.getAllReminderTemplates = async (req, res) => {
     }
 
 }
+
+
+/**
+ * @api {delete} /api/client/delete/:id Delete Client
+ * @apiName Delete Client
+ * @apiGroup Client
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription client Service...
+ * @apiSampleRequest http://localhost:2001/api/client/delete/:id
+ */
+module.exports.deletedClient = async (req, res) => {
+    try {
+        const clientId = req.params.id;
+
+        let updatedData = {
+            isDeleted: true
+        };
+        const deletedClient = await Client.findByIdAndUpdate(clientId, updatedData, { new: true });
+        if (deletedClient) {
+            resModel.success = true;
+            resModel.message = "Client Deleted successfully";
+            resModel.data = deletedClient;
+            res.status(200).json(resModel);
+        } else {
+            resModel.success = true;
+            resModel.message = "Error While Deleting Client";
+            resModel.data = updatedClient;
+            res.status(400).json(resModel);
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};

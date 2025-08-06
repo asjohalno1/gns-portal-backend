@@ -24,6 +24,10 @@ const clientSchema = new mongoose.Schema({
         type: Boolean,
         default: false,
     },
+    isDeleted: {
+        type: Boolean,
+        default: false,
+    },
     isGoogleDrive: {
         type: Boolean,
         default: false,
