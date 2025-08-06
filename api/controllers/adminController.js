@@ -1360,39 +1360,44 @@ module.exports.getAllRequestedDocuments = async (req, res) => {
  * @apiGroup Client
  * @apiBody {String} title  Title.
  * @apiBody {String} description Description.
- * @apiBody {String} linkNote Link Note.
+ * @apiBody {String} listType list Type.
+ * @apiBody {String} templateName Template Name.
  * @apiHeader {String} Authorization Bearer token
  * @apiDescription API for adding a new client.
  * @apiSampleRequest http://localhost:2001/api/client/addEmailTemplate
  */
 module.exports.addEmailTemplate = async (req, res) => {
     try {
-        const { title, description, linkNote } = req.body;
-        const existingTemplates = await emailTemplate.find();
-        if (existingTemplates.length > 0) {
-            let payload = {
-                title: title,
-                description: description,
-                linkNote: linkNote
-            }
-            const updatedTemplate = await emailTemplate.findByIdAndUpdate(existingTemplates[0]?._id, payload, { new: true });
-            if (updatedTemplate) {
-                resModel.success = true;
-                resModel.message = "Template Updated Successfully";
-                resModel.data = updatedTemplate;
-                res.status(200).json(resModel);
-            } else {
-                resModel.success = true;
-                resModel.message = "Error While Updating Template";
-                resModel.data = null;
-                res.status(400).json(resModel)
-            }
+        const { title, description, listType, _id, templateName } = req.body;
+        if (_id) {
+            const existingTemplates = await emailTemplate.findOne({ _id: _id });
+            if (existingTemplates) {
+                let payload = {
+                    title: title,
+                    description: description,
+                    listType: listType,
+                    templateName: templateName
+                }
+                const updatedTemplate = await emailTemplate.findByIdAndUpdate(existingTemplates?._id, payload, { new: true });
+                if (updatedTemplate) {
+                    resModel.success = true;
+                    resModel.message = "Template Updated Successfully";
+                    resModel.data = updatedTemplate;
+                    res.status(200).json(resModel);
+                } else {
+                    resModel.success = true;
+                    resModel.message = "Error While Updating Template";
+                    resModel.data = null;
+                    res.status(400).json(resModel)
+                }
 
+            }
         } else {
             const emailTemplates = new emailTemplate({
                 title,
                 description,
-                linkNote
+                listType,
+                templateName
             });
             const addTemplates = await emailTemplates.save();
             if (addTemplates) {
@@ -1493,6 +1498,42 @@ module.exports.getAllReminderTemplates = async (req, res) => {
     }
 
 }
+
+
+/**
+ * @api {delete} /api/client/delete/:id Delete Client
+ * @apiName Delete Client
+ * @apiGroup Client
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription client Service...
+ * @apiSampleRequest http://localhost:2001/api/client/delete/:id
+ */
+module.exports.deletedClient = async (req, res) => {
+    try {
+        const clientId = req.params.id;
+
+        let updatedData = {
+            isDeleted: true
+        };
+        const deletedClient = await Client.findByIdAndUpdate(clientId, updatedData, { new: true });
+        if (deletedClient) {
+            resModel.success = true;
+            resModel.message = "Client Deleted successfully";
+            resModel.data = deletedClient;
+            res.status(200).json(resModel);
+        } else {
+            resModel.success = true;
+            resModel.message = "Error While Deleting Client";
+            resModel.data = updatedClient;
+            res.status(400).json(resModel);
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
 
 
 

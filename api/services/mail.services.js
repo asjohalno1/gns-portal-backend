@@ -1,6 +1,7 @@
 const nodemailer = require("nodemailer");
 const generateTemplate = require("../../templates/link.ejs");
 const reminderTemplate = require("../../templates/reminder.ejs");
+const emailTemplate = require("../models/emailTemplates.js");
 
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
@@ -12,10 +13,18 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const sendEmail = async (email, subject, link, name,doctitle,deadline,docList,instructions,title,description,linkNote) => {
+const sendEmail = async (email, subject, link, name, doctitle, deadline, docList, instructions, title, description, linkNote) => {
   try {
-    const htmlContent = await generateTemplate({ name,link,doctitle,deadline,docList,instructions,title,description,linkNote});
-
+    // const htmlContent = await generateTemplate({ name,link,doctitle,deadline,docList,instructions,title,description,linkNote});
+    let dataRes = await emailTemplate.findOne({ listType: "Document Request" });
+    const dbTemplate = `${dataRes?.description}`
+    const htmlContent = dbTemplate
+      .replace(/{{name}}/g, name)
+      .replace(/{{title}}/g, title)
+      .replace(/{{deadline}}/g, deadline)
+      .replace(/{{documentList}}/g, docList)
+      .replace(/{{Instructions}}/g, instructions)
+      .replace(/{{link}}/g, link);
     const info = await transporter.sendMail({
       from: 'shaktisainisd@gmail.com',
       to: email,
