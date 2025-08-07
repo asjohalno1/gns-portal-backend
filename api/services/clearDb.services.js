@@ -13,8 +13,8 @@ const { message } = require("../lib/resModel");
 
 module.exports.handleDelete = async (req,res) => {
     try {
-        await category.deleteMany({});
-        await subCategory.deleteMany({});
+        await category.deleteMany({name: {$ne: "Others"}});
+        await subCategory.deleteMany({name: {$ne: "Others"}});
         await assignClient.deleteMany({});
         await uploadDocuments.deleteMany({});
         await logModel.deleteMany({});
