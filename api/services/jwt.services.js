@@ -12,7 +12,7 @@ module.exports = {
 
     const expiresInHours = expiresIn * 24;
     const token = jwt.sign(payload, secret_key, { expiresIn: `${expiresInHours}h` });
-    const finalUrl = `${process.env.LINK_URL}?token=${token}`
+    const finalUrl = `https://meanstack.smartdatainc.com:8076/client/token-handler/?token=${token}`
 
     return finalUrl;
   },
