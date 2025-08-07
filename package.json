@@ -9,7 +9,8 @@
     "dev": "cross-env NODE_ENV=dev nodemon server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "mkdir -p dist && cp -r src/* dist/",
-    "apiDoc": "apidoc -i ./api/controllers -o ./apidoc/doc"
+    "apiDoc": "apidoc -i ./api/controllers -o ./apidoc/doc",
+    "seed": "cross-env NODE_ENV=dev SEED_TYPE_NAME=all node api/seeding/index.js"
   },
   "author": "",
   "license": "ISC",

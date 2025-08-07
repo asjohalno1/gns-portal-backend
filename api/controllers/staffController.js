@@ -74,29 +74,49 @@ module.exports.documentRequest = async (req, res) => {
             linkMethod,
             subcategoryPriorities = {},
             scheduler,
-            editedSubcategories = [] // New field for edited subcategories
+            editedSubcategories = []
         } = req.body;
 
-        // Validate input arrays
         if (!Array.isArray(clientId) || !Array.isArray(categoryId) || !Array.isArray(subCategoryId)) {
             resModel.message = "clientId, categoryId and subCategoryId must be arrays";
             return res.status(400).json(resModel);
         }
 
-        // Helper function to calculate remaining hours
-        function getRemainingWholeHours(dueDateStr) {
+
+        const othersCategory = await Category.findOne({ name: 'Others', active: true });
+        const othersSubCategory = await SubCategory.findOne({
+            name: 'Others',
+            categoryId: othersCategory?._id,
+            active: true
+        });
+
+        if (!othersCategory || !othersSubCategory) {
+            resModel.message = `"others" category or subcategory not available !`;
+            return res.status(500).json(resModel);
+        }
+
+        // Inject into request arrays if not present
+        if (!categoryId.includes(othersCategory._id.toString())) {
+            categoryId.push(othersCategory._id.toString());
+        }
+
+        if (!subCategoryId.includes(othersSubCategory._id.toString())) {
+            subCategoryId.push(othersSubCategory._id.toString());
+        }
+
+        // Set default priority for "others" if not defined
+        if (!subcategoryPriorities[othersSubCategory._id.toString()]) {
+            subcategoryPriorities[othersSubCategory._id.toString()] = 'low';
+        }
+
+        const getRemainingWholeHours = (dueDateStr) => {
             const now = new Date();
             const dueDate = new Date(dueDateStr);
             const diffInMs = dueDate - now;
-
-            if (diffInMs <= 0) {
-                return "Deadline has passed.";
-            }
-
+            if (diffInMs <= 0) return "Deadline has passed.";
             return Math.floor(diffInMs / (1000 * 60 * 60));
-        }
+        };
 
-        // Validate priorities including edited subcategories
         const validPriorities = ['low', 'medium', 'high'];
         const allSubCategories = [...new Set([...subCategoryId, ...editedSubcategories])];
 
@@ -111,10 +131,9 @@ module.exports.documentRequest = async (req, res) => {
             }
         }
 
-        // Handle template if provided
-        let templateData = null;
+        // Template handling (same as before)
         if (templateId) {
-            templateData = await template.findById(templateId);
+            const templateData = await template.findById(templateId);
             if (!templateData) {
                 resModel.message = "Template not found";
                 return res.status(404).json(resModel);
@@ -142,19 +161,17 @@ module.exports.documentRequest = async (req, res) => {
             const createdReminders = [];
 
             try {
-                // Build priorities map including edited subcategories
                 const prioritiesMap = {};
                 allSubCategories.forEach(subCatId => {
                     prioritiesMap[subCatId] = subcategoryPriorities[subCatId] || 'medium';
                 });
 
-                // Create request document with edited subcategories info
                 const requestInfo = {
                     createdBy: req.userInfo.id,
                     clientId: client,
                     category: categoryId,
                     subCategory: subCategoryId,
-                    editedSubcategories, // Track which subcategories were edited
+                    editedSubcategories,
                     subcategoryPriorities: prioritiesMap,
                     dueDate,
                     instructions,
@@ -172,7 +189,6 @@ module.exports.documentRequest = async (req, res) => {
                 createdRequests.push(requestRes);
                 results.push(requestRes);
 
-                // Process all subcategories (both original and edited)
                 for (const catId of categoryId) {
                     const validSubCats = await SubCategory.find({
                         _id: { $in: allSubCategories },
@@ -183,19 +199,17 @@ module.exports.documentRequest = async (req, res) => {
                         const isEdited = editedSubcategories.includes(subCat._id.toString());
                         const priority = prioritiesMap[subCat._id.toString()] || 'medium';
 
-                        // Create document subcategory record
                         const docSubCat = await DocumentSubCategory.create({
                             request: requestRes._id,
                             category: catId,
                             subCategory: subCat._id,
                             priority,
-                            isEdited, // Mark if this was an edited subcategory
+                            isEdited,
                             editedBy: isEdited ? req.userInfo.id : null,
                             editedAt: isEdited ? new Date() : null
                         });
                         createdSubCategories.push(docSubCat);
 
-                        // Create upload document record
                         const uploaded = await uploadDocument.create({
                             request: requestRes._id,
                             category: catId,
@@ -205,14 +219,13 @@ module.exports.documentRequest = async (req, res) => {
                             doctitle,
                             priority,
                             staffId: req.userInfo.id,
-                            isEdited, // Mark if this was an edited subcategory
+                            isEdited,
                             status: 'pending'
                         });
                         uploadedDocs.push(uploaded);
                     }
                 }
 
-                // Handle scheduler if enabled
                 if (scheduler) {
                     const reminderData = {
                         staffId: req.userInfo.id,
@@ -232,8 +245,7 @@ module.exports.documentRequest = async (req, res) => {
                     await newReminder.save();
                     createdReminders.push(newReminder);
 
-                    // Schedule cron job for reminders
-                    let expression = await remainderServices(scheduler?.scheduleTime, scheduler?.days);
+                    const expression = await remainderServices(scheduler?.scheduleTime, scheduler?.days);
                     await cronJobService(
                         expression,
                         client,
@@ -244,7 +256,6 @@ module.exports.documentRequest = async (req, res) => {
                     );
                 }
 
-                // Generate secure link and send notification
                 const clientRes = await Client.findById(client);
                 if (!clientRes) {
                     console.warn(`Client ${client} not found`);
@@ -262,11 +273,9 @@ module.exports.documentRequest = async (req, res) => {
                 const expiresIn = parseInt(expirationHours);
                 const requestLink = await jwt.linkToken(tokenInfo, expiresIn);
 
-                // Get subcategory names for notification
                 let docRes = await SubCategory.find({ _id: { $in: allSubCategories } });
                 let docList = docRes.map(doc => doc.name);
 
-                // Handle email notification
                 if (linkMethod === "email") {
                     await DocumentRequest.findByIdAndUpdate(
                         requestRes._id,
@@ -287,14 +296,11 @@ module.exports.documentRequest = async (req, res) => {
                         existingTemplates[0]?.description,
                         existingTemplates[0]?.linkNote
                     );
-                }
-                // Handle SMS notification
-                else if (linkMethod === "sms" && clientRes.phoneNumber) {
+                } else if (linkMethod === "sms" && clientRes.phoneNumber) {
                     // await twilioServices(clientRes.phoneNumber, requestLink);
                 }
 
             } catch (error) {
-                // Comprehensive rollback in case of failure
                 await Promise.all([
                     ...createdRequests.map(r => DocumentRequest.findByIdAndDelete(r._id)),
                     ...createdSubCategories.map(s => DocumentSubCategory.findByIdAndDelete(s._id)),
@@ -308,7 +314,6 @@ module.exports.documentRequest = async (req, res) => {
             }
         }
 
-        // Return success response
         if (results.length > 0) {
             resModel.success = true;
             resModel.message = `Successfully created ${results.length} document request(s)`;
@@ -325,6 +330,7 @@ module.exports.documentRequest = async (req, res) => {
         return res.status(500).json(resModel);
     }
 };
+
 
 
 /**
@@ -576,7 +582,8 @@ module.exports.getAllClientsByStaff = async (req, res) => {
 
                 const findLinkStatus = await DocumentRequest.findOne(
                     { _id: doc.request },
-                    { linkStatus: 1, _id: 0 }
+                    { linkStatus: 1, _id: 0 },
+
                 );
                 let linkStatus = findLinkStatus?.linkStatus || "-";
                 const now = new Date();

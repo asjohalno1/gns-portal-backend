@@ -8,7 +8,6 @@ const cors = require('cors');
 const path = require('path');
 const dotenv = require('dotenv');
 
-// Load environment variables
 dotenv.config({ path: path.resolve(__dirname, `.env.${process.env.NODE_ENV}`) });
 
 const app = express();

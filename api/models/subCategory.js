@@ -8,6 +8,7 @@ const subCategorySchema = new mongoose.Schema(
     isCustom: { type: Boolean, default: false },
     staffId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     clientIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Client" }],
+    protected: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
