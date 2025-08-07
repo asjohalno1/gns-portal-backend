@@ -75,6 +75,8 @@ module.exports = function (app, validator) {
   /**Delete records */
   app.get('/api/delete/document', clearDbCntrl.handleDelete);
 
+  /**Get All Logs */
+  app.get('/api/logs/getAllLogs', adminCntrl.getAllLogs);
 
 
 }

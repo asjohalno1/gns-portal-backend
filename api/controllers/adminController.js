@@ -17,6 +17,7 @@ const RemainderTemplate = require('../models/remainderTemplate');
 const remainderServices = require('../services/remainder.services');
 const cronJobService = require('../services/cron.services');
 const emailTemplate = require('../models/emailTemplates.js');
+const logsUser = require('../models/userLog');
 
 
 const { listFilesInFolderStructure, uploadFileToFolder, createClientFolder } = require('../services/googleDriveService.js');
@@ -1586,6 +1587,93 @@ module.exports.getAllScheduledList = async (req, res) => {
             message: "Internal Server Error",
             data: null,
         });
+    }
+};
+
+/**
+ * @api {get} /api/logs/getAllLogs Get All Audit Logs
+ * @apiName GetAllAuditLogs
+ * @apiGroup Logs
+ * @apiDescription API to fetch all audit logs with pagination and search
+ * @apiSampleRequest http://localhost:2001/api/logs/getAllLogs
+ * @apiParam {Number} [page=1] Page number
+ * @apiParam {Number} [limit=10] Number of items per page
+ * @apiParam {String} [search] Search term (searches in name, role, and activity type)
+ * @apiSampleRequest http://localhost:2001/api/logs/getAllLogs
+ */
+module.exports.getAllLogs = async (req, res) => {
+    const resModel = {
+        success: false,
+        message: "",
+        data: null
+    };
+
+    try {
+        const { page = 1, limit = 10, search = "" } = req.query;
+        const skip = (page - 1) * limit;
+
+        // Build the query with search functionality
+        const query = {};
+        if (search) {
+            query.$or = [
+                { title: { $regex: search, $options: 'i' } }, // Activity Type
+                { 'userId.name': { $regex: search, $options: 'i' } }, // User name
+                { 'clientId.name': { $regex: search, $options: 'i' } }, // Client name
+                { 'userId.role': { $regex: search, $options: 'i' } } // User role
+            ];
+        }
+
+        // Get logs with populated user and client data
+        const logs = await logsUser.find(query)
+            .populate({
+                path: 'userId',
+                select: 'name role'
+            })
+            .populate({
+                path: 'clientId',
+                select: 'name'
+            })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(parseInt(limit))
+            .lean();
+
+        // Transform data to match frontend requirements
+        const transformedLogs = logs.map(log => {
+            const name = log.userId
+                ? log.userId.name
+                : (log.clientId ? log.clientId.name : 'System');
+
+            const role = log.userId
+                ? (log.userId.role === 'admin' ? 'Staff / Admin' : 'Client')
+                : 'Client';
+
+            return {
+                name,
+                role,
+                activityType: log.title, // Using title as activity type
+                lastActivity: log.createdAt,
+            };
+        });
+
+        const totalLogs = await logsUser.countDocuments(query);
+        resModel.success = true;
+        resModel.message = "Logs fetched successfully";
+        resModel.data = {
+            logs: transformedLogs,
+            pagination: {
+                totalPages: Math.ceil(totalLogs / limit),
+                currentPage: parseInt(page),
+                totalLogs,
+                limit: parseInt(limit)
+            }
+        };
+
+        res.status(200).json(resModel);
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        res.status(500).json(resModel);
     }
 };
 
