@@ -72,18 +72,18 @@ module.exports.addCategory = async (req, res) => {
  */
 module.exports.getAllCategory = async (req, res) => {
     try {
-        const categoryCheck = await Category.find();
-        if (categoryCheck) {
+        const categoryCheck = await Category.find({ protected: { $ne: true } });
+
+        if (categoryCheck && categoryCheck.length > 0) {
             resModel.success = true;
             resModel.message = "Get All Category Successfully";
             resModel.data = categoryCheck;
             res.status(200).json(resModel);
-        }
-        else {
+        } else {
             resModel.success = true;
             resModel.message = "Category Not Found";
             resModel.data = [];
-            res.status(200).json(resModel)
+            res.status(200).json(resModel);
         }
     } catch (error) {
         resModel.success = false;
@@ -91,7 +91,8 @@ module.exports.getAllCategory = async (req, res) => {
         resModel.data = null;
         res.status(500).json(resModel);
     }
-}
+};
+
 
 /** Category Api's End */
 
@@ -249,9 +250,7 @@ module.exports.getAllSubCategoryByCategory = async (req, res) => {
 module.exports.addClient = async (req, res) => {
     try {
         const { name, email, phoneNumber, address, company, notes, staffId, status } = req.body;
-        const existingClient = await Client.findOne({ email });
-
-
+        const existingClient = await Client.findOne({ email, isDeleted: false });
         if (existingClient) {
             resModel.success = false;
             resModel.message = "Client already exists";
