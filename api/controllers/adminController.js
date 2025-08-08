@@ -17,6 +17,7 @@ const RemainderTemplate = require('../models/remainderTemplate');
 const remainderServices = require('../services/remainder.services');
 const cronJobService = require('../services/cron.services');
 const emailTemplate = require('../models/emailTemplates.js');
+const logsUser = require('../models/userLog');
 
 
 const { listFilesInFolderStructure, uploadFileToFolder, createClientFolder } = require('../services/googleDriveService.js');
@@ -36,22 +37,30 @@ const { documentRequest } = require('./staffController.js');
 module.exports.addCategory = async (req, res) => {
     try {
         const { name } = req.body;
-        let categoryInfo = {
-            name: name
-        }
-        const newCategory = new Category(categoryInfo)
-        let CategoryRes = await newCategory.save();
-        if (CategoryRes) {
-            resModel.success = true;
-            resModel.message = "Category Added Successfully";
-            resModel.data = CategoryRes
-            res.status(200).json(resModel)
-
-        } else {
+        const existingCategory = await Category.findOne({ name: { $regex: new RegExp(`^${name}$`, 'i') } });
+        if (existingCategory) {
             resModel.success = false;
-            resModel.message = "Error while creating Category";
+            resModel.message = "A category with this name already exists. Try another name!";
             resModel.data = null;
             res.status(400).json(resModel);
+        } else {
+            let categoryInfo = {
+                name: name
+            }
+            const newCategory = new Category(categoryInfo)
+            let CategoryRes = await newCategory.save();
+            if (CategoryRes) {
+                resModel.success = true;
+                resModel.message = "Category Added Successfully";
+                resModel.data = CategoryRes
+                res.status(200).json(resModel)
+
+            } else {
+                resModel.success = false;
+                resModel.message = "Error while creating Category";
+                resModel.data = null;
+                res.status(400).json(resModel);
+            }
         }
 
     } catch (error) {
@@ -113,48 +122,54 @@ module.exports.addSubCategory = async (req, res) => {
     try {
         const staffId = req.userInfo.id;
         const { name, categoryId, isCustom, clientIds, subcategoryId } = req.body;
-
-        let categoryInfo = {
-            name: name,
-            categoryId: categoryId,
-            staffId: staffId,
-        };
-
-        // For custom subcategories
-        if (isCustom) {
-            categoryInfo.isCustom = true;
-            categoryInfo.staffId = staffId;
-            categoryInfo.clientIds = clientIds;
-        }
-
-        let subCategoryRes;
-        if (subcategoryId) {
-            // Update existing subcategory
-            subCategoryRes = await subCategory.findByIdAndUpdate(
-                subcategoryId,
-                categoryInfo,
-                { new: true }
-            );
-        } else {
-
-            const newSubCategory = new subCategory(categoryInfo);
-            subCategoryRes = await newSubCategory.save();
-        }
-
-        if (subCategoryRes) {
-            resModel.success = true;
-            resModel.message = subcategoryId
-                ? "SubCategory Updated Successfully"
-                : "SubCategory Added Successfully";
-            resModel.data = subCategoryRes;
-            res.status(200).json(resModel);
-        } else {
+        const existingCategory = await subCategory.findOne({ name: { $regex: new RegExp(`^${name}$`, 'i') } });
+        if (existingCategory) {
             resModel.success = false;
-            resModel.message = "Error while processing SubCategory";
+            resModel.message = "A Document Type with this name already exists. Try another name!";
             resModel.data = null;
             res.status(400).json(resModel);
-        }
+        } else {
+            let categoryInfo = {
+                name: name,
+                categoryId: categoryId,
+                staffId: staffId,
+            };
 
+            // For custom subcategories
+            if (isCustom) {
+                categoryInfo.isCustom = true;
+                categoryInfo.staffId = staffId;
+                categoryInfo.clientIds = clientIds;
+            }
+
+            let subCategoryRes;
+            if (subcategoryId) {
+                // Update existing subcategory
+                subCategoryRes = await subCategory.findByIdAndUpdate(
+                    subcategoryId,
+                    categoryInfo,
+                    { new: true }
+                );
+            } else {
+
+                const newSubCategory = new subCategory(categoryInfo);
+                subCategoryRes = await newSubCategory.save();
+            }
+
+            if (subCategoryRes) {
+                resModel.success = true;
+                resModel.message = subcategoryId
+                    ? "SubCategory Updated Successfully"
+                    : "SubCategory Added Successfully";
+                resModel.data = subCategoryRes;
+                res.status(200).json(resModel);
+            } else {
+                resModel.success = false;
+                resModel.message = "Error while processing SubCategory";
+                resModel.data = null;
+                res.status(400).json(resModel);
+            }
+        }
     } catch (error) {
         resModel.success = false;
         resModel.message = "Internal Server Error";
@@ -1666,3 +1681,90 @@ module.exports.deleteSubCategory = async (req, res) => {
         });
     }
 };
+/**
+ * @api {get} /api/logs/getAllLogs Get All Audit Logs
+ * @apiName GetAllAuditLogs
+ * @apiGroup Logs
+ * @apiDescription API to fetch all audit logs with pagination and search
+ * @apiSampleRequest http://localhost:2001/api/logs/getAllLogs
+ * @apiParam {Number} [page=1] Page number
+ * @apiParam {Number} [limit=10] Number of items per page
+ * @apiParam {String} [search] Search term (searches in name, role, and activity type)
+ * @apiSampleRequest http://localhost:2001/api/logs/getAllLogs
+ */
+module.exports.getAllLogs = async (req, res) => {
+    const resModel = {
+        success: false,
+        message: "",
+        data: null
+    };
+
+    try {
+        const { page = 1, limit = 10, search = "" } = req.query;
+        const skip = (page - 1) * limit;
+
+        // Build the query with search functionality
+        const query = {};
+        if (search) {
+            query.$or = [
+                { title: { $regex: search, $options: 'i' } }, // Activity Type
+                { 'userId.name': { $regex: search, $options: 'i' } }, // User name
+                { 'clientId.name': { $regex: search, $options: 'i' } }, // Client name
+                { 'userId.role': { $regex: search, $options: 'i' } } // User role
+            ];
+        }
+
+        // Get logs with populated user and client data
+        const logs = await logsUser.find(query)
+            .populate({
+                path: 'userId',
+                select: 'name role'
+            })
+            .populate({
+                path: 'clientId',
+                select: 'name'
+            })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(parseInt(limit))
+            .lean();
+
+        // Transform data to match frontend requirements
+        const transformedLogs = logs.map(log => {
+            const name = log.userId
+                ? log.userId.name
+                : (log.clientId ? log.clientId.name : 'System');
+
+            const role = log.userId
+                ? (log.userId.role === 'admin' ? 'Staff / Admin' : 'Client')
+                : 'Client';
+
+            return {
+                name,
+                role,
+                activityType: log.title, // Using title as activity type
+                lastActivity: log.createdAt,
+            };
+        });
+
+        const totalLogs = await logsUser.countDocuments(query);
+        resModel.success = true;
+        resModel.message = "Logs fetched successfully";
+        resModel.data = {
+            logs: transformedLogs,
+            pagination: {
+                totalPages: Math.ceil(totalLogs / limit),
+                currentPage: parseInt(page),
+                totalLogs,
+                limit: parseInt(limit)
+            }
+        };
+
+        res.status(200).json(resModel);
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        res.status(500).json(resModel);
+    }
+};
+

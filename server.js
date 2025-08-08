@@ -67,7 +67,7 @@ app.get("/dist/client/token-handler/*", (req, res) => {
 
 // ✅ Optional: Google Drive cleanup utility
 const { deleteAllFolders } = require('./api/services/googleDriveService.js');
-//deleteAllFolders();
+// deleteAllFolders();
 
 // ✅ Start server: HTTPS in staging, HTTP otherwise
 const server = process.env.NODE_ENV === "staging"

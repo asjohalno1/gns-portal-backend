@@ -326,7 +326,7 @@ module.exports.documentRequest = async (req, res) => {
     } catch (error) {
         console.error("Error in documentRequest controller:", error);
         resModel.message = "Internal Server Error";
-        resModel.error = process.env.NODE_ENV === 'development' ? error.message : undefined;
+        resModel.error = error;
         return res.status(500).json(resModel);
     }
 };
