@@ -37,22 +37,30 @@ const { documentRequest } = require('./staffController.js');
 module.exports.addCategory = async (req, res) => {
     try {
         const { name } = req.body;
-        let categoryInfo = {
-            name: name
-        }
-        const newCategory = new Category(categoryInfo)
-        let CategoryRes = await newCategory.save();
-        if (CategoryRes) {
-            resModel.success = true;
-            resModel.message = "Category Added Successfully";
-            resModel.data = CategoryRes
-            res.status(200).json(resModel)
-
-        } else {
+        const existingCategory = await Category.findOne({ name: { $regex: new RegExp(`^${name}$`, 'i') } });
+        if (existingCategory) {
             resModel.success = false;
-            resModel.message = "Error while creating Category";
+            resModel.message = "A category with this name already exists. Try another name!";
             resModel.data = null;
             res.status(400).json(resModel);
+        } else {
+            let categoryInfo = {
+                name: name
+            }
+            const newCategory = new Category(categoryInfo)
+            let CategoryRes = await newCategory.save();
+            if (CategoryRes) {
+                resModel.success = true;
+                resModel.message = "Category Added Successfully";
+                resModel.data = CategoryRes
+                res.status(200).json(resModel)
+
+            } else {
+                resModel.success = false;
+                resModel.message = "Error while creating Category";
+                resModel.data = null;
+                res.status(400).json(resModel);
+            }
         }
 
     } catch (error) {
@@ -114,48 +122,54 @@ module.exports.addSubCategory = async (req, res) => {
     try {
         const staffId = req.userInfo.id;
         const { name, categoryId, isCustom, clientIds, subcategoryId } = req.body;
-
-        let categoryInfo = {
-            name: name,
-            categoryId: categoryId,
-            staffId: staffId,
-        };
-
-        // For custom subcategories
-        if (isCustom) {
-            categoryInfo.isCustom = true;
-            categoryInfo.staffId = staffId;
-            categoryInfo.clientIds = clientIds;
-        }
-
-        let subCategoryRes;
-        if (subcategoryId) {
-            // Update existing subcategory
-            subCategoryRes = await subCategory.findByIdAndUpdate(
-                subcategoryId,
-                categoryInfo,
-                { new: true }
-            );
-        } else {
-
-            const newSubCategory = new subCategory(categoryInfo);
-            subCategoryRes = await newSubCategory.save();
-        }
-
-        if (subCategoryRes) {
-            resModel.success = true;
-            resModel.message = subcategoryId
-                ? "SubCategory Updated Successfully"
-                : "SubCategory Added Successfully";
-            resModel.data = subCategoryRes;
-            res.status(200).json(resModel);
-        } else {
+        const existingCategory = await subCategory.findOne({ name: { $regex: new RegExp(`^${name}$`, 'i') } });
+        if (existingCategory) {
             resModel.success = false;
-            resModel.message = "Error while processing SubCategory";
+            resModel.message = "A Document Type with this name already exists. Try another name!";
             resModel.data = null;
             res.status(400).json(resModel);
-        }
+        } else {
+            let categoryInfo = {
+                name: name,
+                categoryId: categoryId,
+                staffId: staffId,
+            };
 
+            // For custom subcategories
+            if (isCustom) {
+                categoryInfo.isCustom = true;
+                categoryInfo.staffId = staffId;
+                categoryInfo.clientIds = clientIds;
+            }
+
+            let subCategoryRes;
+            if (subcategoryId) {
+                // Update existing subcategory
+                subCategoryRes = await subCategory.findByIdAndUpdate(
+                    subcategoryId,
+                    categoryInfo,
+                    { new: true }
+                );
+            } else {
+
+                const newSubCategory = new subCategory(categoryInfo);
+                subCategoryRes = await newSubCategory.save();
+            }
+
+            if (subCategoryRes) {
+                resModel.success = true;
+                resModel.message = subcategoryId
+                    ? "SubCategory Updated Successfully"
+                    : "SubCategory Added Successfully";
+                resModel.data = subCategoryRes;
+                res.status(200).json(resModel);
+            } else {
+                resModel.success = false;
+                resModel.message = "Error while processing SubCategory";
+                resModel.data = null;
+                res.status(400).json(resModel);
+            }
+        }
     } catch (error) {
         resModel.success = false;
         resModel.message = "Internal Server Error";
