@@ -28,6 +28,7 @@ module.exports.commonId = joi.object({
 /**Client Model Starts */
 module.exports.addClient = joi.object({
   name: joi.string().required(),
+  lastName: joi.string().required(),
   email: joi.string().email().required(),
   phoneNumber: joi.string().required(),
   address: joi.string().required(),

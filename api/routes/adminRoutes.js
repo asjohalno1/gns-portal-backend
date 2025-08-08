@@ -76,6 +76,12 @@ module.exports = function (app, validator) {
   app.get('/api/delete/document', clearDbCntrl.handleDelete);
 
 
+  /**sub category update and delete starts */
+  app.patch('/api/update-subcategories/:id', adminCntrl.updateSubCategoryName);
+  app.delete('/api/delete-subcategories/:id', adminCntrl.deleteSubCategory);
+  /**sub category update and delete ends */
+
+
 
 }
 

@@ -445,7 +445,9 @@ module.exports.getClientDashboard = async (req, res) => {
             filteredDocs = filteredDocs.filter((doc) => {
                 const subCat = doc.subCategory?.name?.toLowerCase() || '';
                 const cat = doc.category?.name?.toLowerCase() || '';
-                return subCat.includes(search) || cat.includes(search);
+                const filteredTitle = doc.doctitle?.toLowerCase() || '';
+                return subCat.includes(search) || cat.includes(search) || filteredTitle.includes(search);
+
             });
         }
         filteredDocs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));

@@ -249,7 +249,7 @@ module.exports.getAllSubCategoryByCategory = async (req, res) => {
  */
 module.exports.addClient = async (req, res) => {
     try {
-        const { name, email, phoneNumber, address, company, notes, staffId, status } = req.body;
+        const { name, lastName, email, phoneNumber, address, company, notes, staffId, status } = req.body;
         const existingClient = await Client.findOne({ email, isDeleted: false });
         if (existingClient) {
             resModel.success = false;
@@ -260,11 +260,13 @@ module.exports.addClient = async (req, res) => {
 
         const newClient = new Client({
             name,
+            lastName,
             email: email.toLowerCase(),
             phoneNumber,
             address,
             company,
             notes,
+            role_id: "3",
             status: status || false
         });
         const savedClient = await newClient.save();
@@ -317,9 +319,10 @@ module.exports.addClient = async (req, res) => {
 module.exports.updateClient = async (req, res) => {
     try {
         const clientId = req.params.id;
-        const { dateOfBirth, isGoogleDrive, name, email, phoneNumber, address, company, notes, status, staffId } = req.body;
+        const { dateOfBirth, isGoogleDrive, name, lastName, email, phoneNumber, address, company, notes, status, staffId } = req.body;
         let updatedData = {
             name,
+            lastName,
             email: email.toLowerCase(),
             phoneNumber,
             address,
@@ -1588,3 +1591,78 @@ module.exports.getAllScheduledList = async (req, res) => {
     }
 };
 
+
+
+module.exports.updateSubCategoryName = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name } = req.body;
+
+        if (!name) {
+            return res.status(400).json({
+                success: false,
+                message: "Name is required",
+                data: null
+            });
+        }
+
+        const updatedSubCategory = await subCategory.findByIdAndUpdate(
+            id,
+            { name: name.toLowerCase() },
+            { new: true }
+        );
+
+        if (!updatedSubCategory) {
+            return res.status(404).json({
+                success: false,
+                message: "Subcategory not found",
+                data: null
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Subcategory name updated successfully",
+            data: updatedSubCategory
+        });
+
+    } catch (error) {
+        console.error("Error updating subcategory name:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null
+        });
+    }
+};
+
+
+module.exports.deleteSubCategory = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const deletedSubCategory = await subCategory.findByIdAndDelete(id);
+
+        if (!deletedSubCategory) {
+            return res.status(404).json({
+                success: false,
+                message: "Subcategory not found",
+                data: null
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Subcategory deleted successfully",
+            data: null
+        });
+
+    } catch (error) {
+        console.error("Error deleting subcategory:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null
+        });
+    }
+};

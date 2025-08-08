@@ -58,7 +58,7 @@ const SuperAdminService = () => {
                 .skip(skip)
                 .limit(limit)
                 .sort({ createdAt: -1 })
-                .select('_id name email phoneNumber city state status createdAt updatedAt');
+                .select('_id name lastName email phoneNumber city state status createdAt updatedAt');
 
             const clientIds = clients.map(c => c._id);
             const assignments = await assignClient.find({ clientId: { $in: clientIds } }).populate('staffId');
@@ -79,6 +79,7 @@ const SuperAdminService = () => {
                 const assignedStaff = assignmentMap[client._id.toString()] || null;
                 return {
                     ...client.toObject(),
+                    fullName: `${client.name} ${client.lastName || ''}`,
                     assignedTo: assignedStaff ? `${assignedStaff.firstName} ${assignedStaff.lastName}` : null,
 
                 };
@@ -163,6 +164,8 @@ const SuperAdminService = () => {
 
             const assignedClients = await assignClient.find().populate('clientId');
             const userRes = await userModel.find({});
+
+
 
             let fullDashboardData = [];
             let summary = {
@@ -271,6 +274,10 @@ const SuperAdminService = () => {
                         categoryName = categoryDoc.name;
                     }
                 }
+                const requestById = await requestDocument
+                    .find({ _id: docs[0]?.request })
+                    .select('_id createdAt');
+
 
                 fullDashboardData.push({
                     title: categoryName,
@@ -282,7 +289,9 @@ const SuperAdminService = () => {
                     taskDeadline,
                     statusUpdate,
                     lastActivity: docs[0]?.updatedAt || client.createdAt,
-                    status: statusUpdate.toLowerCase() // Add status for filtering
+                    status: statusUpdate.toLowerCase(),
+                    createdAt: docs[0]?.createdAt,
+                    requestById
                 });
             }
 
@@ -290,7 +299,7 @@ const SuperAdminService = () => {
             let filteredClients = fullDashboardData.filter(client => {
                 const matchesSearch = search
                     ? client.name.toLowerCase().includes(search) ||
-                    client.email.toLowerCase().includes(search)
+                    client.email.toLowerCase().includes(search) || client.title.toLowerCase().includes(search)
                     : true;
 
                 const matchesStatus = statusFilter !== 'all'
