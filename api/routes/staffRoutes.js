@@ -35,7 +35,8 @@ module.exports = function (app, validator) {
    app.post('/api/staff/defaultSettingReminder', auth, validator.body(staffModel.addReminderSetting), staffCntrl.addDefaultSettingReminder)
    app.patch('/api/staff/updateUploadedDocument/:id', auth, staffCntrl.updateUploadedDocument)
    app.patch('/api/staff/updateDocumentRequestStatus', auth, staffCntrl.updateDocumentRequestStatus)
-   app.get('/api/staff/getDocumentRequestById/:id', auth, staffCntrl.getDocumentRequestById)
+   app.get('/api/staff/getDocumentRequestById/:id', auth, staffCntrl.getDocumentRequestById);
+   app.get('/api/staff/get-recent-requests', auth, staffCntrl.getRecentRequests);
 }
 
 

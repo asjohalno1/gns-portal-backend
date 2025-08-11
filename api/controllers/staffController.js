@@ -1936,3 +1936,54 @@ module.exports.updateStaff = async (req, res) => {
     }
 };
 
+
+
+
+/**
+ * Get recent documents for the current staff user.
+ * @param {Object} req Express request object
+ * @param {Object} res Express response object
+ * @returns {Promise<void>}
+ */
+module.exports.getRecentRequests = async (req, res) => {
+    const resModel = {
+        success: false,
+        message: '',
+        data: null
+    };
+
+    try {
+        const staffId = req.userInfo?.id;
+        const recentDocuments = await DocumentRequest.find({ createdBy: staffId })
+            .sort({ createdAt: -1 })
+            .limit(4)
+            .select('doctitle category clientId')
+            .populate('clientId', 'name email')
+            .populate('category', 'name');
+
+        if (recentDocuments.length === 0) {
+            resModel.success = false;
+            resModel.message = 'No recent documents found';
+            resModel.data = null;
+            return res.status(404).json(resModel);
+        }
+
+        const formattedData = recentDocuments.map(doc => ({
+            title: doc.doctitle,
+            category: doc.category.map(cat => cat.name),
+            clientName: doc.clientId?.name || null
+        }));
+
+        resModel.success = true;
+        resModel.message = 'Recent documents fetched successfully';
+        resModel.data = formattedData;
+        return res.status(200).json(resModel);
+
+    } catch (error) {
+        console.error(error);
+        resModel.success = false;
+        resModel.message = 'Internal Server Error';
+        resModel.data = null;
+        return res.status(500).json(resModel);
+    }
+};
