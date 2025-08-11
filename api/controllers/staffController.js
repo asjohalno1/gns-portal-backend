@@ -1985,5 +1985,6 @@ module.exports.getRecentRequests = async (req, res) => {
         resModel.message = 'Internal Server Error';
         resModel.data = null;
         return res.status(500).json(resModel);
+
     }
 };
