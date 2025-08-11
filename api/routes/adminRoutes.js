@@ -73,7 +73,7 @@ module.exports = function (app, validator) {
   app.get('/api/admin/getAllScheduledReminder', adminCntrl.getAllScheduledList);
 
   /**Delete records */
-  app.get('/api/delete/document', clearDbCntrl.handleDelete);
+  //app.get('/api/delete/document', clearDbCntrl.handleDelete);
 
   /**Get All Logs */
   app.get('/api/logs/getAllLogs', adminCntrl.getAllLogs);
