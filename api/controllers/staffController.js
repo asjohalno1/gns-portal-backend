@@ -310,7 +310,7 @@ module.exports.documentRequest = async (req, res) => {
                         existingTemplates[0]?.linkNote
                     );
                 } else if (linkMethod === "sms" && clientRes.phoneNumber) {
-                    // await twilioServices(clientRes.phoneNumber, requestLink);
+                 await twilioServices.sendSmsLink(clientRes.phoneNumber, requestLink);
                 }
 
             } catch (error) {
