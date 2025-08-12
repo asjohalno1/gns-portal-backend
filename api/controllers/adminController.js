@@ -1696,75 +1696,100 @@ module.exports.getAllLogs = async (req, res) => {
     const resModel = {
         success: false,
         message: "",
-        data: null
+        data: null,
     };
 
     try {
-        const { page = 1, limit = 10, search = "" } = req.query;
-        const skip = (page - 1) * limit;
+        const { page = 1, limit = 10, search = "", status } = req.query;
+        const parsedPage = parseInt(page);
+        const parsedLimit = parseInt(limit);
+        const lowerSearch = search.toLowerCase();
 
-        // Build the query with search functionality
+        // Build query
         const query = {};
+
+        // Search filter
         if (search) {
             query.$or = [
-                { title: { $regex: search, $options: 'i' } }, // Activity Type
-                { 'userId.name': { $regex: search, $options: 'i' } }, // User name
-                { 'clientId.name': { $regex: search, $options: 'i' } }, // Client name
-                { 'userId.role': { $regex: search, $options: 'i' } } // User role
+                { title: { $regex: search, $options: "i" } },
+                { "userId.name": { $regex: search, $options: "i" } },
+                { "clientId.name": { $regex: search, $options: "i" } }
             ];
         }
 
-        // Get logs with populated user and client data
-        const logs = await logsUser.find(query)
+        // Status/Role filter
+        if (status && status !== "all") {
+            if (status === "staff" || status === "admin") {
+                query["userId.role"] = status;
+            } else if (status === "client") {
+                query.$or = [
+                    ...(query.$or || []),
+                    { "userId.role": { $exists: false } },
+                    { "clientId": { $exists: true } }
+                ];
+            }
+        }
+
+        // Get total count for pagination
+        const totalLogs = await logsUser.countDocuments(query);
+
+        // Fetch logs with proper pagination
+        const logs = await logsUser
+            .find(query)
             .populate({
-                path: 'userId',
-                select: 'name role'
+                path: "userId",
+                select: "name role",
             })
             .populate({
-                path: 'clientId',
-                select: 'name'
+                path: "clientId",
+                select: "name",
             })
             .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(parseInt(limit))
+            .skip((parsedPage - 1) * parsedLimit)
+            .limit(parsedLimit)
             .lean();
 
-        // Transform data to match frontend requirements
-        const transformedLogs = logs.map(log => {
+        // Transform logs
+        const transformedLogs = logs.map((log) => {
             const name = log.userId
                 ? log.userId.name
-                : (log.clientId ? log.clientId.name : 'System');
+                : log.clientId
+                    ? log.clientId.name
+                    : "System";
 
             const role = log.userId
-                ? (log.userId.role === 'admin' ? 'Staff / Admin' : 'Client')
-                : 'Client';
+                ? log.userId.role === "admin"
+                    ? "Staff / Admin"
+                    : "Client"
+                : "Client";
 
             return {
                 name,
                 role,
-                activityType: log.title, // Using title as activity type
+                activityType: log.title,
                 lastActivity: log.createdAt,
             };
         });
 
-        const totalLogs = await logsUser.countDocuments(query);
+        const totalPages = Math.ceil(totalLogs / parsedLimit);
+
         resModel.success = true;
         resModel.message = "Logs fetched successfully";
         resModel.data = {
             logs: transformedLogs,
             pagination: {
-                totalPages: Math.ceil(totalLogs / limit),
-                currentPage: parseInt(page),
+                totalPages,
+                currentPage: parsedPage,
                 totalLogs,
-                limit: parseInt(limit)
-            }
+                limit: parsedLimit,
+            },
         };
 
-        res.status(200).json(resModel);
+        return res.status(200).json(resModel);
     } catch (error) {
+        console.error("Error in getAllLogs:", error);
         resModel.success = false;
         resModel.message = "Internal Server Error";
-        res.status(500).json(resModel);
+        return res.status(500).json(resModel);
     }
 };
-
