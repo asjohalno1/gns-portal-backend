@@ -76,7 +76,7 @@ module.exports = function (app, validator) {
   //app.get('/api/delete/document', clearDbCntrl.handleDelete);
 
   /**Get All Logs */
-  app.get('/api/logs/getAllLogs', adminCntrl.getAllLogs);
+  app.get('/api/logs/getAllLogs', auth, adminCntrl.getAllLogs);
 
   /**sub category update and delete starts */
   app.patch('/api/update-subcategories/:id', adminCntrl.updateSubCategoryName);

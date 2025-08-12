@@ -13,7 +13,6 @@ const DocumentRequest = require('../models/documentRequest');
 const uploadDocument = require('../models/uploadDocuments')
 const Remainder = require('../models/remainer');
 const RemainderTemplate = require('../models/remainderTemplate');
-
 const remainderServices = require('../services/remainder.services');
 const cronJobService = require('../services/cron.services');
 const emailTemplate = require('../models/emailTemplates.js');
@@ -22,6 +21,7 @@ const logsUser = require('../models/userLog');
 
 const { listFilesInFolderStructure, uploadFileToFolder, createClientFolder } = require('../services/googleDriveService.js');
 const { documentRequest } = require('./staffController.js');
+const { name } = require('ejs');
 
 
 /** Category Api's starts */
@@ -1086,6 +1086,17 @@ module.exports.AdminDocumentRequest = async (req, res) => {
                     }
                 }
 
+                //log activity 
+                // const staffName = req.userInfo?.name || "Staff";
+
+                let logInfo = {
+                    clientId: req?.userInfo?.id,
+                    title: "Document Request",
+                    description: `Admin made a document request.`
+                };
+                const newLog = new logsUser(logInfo);
+                await newLog.save();
+
                 // Scheduler (optional)
                 if (scheduler) {
                     const reminderData = {
@@ -1703,73 +1714,106 @@ module.exports.getAllLogs = async (req, res) => {
         const { page = 1, limit = 10, search = "", status } = req.query;
         const parsedPage = parseInt(page);
         const parsedLimit = parseInt(limit);
-        const lowerSearch = search.toLowerCase();
 
-        // Build query
         const query = {};
 
-        // Search filter
         if (search) {
             query.$or = [
                 { title: { $regex: search, $options: "i" } },
-                { "userId.name": { $regex: search, $options: "i" } },
-                { "clientId.name": { $regex: search, $options: "i" } }
+                { description: { $regex: search, $options: "i" } },
+                { name: { $regex: search, $options: "i" } },
+                { role: { $regex: search, $options: "i" } },
+                { email: { $regex: search, $options: "i" } }
             ];
         }
 
-        // Status/Role filter
         if (status && status !== "all") {
-            if (status === "staff" || status === "admin") {
-                query["userId.role"] = status;
+            if (status === "staff") {
+                const staffUsers = await Users.find({ role_id: "2" }).select('_id');
+                query.userId = { $in: staffUsers.map(u => u._id) };
+            } else if (status === "admin") {
+                const adminUsers = await Users.find({ role_id: "1" }).select('_id');
+                query.userId = { $in: adminUsers.map(u => u._id) };
             } else if (status === "client") {
+                const clientRoleUsers = await Users.find({ role_id: "3" }).select('_id');
                 query.$or = [
-                    ...(query.$or || []),
-                    { "userId.role": { $exists: false } },
-                    { "clientId": { $exists: true } }
+                    { clientId: { $exists: true, $ne: null } },
+                    { userId: { $in: clientRoleUsers.map(u => u._id) } }
                 ];
             }
         }
 
-        // Get total count for pagination
         const totalLogs = await logsUser.countDocuments(query);
 
-        // Fetch logs with proper pagination
-        const logs = await logsUser
-            .find(query)
-            .populate({
-                path: "userId",
-                select: "name role",
-            })
-            .populate({
-                path: "clientId",
-                select: "name",
-            })
+        const logs = await logsUser.find(query)
             .sort({ createdAt: -1 })
             .skip((parsedPage - 1) * parsedLimit)
             .limit(parsedLimit)
             .lean();
 
-        // Transform logs
-        const transformedLogs = logs.map((log) => {
-            const name = log.userId
-                ? log.userId.name
-                : log.clientId
-                    ? log.clientId.name
-                    : "System";
+        const transformedLogs = [];
 
-            const role = log.userId
-                ? log.userId.role === "admin"
-                    ? "Staff / Admin"
-                    : "Client"
-                : "Client";
+        for (const log of logs) {
+            let name = "System";
+            let role = "System";
+            let email = "";
 
-            return {
+            if (log.userId) {
+                const userData = await Users.findById(log.userId).lean();
+                if (userData) {
+                    name = `${userData.first_name || ''} ${userData.last_name || ''}`.trim();
+                    email = userData.email || '';
+                    switch (userData.role_id) {
+                        case "1":
+                            role = "Admin";
+                            break;
+                        case "2":
+                            role = "Staff";
+                            break;
+                        case "3":
+                            role = "Client";
+                            break;
+                        default:
+                            role = "User";
+                    }
+                }
+            } else if (log.clientId) {
+                const clientData = await Client.findById(log.clientId).lean();
+                if (clientData) {
+                    name = clientData.name || '';
+                    email = clientData.email || '';
+                    role = "Client";
+                } else {
+                    const userData = await Users.findById(log.clientId).lean();
+                    if (userData) {
+                        name = `${userData.first_name || ''} ${userData.last_name || ''}`.trim();
+                        email = userData.email || '';
+                        switch (userData.role_id) {
+                            case "1":
+                                role = "Admin";
+                                break;
+                            case "2":
+                                role = "Staff";
+                                break;
+                            case "3":
+                                role = "Client";
+                                break;
+                            default:
+                                role = "User";
+                        }
+                    }
+                }
+            }
+
+            transformedLogs.push({
                 name,
                 role,
+                email,
                 activityType: log.title,
+                description: log.description,
                 lastActivity: log.createdAt,
-            };
-        });
+            });
+        }
 
         const totalPages = Math.ceil(totalLogs / parsedLimit);
 
@@ -1786,6 +1830,7 @@ module.exports.getAllLogs = async (req, res) => {
         };
 
         return res.status(200).json(resModel);
+
     } catch (error) {
         console.error("Error in getAllLogs:", error);
         resModel.success = false;

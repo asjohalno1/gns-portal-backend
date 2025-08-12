@@ -24,6 +24,7 @@ const staffService = require('../services/staff.services');
 const DefaultSettingRemainder = require('../models/defaultRemainder');
 const remainderServices = require('../services/remainder.services');
 const cronJobService = require('../services/cron.services');
+const userLog = require('../models/userLog');
 const mongoose = require('mongoose');
 const { createClientFolder } = require('../services/googleDriveService.js');
 const googleMaping = require('../models/googleMapping');
@@ -225,6 +226,18 @@ module.exports.documentRequest = async (req, res) => {
                         uploadedDocs.push(uploaded);
                     }
                 }
+
+                const staffName = req.userInfo?.name || "Staff";
+
+                let logInfo = {
+                    clientId: req?.userInfo?.id,
+                    title: "Document Request",
+                    description: `${staffName} made a document request.`
+                };
+
+                const newLog = new userLog(logInfo);
+                await newLog.save();
+
 
                 if (scheduler) {
                     const reminderData = {
