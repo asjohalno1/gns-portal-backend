@@ -946,10 +946,10 @@ module.exports.AdminDocumentRequest = async (req, res) => {
             subCategoryId,
             dueDate,
             instructions,
-            notifyMethod,
+            notifyMethods,
             remainderSchedule,
             expiration,
-            linkMethod,
+            linkMethods,
             subcategoryPriorities = {},
             scheduler,
             userInfo
@@ -998,7 +998,7 @@ module.exports.AdminDocumentRequest = async (req, res) => {
             subCategoryId = subcategoryRes.length > 0
                 ? subcategoryRes.map(quest => quest.subCategory)
                 : subCategoryId;
-            notifyMethod = templateData.notifyMethod || notifyMethod;
+            notifyMethods = templateData.notifyMethod || notifyMethods;
             remainderSchedule = templateData.remainderSchedule || remainderSchedule;
             instructions = templateData.message || instructions;
         }
@@ -1043,11 +1043,11 @@ module.exports.AdminDocumentRequest = async (req, res) => {
                     subcategoryPriorities: prioritiesMap,
                     dueDate,
                     instructions,
-                    notifyMethod,
+                    notifyMethods,
                     remainderSchedule,
                     templateId: templateId || null,
                     expiration: expiryDate,
-                    linkMethod,
+                    linkMethod: linkMethods,
                     doctitle
                 };
 
@@ -1108,7 +1108,7 @@ module.exports.AdminDocumentRequest = async (req, res) => {
                         scheduleTime: scheduler.scheduleTime,
                         frequency: scheduler.frequency,
                         days: scheduler.days || [],
-                        notifyMethod: scheduler.notifyMethod,
+                        notifyMethod: scheduler.linkMethods,
                         active: true,
                         isDefault: false,
                         status: "scheduled"
@@ -1142,7 +1142,7 @@ module.exports.AdminDocumentRequest = async (req, res) => {
                 let docRes = await subCategory.find({ _id: subCategoryId });
                 let docList = docRes.map(doc => doc.name);
 
-                if (linkMethod === "email") {
+                if (notifyMethods === "email") {
                     await DocumentRequest.findByIdAndUpdate(
                         requestRes._id,
                         { requestLink, linkStatus: "sent" }
@@ -1158,7 +1158,7 @@ module.exports.AdminDocumentRequest = async (req, res) => {
                         instructions
                     );
                 }
-                if ((linkMethod === "sms" || notifyMethod.includes("sms")) && clientRes.phoneNumber) {
+                if ((notifyMethods === "sms" || notifyMethods.includes("sms")) && clientRes.phoneNumber) {
                     await twilioServices.sendSmsLink(clientRes.phoneNumber, requestLink);
                 }
 
