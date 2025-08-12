@@ -1142,7 +1142,7 @@ module.exports.AdminDocumentRequest = async (req, res) => {
                 let docRes = await subCategory.find({ _id: subCategoryId });
                 let docList = docRes.map(doc => doc.name);
 
-                if (notifyMethods === "email") {
+                if ((notifyMethods === "email" || notifyMethods.includes("email"))) {
                     await DocumentRequest.findByIdAndUpdate(
                         requestRes._id,
                         { requestLink, linkStatus: "sent" }
