@@ -8,12 +8,16 @@ const client = new twilio(accountSid, authToken);
 
 const sendSmsLink = async (phoneNumber, secureLink) => {
     try {
+
+
+        let smsBody = `Hello! Please upload your documents securely here: ${secureLink}`;
         const message = await client.messages.create({
-            body: `Hello! Please upload your documents securely here: ${secureLink}`,
+            body: smsBody,
             from: '+18148854108', // Your Twilio number
             to: phoneNumber       // User's phone number in E.164 format (+91 for India, etc.)
         });
         console.log('SMS sent successfully:', message.sid);
+
     } catch (error) {
         console.error('Error sending SMS:', error);
     }

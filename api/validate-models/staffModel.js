@@ -6,11 +6,13 @@ module.exports.addDocumentRequest = joi.object({
   clientId: joi.array().items(joi.string()).required(),
   categoryId: joi.array().items(joi.string()).required(),
   subCategoryId: joi.array().items(joi.string()).required(),
-  editedSubcategories: joi.array().items(joi.string()).default([]), // New field
+  editedSubcategories: joi.array().items(joi.string()).default([]),
   dueDate: joi.string().required(),
   expiration: joi.string().required(),
   linkMethod: joi.string().required(),
-  notifyMethod: joi.string().required(),
+  notifyMethod: joi.array().items(
+    joi.string().valid("email", "sms", "portal")
+  ).min(1).required(),
   remainderSchedule: joi.string().required(),
   instructions: joi.string().allow('').optional(),
   templateId: joi.string().allow('').optional(),
@@ -28,7 +30,7 @@ module.exports.addDocumentRequest = joi.object({
       otherwise: joi.optional().default([])
     }),
     notifyMethod: joi.array().items(
-      joi.string().valid("email", "sms", "portal", "AiCall")
+      joi.string().valid("email", "sms", "portal")
     ).min(1).required(),
     customMessage: joi.string().allow('').optional()
   }).optional()

@@ -17,6 +17,7 @@ const remainderServices = require('../services/remainder.services');
 const cronJobService = require('../services/cron.services');
 const emailTemplate = require('../models/emailTemplates.js');
 const logsUser = require('../models/userLog');
+const twilioServices = require('../services/twilio.services');
 
 
 const { listFilesInFolderStructure, uploadFileToFolder, createClientFolder } = require('../services/googleDriveService.js');
@@ -1156,8 +1157,9 @@ module.exports.AdminDocumentRequest = async (req, res) => {
                         docList,
                         instructions
                     );
-                } else if (linkMethod === "sms" && clientRes.phoneNumber) {
-                    // await twilioServices(clientRes.phoneNumber, requestLink);
+                }
+                if ((linkMethod === "sms" || notifyMethod.includes("sms")) && clientRes.phoneNumber) {
+                    await twilioServices.sendSmsLink(clientRes.phoneNumber, requestLink);
                 }
 
             } catch (schedulerError) {

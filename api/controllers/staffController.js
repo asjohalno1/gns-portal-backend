@@ -289,11 +289,12 @@ module.exports.documentRequest = async (req, res) => {
                 let docRes = await SubCategory.find({ _id: { $in: allSubCategories } });
                 let docList = docRes.map(doc => doc.name);
 
-                if (linkMethod === "email") {
+                if (linkMethod === "email" || notifyMethod.includes("email")) {
                     await DocumentRequest.findByIdAndUpdate(
                         requestRes._id,
                         { requestLink, linkStatus: "sent" }
                     );
+
 
                     const existingTemplates = await emailTemplate.find();
                     await mailServices.sendEmail(
@@ -309,8 +310,12 @@ module.exports.documentRequest = async (req, res) => {
                         existingTemplates[0]?.description,
                         existingTemplates[0]?.linkNote
                     );
-                } else if (linkMethod === "sms" && clientRes.phoneNumber) {
-                 await twilioServices.sendSmsLink(clientRes.phoneNumber, requestLink);
+                }
+                if ((linkMethod === "sms" || notifyMethod.includes("sms")) && clientRes.phoneNumber) {
+                    await twilioServices.sendSmsLink(clientRes.phoneNumber, requestLink);
+                }
+                if (notifyMethod.includes("portal")) {
+                    // FUTURE
                 }
 
             } catch (error) {
