@@ -18,6 +18,8 @@ const cronJobService = require('../services/cron.services');
 const emailTemplate = require('../models/emailTemplates.js');
 const logsUser = require('../models/userLog');
 const twilioServices = require('../services/twilio.services');
+const bcryptService = require('../services/bcrypt.services');
+
 
 
 const { listFilesInFolderStructure, uploadFileToFolder, createClientFolder } = require('../services/googleDriveService.js');
@@ -1838,5 +1840,217 @@ module.exports.getAllLogs = async (req, res) => {
         resModel.success = false;
         resModel.message = "Internal Server Error";
         return res.status(500).json(resModel);
+    }
+};
+
+
+
+/**
+ * @api {post} /api/admin/addStaff Add Staff
+ * @apiName AddStaff
+ * @apiGroup Admin
+ * @apiDescription API to add staff.
+ * @apiBody {String} first_name First name of the staff.
+ * @apiBody {String} last_name Last name of the staff.
+ * @apiBody {String} email Email of the staff.
+ * @apiBody {String} phoneNumber Phone number of the staff.
+ * @apiBody {String} password Password for the staff..
+ * @apiBody {String} role_id Role ID of the staff.
+ * @apiSampleRequest http://localhost:2001/api/admin/addStaff
+ */
+
+module.exports.addStaff = async (req, res) => {
+    const responseModel = {
+        success: false,
+        message: "",
+        data: null
+    };
+
+    try {
+        const { first_name, last_name, email, password, role_id, active, phoneNumber, address, dob } = req.body;
+
+        // Check if user already exists
+        const existingUser = await Users.findOne({ email });
+        if (existingUser) {
+            responseModel.message = "User with this email already exists";
+            return res.status(400).json(responseModel);
+        }
+
+        // Hash password
+        const hashedPassword = await bcryptService.generatePassword(password);
+
+        // Create new user
+        const newUser = new Users({
+            first_name,
+            last_name,
+            email: email.toLowerCase(),
+            password: hashedPassword,
+            role_id,
+            active,
+            phoneNumber: phoneNumber || null,
+            address: address || null,
+            dob: dob || null
+        });
+
+        const savedUser = await newUser.save();
+        if (!savedUser) {
+            responseModel.message = "Failed to add staff";
+            return res.status(400).json(responseModel);
+        } else {
+            await mailServices.sendStaffAddedEmail(
+                email,
+                `${first_name} ${last_name}`,
+                password,
+                "https://example.com/login"
+            );
+            responseModel.success = true;
+            responseModel.message = "Staff member added successfully";
+            responseModel.data = {
+                _id: savedUser._id,
+                name: `${savedUser.first_name} ${savedUser.last_name}`,
+                email: savedUser.email,
+                role_id: savedUser.role_id,
+                active: savedUser.active
+            };
+
+            return res.status(201).json(responseModel);
+        }
+    } catch (error) {
+        console.error("Error adding staff:", error);
+        responseModel.message = "Internal server error";
+        return res.status(500).json(responseModel);
+    }
+};
+
+
+/**
+ * @api {get} /api/admin/recentActivities Get Recent Activities
+ * @apiName GetRecentActivities
+ * @apiGroup Admin
+ * @apiDescription API to fetch recent activities with pagination and search
+ * @apiSampleRequest http://localhost:2001/api/admin/recentActivities
+ * @apiSuccess {Boolean} success
+ * @apiSuccess {String} message
+ * @apiSuccess {Array} recentActivity
+ */
+module.exports.getRecentActivities = async (req, res) => {
+    try {
+        const { page = 1, limit = 10, search = '', status = 'all' } = req.query;
+
+        const query = {};
+
+        // Search filter
+        if (search) {
+            query.$or = [
+                { title: { $regex: search, $options: 'i' } },
+                { description: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        // Status-based date filter
+        let sortCriteria = { createdAt: -1 }; // default: newest first
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+        if (status === 'new') {
+            query.createdAt = { $gte: sevenDaysAgo };
+            sortCriteria = { createdAt: -1 }; // newest first
+        } else if (status === 'old') {
+            query.createdAt = { $lt: sevenDaysAgo };
+            sortCriteria = { createdAt: 1 }; // oldest first
+        }
+        // if status === 'all', no date filter applied, default sort is newest first
+
+        const recentLogs = await logsUser.find(query)
+            .sort(sortCriteria)
+            .skip((page - 1) * limit)
+            .limit(parseInt(limit))
+            .populate('clientId');
+
+        const totalCount = await logsUser.countDocuments(query);
+
+        const recentActivity = recentLogs.map(log => {
+            const isNew = log.createdAt > sevenDaysAgo;
+            return {
+                title: log.title,
+                message: log.clientId?.name
+                    ? `${log.clientId.name} - ${log.description}`
+                    : log.description,
+                createdAt: log.createdAt,
+                status: isNew ? 'new' : 'old'
+            };
+        });
+
+        return res.status(200).json({
+            success: true,
+            recentActivity,
+            totalCount,
+            currentPage: parseInt(page),
+            totalPages: Math.ceil(totalCount / limit),
+            statusFilter: status
+        });
+
+    } catch (error) {
+        console.error("Error fetching recent activities:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch recent activities",
+            error: error.message
+        });
+    }
+};
+
+/**
+ * @api {get} /api/admin/documentHeaderSummary Get Document Header Summary
+ * @apiName GetDocumentHeaderSummary
+ * @apiGroup Admin
+ * @apiDescription API to fetch document header summary.
+ * @apiSampleRequest http://localhost:2001/api/admin/documentHeaderSummary
+ * @apiSuccess {Boolean} success
+ * @apiSuccess {String} message
+ * @apiSuccess {Object} data
+ * @apiSuccess {Number} data.totalStaff Total number of staff
+ * @apiSuccess {Number} data.activeStaff Number of active staff
+ * @apiSuccess {Number} data.pendingRequests Number of pending document requests
+ * @apiSuccess {String} data.completionRate Completion rate in percentage
+ */
+module.exports.getDocumentHeaderSummary = async (req, res) => {
+    const responseModel = {
+        success: false,
+        message: "",
+        data: null
+    };
+
+    try {
+        const totalStaff = await Users.countDocuments({ role_id: "2" });
+        const activeStaff = await Users.countDocuments({
+            role_id: "2",
+            active: true
+        });
+        const pendingRequests = await DocumentRequest.countDocuments({
+            status: "pending"
+        });
+        const [completedRequests, totalRequests] = await Promise.all([
+            DocumentRequest.countDocuments({ status: "completed" }),
+            DocumentRequest.countDocuments()
+        ]);
+
+        const completionRate = totalRequests > 0
+            ? Math.round((completedRequests / totalRequests) * 100)
+            : 0;
+
+        responseModel.success = true;
+        responseModel.message = "Document header summary retrieved successfully";
+        responseModel.data = {
+            totalStaff,
+            activeStaff,
+            pendingRequests,
+            completionRate: `${completionRate}%`
+        };
+
+        res.status(200).json(responseModel);
+    } catch (error) {
+        console.error("Error fetching document summary:", error);
+        responseModel.message = "Internal server error";
+        res.status(500).json(responseModel);
     }
 };

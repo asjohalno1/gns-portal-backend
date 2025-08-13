@@ -2,6 +2,7 @@ const nodemailer = require("nodemailer");
 const generateTemplate = require("../../templates/link.ejs");
 const reminderTemplate = require("../../templates/reminder.ejs");
 const emailTemplate = require("../models/emailTemplates.js");
+const generateAddStaffTemplate = require("../../templates/staffAdded.ejs");
 
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
@@ -57,6 +58,30 @@ const sendEmailRemainder = async (email, subject, link, name = "User", msg) => {
   }
 };
 
+const sendStaffAddedEmail = async (email, name, password, loginLink) => {
+  try {
+    const subject = "Welcome to Our Team - Account Created Successfully";
+    const htmlContent = await generateAddStaffTemplate({
+      name,
+      email,
+      password,
+      loginLink
+    });
+
+    const info = await transporter.sendMail({
+      from: 'shaktisainisd@gmail.com',
+      to: email,
+      subject: subject,
+      html: htmlContent,
+    });
+
+    console.log("Staff welcome email sent: %s", info.messageId);
+    return true;
+  } catch (error) {
+    console.error("Error sending staff welcome email:", error);
+    return false;
+  }
+};
 
 
-module.exports = { sendEmail, sendEmailRemainder };
+module.exports = { sendEmail, sendEmailRemainder, sendStaffAddedEmail };

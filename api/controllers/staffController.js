@@ -2006,3 +2006,34 @@ module.exports.getRecentRequests = async (req, res) => {
 
     }
 };
+
+
+module.exports.approvedRequest = async (req, res) => {
+    const resModel = { success: false, message: '', data: null };
+
+    try {
+        const { id } = req.params;
+
+
+        const updatedDoc = await DocumentRequest.findByIdAndUpdate(
+            id,
+            { status: 'completed' },
+            { new: true, runValidators: false }
+        );
+
+        if (!updatedDoc) {
+            resModel.message = 'Document not found';
+            return res.status(404).json(resModel);
+        }
+
+        resModel.success = true;
+        resModel.message = 'Document status updated to completed';
+        resModel.data = updatedDoc;
+        return res.status(200).json(resModel);
+
+    } catch (error) {
+        console.error(error);
+        resModel.message = 'Internal Server Error';
+        return res.status(500).json(resModel);
+    }
+};

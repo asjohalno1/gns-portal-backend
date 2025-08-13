@@ -11,7 +11,7 @@ const documentRequestSchema = new mongoose.Schema({
   dueDate: Date,
   status: {
     type: String,
-    enum: ['pending', 'accepted', 'rejected'],
+    enum: ['pending', 'accepted', 'rejected', 'completed'],
     default: 'pending'
   },
   subcategoryPriorities: {

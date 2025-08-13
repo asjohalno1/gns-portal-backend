@@ -37,6 +37,7 @@ module.exports = function (app, validator) {
    app.patch('/api/staff/updateDocumentRequestStatus', auth, staffCntrl.updateDocumentRequestStatus)
    app.get('/api/staff/getDocumentRequestById/:id', auth, staffCntrl.getDocumentRequestById);
    app.get('/api/staff/get-recent-requests', auth, staffCntrl.getRecentRequests);
+   app.patch('/api/staff/approvedrequest/:id', auth, validator.params(staffModel.commonId), staffCntrl.approvedRequest);
 }
 
 
