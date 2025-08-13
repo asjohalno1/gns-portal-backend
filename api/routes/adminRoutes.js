@@ -51,6 +51,12 @@ module.exports = function (app, validator) {
   app.get('/api/clientsatff/details/:id', validator.params(adminModel.commonId), adminCntrl.getclientStaffDetails);
   /**Assign Clients Routes Ends */
 
+  /** Admin profile Routes's starts */
+
+
+
+  /** Admin profile Routes's ends */
+
 
   /**Admin Routes's starts */
   app.get('/api/admin/dashboard', adminCntrl.getAdminDashboard);

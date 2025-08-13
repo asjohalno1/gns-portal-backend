@@ -88,3 +88,17 @@ module.exports.assignClients = joi.object({
   staffId: joi.string().required(),
 })
 /**Assign Clients Model Ends */
+
+
+/** Admin add staff */
+module.exports.addStaffValidator = joi.object({
+  first_name: joi.string().required(),
+  last_name: joi.string().required(),
+  email: joi.string().email().required(),
+  password: joi.string().required(),
+  role_id: joi.string().valid("1", "2", "3").required(),
+  active: joi.boolean().default(true),
+  phoneNumber: joi.string().allow("", null),
+  address: joi.string().allow("", null),
+  dob: joi.string().allow("", null)
+});
