@@ -357,7 +357,7 @@ const SuperAdminService = () => {
 
     const getAllStaff = async () => {
         try {
-            const staffMembers = await userModel.find({ role_id: '2' });
+            const staffMembers = await userModel.find({ role_id: '2' }).select('-password');
             return staffMembers;
         } catch (error) {
             console.log("Error", error);
