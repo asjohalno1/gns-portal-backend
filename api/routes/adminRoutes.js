@@ -91,9 +91,15 @@ module.exports = function (app, validator) {
 
 
   /** staff management api starts */
+  app.get('/api/admin/getAllStaffList', auth, adminCntrl.getAllStaffList);
+  app.get('/api/admin/getunassignedClients', auth, adminCntrl.getUnassignedClients);
   app.post('/api/admin/addStaff', auth, validator.body(adminModel.addStaffValidator), adminCntrl.addStaff);
   app.get('/api/admin/recentActivities', auth, adminCntrl.getRecentActivities);
   app.get('/api/admin/getDocumentHeaderSummary', auth, adminCntrl.getDocumentHeaderSummary);
+  app.patch('/api/admin/deleteStaff/:id', auth, validator.params(adminModel.commonId), adminCntrl.deleteStaff);
+  app.patch('/api/admin/updateStaff/:id', auth, validator.params(adminModel.commonId), adminCntrl.updateStaff);
+  app.post('/api/admin/assignStaffToClient', auth, adminCntrl.assignStaffToClient);
+  app.get('/api/staff/performance-metrics', auth, adminCntrl.getStaffPerformanceMetrics);
 
 }
 

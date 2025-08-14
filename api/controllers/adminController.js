@@ -1923,6 +1923,76 @@ module.exports.addStaff = async (req, res) => {
 };
 
 
+
+/**
+ * @api {get} /api/admin/staffList Get All Staff List
+ * @apiName GetAllStaffList
+ * @apiGroup Admin
+ * @apiDescription API to retrieve a paginated list of all staff members with optional search and sorting.
+ * @apiParam {Number} [page=1] Page number for pagination.
+ * @apiParam {Number} [limit=10] Number of items per page.
+ * @apiParam {String} [search] Search term to filter staff by name or email.
+ * @apiParam {String} [sort="new"] Sort order, "new" for newest first or "old" for oldest first.
+ * @apiSuccess {Boolean} success Indicates if the request was successful.
+ * @apiSuccess {String} message Description of the outcome.
+ * @apiSuccess {Array} data List of staff members.
+ * @apiSuccess {Object} pagination Pagination details.
+ * @apiSuccess {Number} pagination.total Total number of staff members.
+ * @apiSuccess {Number} pagination.page Current page number.
+ * @apiSuccess {Number} pagination.limit Number of items per page.
+ * @apiSuccess {Number} pagination.totalPages Total number of pages.
+ * @apiError {Boolean} success Indicates if the request failed.
+ * @apiError {String} message Error message.
+ */
+
+module.exports.getAllStaffList = async (req, res) => {
+    try {
+        let { page = 1, limit = 10, search = "", sort = "new" } = req.query;
+        page = parseInt(page);
+        limit = parseInt(limit);
+
+        const query = {
+            role_id: "2",
+            isDeleted: false,
+        };
+        if (search) {
+            query.$or = [
+                { first_name: { $regex: search, $options: "i" } },
+                { last_name: { $regex: search, $options: "i" } },
+                { email: { $regex: search, $options: "i" } },
+            ];
+        }
+
+        const sortOption = sort === "old" ? { createdAt: 1 } : { createdAt: -1 };
+        const total = await Users.countDocuments(query);
+        const staffMembers = await Users
+            .find(query)
+            .select("-password")
+            .sort(sortOption)
+            .skip((page - 1) * limit)
+            .limit(limit);
+
+        res.status(200).json({
+            success: true,
+            message: "Staff list fetched successfully",
+            data: staffMembers,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
+        });
+    } catch (error) {
+        console.error("Error fetching staff:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+        });
+    }
+};
+
+
 /**
  * @api {get} /api/admin/recentActivities Get Recent Activities
  * @apiName GetRecentActivities
@@ -1946,17 +2016,15 @@ module.exports.getRecentActivities = async (req, res) => {
                 { description: { $regex: search, $options: 'i' } }
             ];
         }
-
-        // Status-based date filter
-        let sortCriteria = { createdAt: -1 }; // default: newest first
+        let sortCriteria = { createdAt: -1 };
         const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
         if (status === 'new') {
             query.createdAt = { $gte: sevenDaysAgo };
-            sortCriteria = { createdAt: -1 }; // newest first
+            sortCriteria = { createdAt: -1 };
         } else if (status === 'old') {
             query.createdAt = { $lt: sevenDaysAgo };
-            sortCriteria = { createdAt: 1 }; // oldest first
+            sortCriteria = { createdAt: 1 };
         }
         // if status === 'all', no date filter applied, default sort is newest first
 
@@ -2052,5 +2120,344 @@ module.exports.getDocumentHeaderSummary = async (req, res) => {
         console.error("Error fetching document summary:", error);
         responseModel.message = "Internal server error";
         res.status(500).json(responseModel);
+    }
+};
+
+module.exports.deleteStaff = async (req, res) => {
+    const responseModel = {
+        success: false,
+        message: "",
+        data: null,
+    };
+
+    try {
+        const { id } = req.params;
+        const staff = await Users.findById(id);
+
+        if (!staff) {
+            responseModel.message = "Staff not found";
+            return res.status(404).json(responseModel);
+        }
+
+        // Check if staff has any associated clients
+        const clientCount = await Client.countDocuments({ staffId: staff._id });
+        if (clientCount > 0) {
+            responseModel.message = "Cannot delete staff with associated clients";
+            return res.status(400).json(responseModel);
+        }
+
+        // Soft delete: set isDeleted = true
+        staff.isDeleted = true;
+        await staff.save();
+
+        responseModel.success = true;
+        responseModel.message = "Staff deleted successfully !";
+        res.status(200).json(responseModel);
+    } catch (error) {
+        console.error("Error deleting staff:", error);
+        responseModel.message = "Internal server error";
+        res.status(500).json(responseModel);
+    }
+};
+
+
+module.exports.updateStaff = async (req, res) => {
+    const responseModel = {
+        success: false,
+        message: "",
+        data: null
+    };
+
+    try {
+        const { id } = req.params;
+        const { first_name, last_name, phoneNumber, dob, address, active } = req.body;
+
+        // Find staff by ID
+        const staff = await Users.findById(id);
+        if (!staff || staff.isDeleted) {
+            responseModel.message = "Staff not found";
+            return res.status(404).json(responseModel);
+        }
+
+
+        staff.first_name = first_name ?? staff.first_name;
+        staff.last_name = last_name ?? staff.last_name;
+        staff.phoneNumber = phoneNumber ?? staff.phoneNumber;
+        staff.dob = dob ?? staff.dob;
+        staff.address = address ?? staff.address;
+        staff.active = active ?? staff.active;
+
+        await staff.save();
+
+        responseModel.success = true;
+        responseModel.message = "Staff updated successfully";
+        responseModel.data = staff;
+        res.status(200).json(responseModel);
+    } catch (error) {
+        console.error("Error updating staff:", error);
+        responseModel.message = "Internal server error";
+        res.status(500).json(responseModel);
+    }
+};
+
+
+module.exports.getUnassignedClients = async (req, res) => {
+    try {
+        const { page = 1, limit = 10, search = '', status = 'all' } = req.query;
+        const pageNumber = parseInt(page);
+        const pageSize = parseInt(limit);
+
+        const assignedClients = await assignClient.find({}, { clientId: 1 }).lean();
+        const assignedClientIds = assignedClients.map(a => a.clientId.toString());
+
+        const query = { _id: { $nin: assignedClientIds } };
+
+        if (status !== 'all') {
+            if (status === '1' || status === 1) {
+                query.status = true;
+            } else if (status === '0' || status === 0) {
+                query.status = false;
+            }
+        }
+
+
+        if (search) {
+            query.$or = [
+                { first_name: { $regex: search, $options: 'i' } },
+                { last_name: { $regex: search, $options: 'i' } },
+                { email: { $regex: search, $options: 'i' } },
+                { phoneNumber: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        // Count total unassigned clients
+        const totalClients = await Client.countDocuments(query);
+
+        // Fetch clients
+        const clients = await Client.find(query)
+            .sort({ createdAt: -1 })
+            .skip((pageNumber - 1) * pageSize)
+            .limit(pageSize)
+            .lean();
+
+        // Add fullName field
+        const clientsWithFullName = clients.map(c => ({
+            ...c,
+            fullName: `${c.name || ''} ${c.lastName || ''}`.trim()
+        }));
+
+        res.status(200).json({
+            success: true,
+            data: {
+                clients: clientsWithFullName,
+                totalClients,
+                currentPage: pageNumber,
+                limit: pageSize,
+                totalPages: Math.ceil(totalClients / pageSize)
+            }
+        });
+    } catch (error) {
+        console.error("Error fetching unassigned clients:", error);
+        res.status(500).json({
+            success: false,
+            message: "Server Error",
+            error: error.message
+        });
+    }
+};
+
+
+// Assign a staff to a client
+module.exports.assignStaffToClient = async (req, res) => {
+    try {
+        const { staffId, clientId } = req.body.data || {};
+
+
+        // Validate inputs
+        if (!staffId || !clientId) {
+            return res.status(400).json({
+                success: false,
+                message: "staffId and clientId are required"
+            });
+        }
+
+        // Check if this client is already assigned
+        const existingAssignment = await assignClient.findOne({ clientId });
+        if (existingAssignment) {
+            return res.status(400).json({
+                success: false,
+                message: "Client is already assigned to a staff member"
+            });
+        }
+
+        // Create new assignment
+        const assignment = await assignClient.create({
+            staffId,
+            clientId,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        });
+
+        res.status(201).json({
+            success: true,
+            message: "Staff assigned to client successfully",
+            data: assignment
+        });
+    } catch (error) {
+        console.error("Error assigning staff to client:", error);
+        res.status(500).json({
+            success: false,
+            message: "Server Error",
+            error: error.message
+        });
+    }
+};
+
+
+
+
+module.exports.getStaffPerformanceMetrics = async (req, res) => {
+    try {
+        const { page = 1, limit = 10, search = '', status = 'all' } = req.query;
+        const pageNumber = parseInt(page);
+        const pageSize = parseInt(limit);
+
+        const staffQuery = { role_id: "2", isDeleted: false };
+
+        if (search) {
+            staffQuery.$or = [
+                { first_name: { $regex: search, $options: 'i' } },
+                { last_name: { $regex: search, $options: 'i' } },
+                { email: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        const staffUsers = await Users.find(staffQuery)
+            .skip((pageNumber - 1) * pageSize)
+            .limit(pageSize)
+            .lean();
+
+        const totalStaff = await Users.countDocuments(staffQuery);
+
+        const staffIds = staffUsers.map(staff => staff._id);
+        const allRequests = await DocumentRequest.find({
+            createdBy: { $in: staffIds }
+        }).lean();
+
+        const performanceData = staffUsers.map(staff => {
+            const staffRequests = allRequests.filter(
+                req => req.createdBy.toString() === staff._id.toString()
+            );
+
+            const now = new Date();
+            const completedRequests = staffRequests.filter(
+                req => req.status === 'completed'
+            );
+
+            const pendingRequests = staffRequests.filter(
+                req => req.status === 'pending'
+            );
+
+            const overdueRequests = staffRequests.filter(req => {
+                return req.status === 'pending' && req.dueDate && new Date(req.dueDate) < now;
+            });
+
+            let totalTurnaround = 0;
+            completedRequests.forEach(req => {
+                if (req.createdAt && req.updatedAt) {
+                    const turnaround = (req.updatedAt - req.createdAt) / (1000 * 60 * 60 * 24);
+                    totalTurnaround += turnaround;
+                }
+            });
+
+            const avgTurnaround = completedRequests.length > 0
+                ? (totalTurnaround / completedRequests.length).toFixed(1)
+                : 0;
+
+            // Calculate performance status
+            let performanceStatus = "-";
+            if (staffRequests.length > 0) {
+                const completionPercentage = (completedRequests.length / staffRequests.length) * 100;
+
+                if (completionPercentage < 25) {
+                    performanceStatus = "Bad";
+                } else if (completionPercentage < 50) {
+                    performanceStatus = "Average";
+                } else if (completionPercentage < 75) {
+                    performanceStatus = "Good";
+                } else {
+                    performanceStatus = "Excellent";
+                }
+            }
+
+            return {
+                staffId: staff._id,
+                staffName: `${staff.first_name} ${staff.last_name}`,
+                email: staff.email,
+                totalTasks: staffRequests.length || "0",
+                completedTasks: completedRequests.length || "0",
+                pendingTasks: pendingRequests.length || "0",
+                overdueTasks: overdueRequests.length || "0",
+                avgTurnaround: avgTurnaround > 0 ? `${avgTurnaround} days` : "-",
+                performanceStatus,
+                completionPercentage: staffRequests.length > 0
+                    ? `${((completedRequests.length / staffRequests.length) * 100).toFixed(1)}%`
+                    : "-"
+            };
+        });
+
+        const totalTasks = allRequests.length;
+        const totalCompleted = allRequests.filter(
+            req => req.status === 'completed'
+        ).length;
+
+        let totalTurnaround = 0;
+        const completedRequests = allRequests.filter(
+            req => req.status === 'completed' && req.createdAt && req.updatedAt
+        );
+
+        completedRequests.forEach(req => {
+            const turnaround = (req.updatedAt - req.createdAt) / (1000 * 60 * 60 * 24);
+            totalTurnaround += turnaround;
+        });
+
+        const avgOverallTurnaround = completedRequests.length > 0
+            ? (totalTurnaround / completedRequests.length).toFixed(1)
+            : 0;
+
+        // Calculate overall performance distribution
+        const performanceDistribution = {
+            Excellent: performanceData.filter(s => s.performanceStatus === "Excellent").length,
+            Good: performanceData.filter(s => s.performanceStatus === "Good").length,
+            Average: performanceData.filter(s => s.performanceStatus === "Average").length,
+            Bad: performanceData.filter(s => s.performanceStatus === "Bad").length,
+            NA: performanceData.filter(s => s.performanceStatus === "N/A").length
+        };
+
+        res.status(200).json({
+            success: true,
+            data: performanceData,
+            stats: {
+                avgTurnaround: avgOverallTurnaround > 0 ? `${avgOverallTurnaround} days` : "-",
+                totalTasks,
+                totalCompleted,
+                totalPending: totalTasks - totalCompleted,
+                performanceDistribution
+            },
+            pagination: {
+                total: totalStaff,
+                page: pageNumber,
+                limit: pageSize,
+                totalPages: Math.ceil(totalStaff / pageSize),
+            }
+        });
+
+    } catch (error) {
+        console.error("Error fetching performance metrics:", error);
+        res.status(500).json({
+            success: false,
+            message: "Server Error",
+            error: error.message
+        });
     }
 };

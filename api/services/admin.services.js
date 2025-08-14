@@ -22,14 +22,14 @@ const SuperAdminService = () => {
         try {
             const {
                 pageNumber = 1,
-                pageLimit = 10,
+                limit = 10,
                 name,
                 email,
                 status,
             } = query;
 
             const page = parseInt(pageNumber);
-            const limit = parseInt(pageLimit);
+
             const skip = (page - 1) * limit;
 
             // 🔍 Build dynamic filter
@@ -357,7 +357,7 @@ const SuperAdminService = () => {
 
     const getAllStaff = async () => {
         try {
-            const staffMembers = await userModel.find({ role_id: '2' }).select('-password');
+            const staffMembers = await userModel.find({ role_id: '2', isDeleted: false }).select('-password');
             return staffMembers;
         } catch (error) {
             console.log("Error", error);
