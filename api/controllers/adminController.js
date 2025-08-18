@@ -22,7 +22,7 @@ const bcryptService = require('../services/bcrypt.services');
 
 
 
-const { listFilesInFolderStructure, uploadFileToFolder, createClientFolder } = require('../services/googleDriveService.js');
+const { listFilesInFolderStructure, uploadFileToFolder, createClientFolder, listFilesInFolder } = require('../services/googleDriveService.js');
 const { documentRequest } = require('./staffController.js');
 const { name } = require('ejs');
 
@@ -2460,4 +2460,27 @@ module.exports.getStaffPerformanceMetrics = async (req, res) => {
             error: error.message
         });
     }
+};
+
+exports.getAdminDocu = async (req, res) => {
+    try {
+        const data = await listFilesInFolder();
+        if (!data) {
+            resModel.success = true;
+            resModel.message = "No Google Drive documents found";
+            resModel.data = [];
+            res.status(200).json(resModel)
+        } else {
+            resModel.success = true;
+            resModel.message = "Fetched Google Drive documents successfully";
+            resModel.data = data;
+            res.status(200).json(resModel)
+        }
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+
 };

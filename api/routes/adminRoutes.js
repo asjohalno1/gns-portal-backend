@@ -100,6 +100,7 @@ module.exports = function (app, validator) {
   app.patch('/api/admin/updateStaff/:id', auth, validator.params(adminModel.commonId), adminCntrl.updateStaff);
   app.post('/api/admin/assignStaffToClient', auth, adminCntrl.assignStaffToClient);
   app.get('/api/staff/performance-metrics', auth, adminCntrl.getStaffPerformanceMetrics);
+  app.get('/api/admin/get/adminDocument', adminCntrl.getAdminDocu);
 
 }
 
