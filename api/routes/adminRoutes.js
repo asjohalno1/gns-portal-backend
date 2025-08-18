@@ -6,7 +6,7 @@ const clearDbCntrl = require('../services/clearDb.services');
 
 
 /**Multer import starts */
-const { createUpload } = require('../services/multer.services');
+const { createUpload, uploadProfile } = require('../services/multer.services');
 const upload = createUpload('clients');
 /**Multer import ends */
 
@@ -36,7 +36,7 @@ module.exports = function (app, validator) {
   app.get('/api/client/details/:id', auth, validator.params(adminModel.commonId), adminCntrl.getclientDetails)
   app.put('/api/client/update/:id', auth, validator.params(adminModel.commonId), adminCntrl.updateClient)
   app.delete('/api/client/delete/:id', auth, validator.params(adminModel.commonId), adminCntrl.deletedClient)
-  app.post('/api/client/uploadCsv', upload.single('file'), adminCntrl.uploadClientCsv)
+  app.post('/api/client/uploadCsv', uploadProfile.single('file'), adminCntrl.uploadClientCsv)
   /*** Client Routes's ends */
 
   /**Template Routes's starts */
@@ -53,7 +53,8 @@ module.exports = function (app, validator) {
 
   /** Admin profile Routes's starts */
 
-
+  app.get('/api/admin/profile', auth, adminCntrl.getAdminProfile);
+  app.patch('/api/admin/updateprofile', auth, uploadProfile.single('profile'), validator.body(adminModel.updateAdminProfile), adminCntrl.updateAdminProfile);
 
   /** Admin profile Routes's ends */
 
@@ -100,6 +101,7 @@ module.exports = function (app, validator) {
   app.patch('/api/admin/updateStaff/:id', auth, validator.params(adminModel.commonId), adminCntrl.updateStaff);
   app.post('/api/admin/assignStaffToClient', auth, adminCntrl.assignStaffToClient);
   app.get('/api/staff/performance-metrics', auth, adminCntrl.getStaffPerformanceMetrics);
+  /** staff management api end  */
 
 }
 

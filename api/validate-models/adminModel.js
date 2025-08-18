@@ -102,3 +102,13 @@ module.exports.addStaffValidator = joi.object({
   address: joi.string().allow("", null),
   dob: joi.string().allow("", null)
 });
+
+module.exports.updateAdminProfile = joi.object({
+  first_name: joi.string().optional(),
+  last_name: joi.string().optional(),
+  email: joi.string().email().optional(),
+  phoneNumber: joi.string().allow("", null),
+  address: joi.string().allow("", null),
+  dob: joi.string().allow("", null),
+  profile: joi.string().allow("", null),
+}).options({ abortEarly: false });

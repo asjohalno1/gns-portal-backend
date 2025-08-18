@@ -25,6 +25,7 @@ const bcryptService = require('../services/bcrypt.services');
 const { listFilesInFolderStructure, uploadFileToFolder, createClientFolder } = require('../services/googleDriveService.js');
 const { documentRequest } = require('./staffController.js');
 const { name } = require('ejs');
+const { UserInstance } = require('twilio/lib/rest/ipMessaging/v1/service/user.js');
 
 
 /** Category Api's starts */
@@ -2461,3 +2462,58 @@ module.exports.getStaffPerformanceMetrics = async (req, res) => {
         });
     }
 };
+
+
+
+/**
+ * @api {get} /api/admin/getAdminprofile Get Admin Profile
+ * @apiName GetAdminProfile
+ * @apiGroup Admin
+ * @apiDescription API to fetch Admin Profile.
+ * @apiSampleRequest http://localhost:2001/api/admin/getAdminprofile
+ * @apiSuccess {Boolean} success Indicates if the request was successful.
+ * @apiSuccess {String} message Description of the outcome.
+ * @apiSuccess {Object} data Admin profile data.
+ * @ApiSuccess {String} data._id Admin ID.
+ * @ApiSuccess {String} data.first_name Admin first name.
+ * @ApiSuccess {String} data.last_name Admin last name.
+ * @ApiSuccess {String} data.email Admin email.
+ * @ApiSuccess {String} data.phoneNumber Admin phone number.
+ * @apiError {Boolean} success Indicates if the request failed.
+ * @apiError {String} message Error message.
+ * @apiError {Object} error Error details.
+ */
+module.exports.getAdminProfile = async (req, res) => {
+    try {
+        const adminId = req.userInfo.id;
+        const admin = await Users.findById(adminId).select('-password -__v').lean();
+
+        if (!admin) {
+            return res.status(404).json({ success: false, message: "Admin not found" });
+        }
+        res.status(200).json({ success: true, data: admin });
+    } catch (error) {
+        console.error("Error fetching admin profile:", error);
+        res.status(500).json({ success: false, message: "Server Error", error: error.message });
+    }
+}
+
+
+module.exports.updateAdminProfile = async (req, res) => {
+    try {
+        const adminId = req.userInfo.id;
+        const admin = await Users.findById(adminId);
+        if (!admin) {
+            return res.status(404).json({ success: false, message: "Admin not found" });
+        }
+
+        if (req.body.profile) {
+            req.body.profile = `/uploads/profile-images/${req.file.filename}`;
+        }
+        const updatedAdmin = await Users.findByIdAndUpdate(adminId, req.body, { new: true });
+        res.status(200).json({ success: true, data: updatedAdmin });
+    } catch (error) {
+        console.error("Error updating admin profile:", error);
+        res.status(500).json({ success: false, message: "Server Error", error: error.message });
+    }
+}
