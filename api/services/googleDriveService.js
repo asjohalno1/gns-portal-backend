@@ -215,6 +215,77 @@ const deleteFolderRecursively = async (folderId) => {
     console.log(`📁 Deleted folder: ${folderId}`);
 };
 
+// Get full folder + file structure starting from root (no need to pass folderId)
+const listFilesInFolder = async (parentFolderId = 'root') => {
+    // Recursive folder fetcher
+    const getFolderStructure = async (folderId) => {
+        try {
+            // Fetch all files (non-folders) in this folder
+            const filesResult = await drive.files.list({
+                q: `'${folderId}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
+                fields: 'files(id, name, webViewLink, mimeType, modifiedTime, size)',
+            });
+
+            // Fetch all folders inside this folder
+            const foldersResult = await drive.files.list({
+                q: `'${folderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+                fields: 'files(id, name, createdTime, modifiedTime)',
+            });
+
+            // Recursively build folder structure
+            const children = await Promise.all(
+                foldersResult.data.files.map(async (folder) => {
+                    const childStructure = await getFolderStructure(folder.id);
+                    return {
+                        id: folder.id,
+                        name: folder.name,
+                        createdTime: folder.createdTime,
+                        modifiedTime: folder.modifiedTime,
+                        ...childStructure, // includes { files, folders }
+                    };
+                })
+            );
+
+            return {
+                files: filesResult.data.files.map(file => ({
+                    id: file.id,
+                    name: file.name,
+                    url: file.webViewLink,
+                    type: file.mimeType,
+                    modifiedTime: file.modifiedTime,
+                    size: file.size || null
+                })),
+                folders: children,
+            };
+        } catch (error) {
+            console.error(`Error processing folder ${folderId}:`, error);
+            return {
+                files: [],
+                folders: [],
+                error: error.message
+            };
+        }
+    };
+
+    // Get parent folder details (root or given id)
+    const parentFolder = await drive.files.get({
+        fileId: parentFolderId,
+        fields: 'id, name, createdTime, modifiedTime'
+    });
+
+    // Get the complete structure recursively
+    const structure = await getFolderStructure(parentFolderId);
+
+    return {
+        id: parentFolder.data.id,
+        name: parentFolder.data.name,
+        createdTime: parentFolder.data.createdTime,
+        modifiedTime: parentFolder.data.modifiedTime,
+        ...structure,
+    };
+};
+
+
 
 
 
@@ -224,5 +295,6 @@ module.exports = {
     uploadFileToFolder,
     listFilesInFolderStructure,
     createClientFolder,
-    deleteAllFolders
+    deleteAllFolders,
+    listFilesInFolder
 };
