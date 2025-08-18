@@ -2517,7 +2517,7 @@ module.exports.updateAdminProfile = async (req, res) => {
         res.status(500).json({ success: false, message: "Server Error", error: error.message });
     }
 }
-exports.getAdminDocu = async (req, res) => {
+module.exports.getAdminDocu = async (req, res) => {
     try {
         const data = await listFilesInFolder();
         if (!data) {
@@ -2539,3 +2539,109 @@ exports.getAdminDocu = async (req, res) => {
     }
 
 };
+
+
+
+module.exports.getAllDocumentListing = async (req, res) => {
+    try {
+        const {
+            search = "",
+            status,
+            sort = "desc",
+            page = 1,
+            limit = 10,
+        } = req.query;
+
+        const pageNumber = parseInt(page);
+        const limitNumber = parseInt(limit);
+        const skip = (pageNumber - 1) * limitNumber;
+
+        const requests = await DocumentRequest.find()
+            .populate("clientId")
+            .populate("category")
+            .populate("subCategory")
+            .sort({ createdAt: sort === "asc" ? 1 : -1 });
+
+        const results = await Promise.all(
+            requests.map(async (request) => {
+
+
+                const uploadedDocs = await uploadDocument.find({
+                    request: request._id,
+                });
+                const totalExpectedDocs = uploadedDocs.length;
+
+
+                const uploadedCount = uploadedDocs.filter(
+                    (doc) => (doc.status === "accepted" || doc.status === "approved") && doc.isUploaded
+                ).length;
+                const progress =
+                    totalExpectedDocs > 0
+                        ? Math.floor((uploadedCount / totalExpectedDocs) * 100)
+                        : 0;
+
+                let computedStatus = "Pending";
+                if (progress === 100) computedStatus = "Completed";
+                else if (progress > 30) computedStatus = "Partially fulfilled";
+
+                return {
+                    requestId: request._id.toString().slice(-6).toUpperCase(),
+                    clientName: request.clientId?.name + " " + request.clientId?.lastName || "N/A",
+                    clientEmail: request.clientId?.email || "N/A",
+                    type: request.category?.name || "N/A",
+                    created: request.createdAt.toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                    }),
+                    progress: `${progress}%`,
+                    status: computedStatus,
+                    title: request.doctitle,
+                    dueDate: request.dueDate
+                        ? request.dueDate.toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                        })
+                        : "N/A",
+                    subCategory: request.subCategory,
+                    findByrequest: request._id,
+                    comment: request.comments,
+                    isUploaded: true
+                };
+            })
+        );
+
+        // Filter logic
+        const filteredResults = results.filter((item) => {
+            const matchesSearch =
+                item.clientName.toLowerCase().includes(search.toLowerCase()) ||
+                item.clientEmail.toLowerCase().includes(search.toLowerCase());
+            const matchesStatus = status ? item.status === status : true;
+            return matchesSearch && matchesStatus;
+        });
+
+        const paginatedResults = filteredResults.slice(
+            skip,
+            skip + limitNumber
+        );
+        const totalPages = Math.ceil(filteredResults.length / limitNumber);
+
+        // Response
+        res.status(200).json({
+            success: true,
+            message: "Document data fetched successfully",
+            data: paginatedResults,
+            total: filteredResults.length,
+            totalPages,
+        });
+    } catch (error) {
+        console.error("Error fetching document data:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null,
+        });
+    }
+
+}

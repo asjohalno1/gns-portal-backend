@@ -103,6 +103,13 @@ module.exports = function (app, validator) {
   app.get('/api/staff/performance-metrics', auth, adminCntrl.getStaffPerformanceMetrics);
   /** staff management api end  */
 
+  /** Admin Document Routes's starts */
+
+  app.get('/api/admin/documents', auth, adminCntrl.getAllDocumentListing);
+
+
+  /** Admin Document Routes's ends */
+
   app.get('/api/admin/get/adminDocument', adminCntrl.getAdminDocu);
 
 }

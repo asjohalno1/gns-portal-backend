@@ -1685,20 +1685,24 @@ module.exports.getDocumentRequestById = async (req, res) => {
             .select('category subCategory comments status isUploaded files.path comments -_id')
             .populate('subCategory', 'name')
             .lean();
-
         if (dataRes && dataRes.length > 0) {
             const transformed = dataRes.map(doc => ({
                 ...doc,
                 files: doc.files.map(file => file.path)
             }));
 
-            const totalDocs = dataRes.length;
-            const uploadedDocs = dataRes.filter(doc => doc.isUploaded).length;
+            // filter out "Others" docs that are not uploaded
+            const validDocs = dataRes.filter(
+                doc => !(doc.subCategory?.name === "Others" && !doc.isUploaded)
+            );
+
+            const totalDocs = validDocs.length;
+            const uploadedDocs = validDocs.filter(doc => doc.isUploaded).length;
 
             const progressBar = {
                 total: totalDocs,
                 uploaded: uploadedDocs
-            }
+            };
 
             resModel.success = true;
             resModel.message = "Data Found Successfully";
@@ -1707,12 +1711,8 @@ module.exports.getDocumentRequestById = async (req, res) => {
                 progressBar
             };
             res.status(200).json(resModel);
-        } else {
-            resModel.success = false;
-            resModel.message = "Data Not Found";
-            resModel.data = [];
-            res.status(200).json(resModel);
         }
+
     } catch (error) {
         console.error("Error fetching document request:", error);
         resModel.success = false;
