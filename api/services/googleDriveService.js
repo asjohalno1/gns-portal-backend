@@ -54,12 +54,12 @@ const createClientFolder = async (name, parentId = null, Email, _id) => {
 };
 
 
-const uploadFileToFolder = async (clientName, files, category, email) => {
+const uploadFileToFolder = async (clientName, files, category, email,staffName) => {
     try {
-        const staticRootId = await createClientFolder("NewCPA", "", email);
-        const clientsRootId = await createClientFolder("Users", staticRootId, email);
+        const staticRootId = await createClientFolder(staffName, "", email);
+        const clientsRootId = await createClientFolder("Clients", staticRootId, email);
         const clientFolderId = await createClientFolder(clientName, clientsRootId, email);
-        const categoryFolderId = await createClientFolder(category, clientFolderId, email);
+        const categoryFolderId = await createClientFolder("Uncategorized", clientFolderId, email);
         const uploadedFiles = [];
         for (const file of files) {
             const fileMetadata = {
