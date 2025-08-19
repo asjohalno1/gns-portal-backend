@@ -14,7 +14,7 @@ const auth = new google.auth.GoogleAuth({
 
 const drive = google.drive({ version: 'v3', auth });
 
-const createClientFolder = async (name, parentId = null,Email,_id) => {
+const createClientFolder = async (name, parentId = null, Email, _id) => {
     try {
         const q = `'${parentId ? parentId : 'root'}' in parents and name = '${name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
         const res = await drive.files.list({ q, fields: 'files(id, name)' });
@@ -40,10 +40,10 @@ const createClientFolder = async (name, parentId = null,Email,_id) => {
                 emailAddress: Email, // 🔁 Replace with your actual Gmail address
             },
         });
-        if(parentId == null){
+        if (parentId == null) {
             await Users.findByIdAndUpdate(
                 _id,
-                { folderId:folder.data.id }
+                { folderId: folder.data.id }
             );
         }
 

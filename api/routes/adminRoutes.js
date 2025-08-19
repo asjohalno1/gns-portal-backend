@@ -110,6 +110,10 @@ module.exports = function (app, validator) {
 
   /** Admin Document Routes's ends */
 
+  /** Admin Google drive api starts */
+  app.get('/api/admin/getAllGoogleDocs', auth, adminCntrl.getAllStaffGoogleDocs);
+  app.get('/api/admin/getAssociatedClient/:staffId', auth, adminCntrl.getAssociatedClient);
+  app.post('/api/admin/addGoogleMapping', auth, adminCntrl.addGoogleMappingByAdmin);
   app.get('/api/admin/get/adminDocument', adminCntrl.getAdminDocu);
 
 }

@@ -22,10 +22,12 @@ const bcryptService = require('../services/bcrypt.services');
 
 
 
+
 const { listFilesInFolderStructure, uploadFileToFolder, createClientFolder, listFilesInFolder } = require('../services/googleDriveService.js');
 const { documentRequest } = require('./staffController.js');
 const { name } = require('ejs');
 const { UserInstance } = require('twilio/lib/rest/ipMessaging/v1/service/user.js');
+const googleMapping = require('../models/googleMapping.js');
 
 
 /** Category Api's starts */
@@ -297,7 +299,9 @@ module.exports.addClient = async (req, res) => {
         const getStaff = await Users.findOne({ _id: staffId });
         const staticRoot = await createClientFolder(getStaff?.first_name, null, email, staffId);
         const clientsRootId = await createClientFolder("Clients", staticRoot, email);
-        await createClientFolder(name, clientsRootId, email);
+        const clientFolderId = await createClientFolder(name, clientsRootId, email);
+        await createClientFolder("Uncategorized", clientFolderId, email);
+
         if (savedClient) {
             resModel.success = true;
             resModel.message = "Client added successfully";
@@ -315,7 +319,8 @@ module.exports.addClient = async (req, res) => {
         resModel.data = null;
         res.status(500).json(resModel);
     }
-};
+}
+
 
 
 /**
@@ -2645,3 +2650,180 @@ module.exports.getAllDocumentListing = async (req, res) => {
     }
 
 }
+
+
+
+exports.getAllStaffGoogleDocs = async (req, res) => {
+    try {
+        const staffList = await Users.find({ role_id: "2" });
+
+        if (!staffList || staffList.length === 0) {
+            resModel.success = true;
+            resModel.message = "No staff found";
+            resModel.data = [];
+            return res.status(200).json(resModel);
+        }
+        const staffDriveData = await Promise.all(
+            staffList.map(async (staff) => {
+                if (!staff.folderId) {
+                    return {
+                        staffId: staff._id,
+                        staffName: `${staff.first_name || ""} ${staff.last_name || ""}`.trim(),
+                        driveData: null,
+                        message: "No Google Drive folder assigned"
+                    };
+                }
+
+                const data = await listFilesInFolderStructure(staff.folderId);
+                return {
+                    staffId: staff._id,
+                    staffName: `${staff.first_name || ""} ${staff.last_name || ""}`.trim(),
+                    driveData: data
+                };
+            })
+        );
+
+        resModel.success = true;
+        resModel.message = "Fetched all staff Google Drive data successfully";
+        resModel.data = staffDriveData;
+        res.status(200).json(resModel);
+
+    } catch (error) {
+        console.error("❌ Error fetching staff Drive data:", error);
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
+
+
+
+exports.getAssociatedClient = async (req, res) => {
+    try {
+        const { staffId } = req.params;
+        if (!staffId) {
+            resModel.success = false;
+            resModel.message = "staffId is required";
+            resModel.data = null;
+            return res.status(400).json(resModel);
+        }
+        const assignments = await assignClient.find({ staffId })
+            .populate("clientId");
+
+        if (!assignments || assignments.length === 0) {
+            resModel.success = true;
+            resModel.message = "No clients assigned to this staff";
+            resModel.data = [];
+            return res.status(200).json(resModel);
+        }
+        const clients = assignments.map(a => a.clientId).filter(c => c && !c.isDeleted);
+
+        resModel.success = true;
+        resModel.message = "All associated clients";
+        resModel.data = clients;
+        return res.status(200).json(resModel);
+
+    } catch (error) {
+        console.error("❌ Error fetching associated clients:", error);
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        return res.status(500).json(resModel);
+    }
+};
+
+
+exports.addGoogleMappingByAdmin = async (req, res) => {
+    try {
+        const { staffId, clientId, clientFolderName, uncategorized, standardFolder, additionalSubfolders } = req.body;
+
+        if (!staffId) {
+            return res.status(400).json({
+                success: false,
+                message: "staffId is required",
+                data: null,
+            });
+        }
+
+        const clientRes = await Client.findOne({ _id: clientId });
+        if (!clientRes) {
+            return res.status(404).json({
+                success: false,
+                message: "Client not found",
+                data: null,
+            });
+        }
+
+        const getStaff = await Users.findOne({ _id: staffId });
+        if (!getStaff) {
+            return res.status(404).json({
+                success: false,
+                message: "Staff not found",
+                data: null,
+            });
+        }
+
+        // Create folders based on uncategorized
+        if (uncategorized) {
+            const staticRoot = await createClientFolder(getStaff.first_name, null, clientRes.email, staffId);
+            const clientsRootId = await createClientFolder("Clients", staticRoot, clientRes.email, staffId);
+            const staticRootId = await createClientFolder(clientRes.name, clientsRootId, clientRes.email, staffId);
+            await createClientFolder("uncategorized", staticRootId, clientRes.email);
+        }
+
+        // Create standard folders
+        if (standardFolder) {
+            const staticRoot = await createClientFolder(getStaff.first_name, "", clientRes.email);
+            const clientsRootId = await createClientFolder("Clients", staticRoot, clientRes.email);
+            const staticRootId = await createClientFolder(clientRes.name, clientsRootId, clientRes.email);
+            const folderList = ["Tax Returns", "Bookkeeping"];
+            for (const folderName of folderList) {
+                await createClientFolder(folderName, staticRootId, clientRes.email);
+            }
+        }
+
+        // Create additional subfolders
+        if (additionalSubfolders?.length > 0) {
+            const staticRoot = await createClientFolder(getStaff.first_name, "", clientRes.email);
+            const clientsRootId = await createClientFolder("Clients", staticRoot, clientRes.email);
+            const staticRootId = await createClientFolder(clientRes.name, clientsRootId, clientRes.email);
+            for (const folderName of additionalSubfolders) {
+                await createClientFolder(folderName, staticRootId, clientRes.email);
+            }
+        }
+
+        // Save Google Mapping
+        const newMapping = new googleMapping({
+            staffId,
+            clientId,
+            clientFolderName,
+            uncategorized,
+            standardFolder,
+            additionalSubfolders
+        });
+
+        const savedMapping = await newMapping.save();
+        if (savedMapping) {
+            return res.status(200).json({
+                success: true,
+                message: "Google Mapping Created Successfully.",
+                data: savedMapping,
+            });
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: "Error in creating Google Mapping.",
+                data: null,
+            });
+        }
+
+    } catch (error) {
+        console.error("Error in addGoogleMappingWithStaffFromFrontend:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null,
+        });
+    }
+};
