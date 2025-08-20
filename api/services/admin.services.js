@@ -212,7 +212,7 @@ const SuperAdminService = () => {
                     new Date(doc.reviewedAt) < endOfDay
                 ).length;
 
-                let statusUpdate = 'Completed';
+                let statusUpdate = '—';
                 if (overdue > 0) statusUpdate = 'Overdue';
                 else if (pending > 0) statusUpdate = 'Pending';
 
