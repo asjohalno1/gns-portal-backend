@@ -67,3 +67,9 @@ module.exports.addReminderSetting = joi.object({
   frequency: joi.string().required(),
   notifyMethod: joi.array().required(),
 })
+
+
+module.exports.loginStaff = joi.object({
+  email: joi.string().email().required(),
+  password: joi.string().required(),
+})

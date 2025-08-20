@@ -31,7 +31,73 @@ const googleMaping = require('../models/googleMapping');
 const path = require('path');
 
 const fs = require('fs');
+const bcryptServices = require('../services/bcrypt.services.js');
+const jwtServices = require('../services/jwt.services');
 
+
+
+
+/** login with email and password
+ * @api {post} /api/staff/login Login User
+ * @apiName LoginStaffWithEmailAndPassword
+ * @apiGroup User
+ * @apiBody {String} email User Email.
+ */
+
+
+module.exports.loginWithEmail = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: "Email and password are required",
+                data: null
+            });
+        }
+
+        const userCheck = await Users.findOne({ email: email.toLowerCase() });
+
+        if (!userCheck) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+                data: null
+            });
+        }
+
+        const isMatch = await bcryptServices.comparePassword(password, userCheck.password);
+        if (!isMatch) {
+            return res.status(401).json({
+                success: false,
+                message: "Invalid password",
+                data: null
+            });
+        }
+
+        // issue JWT
+        const accessToken = await jwtServices.issueJwtToken({
+            email: userCheck.email,
+            id: userCheck._id,
+            name: userCheck.first_name,
+        });
+
+        res.status(200).json({
+            success: true,
+            message: "User login successfully",
+            data: { token: accessToken, user: userCheck }
+        });
+
+    } catch (error) {
+        console.error("Error in loginWithEmail:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null,
+        });
+    }
+};
 
 
 

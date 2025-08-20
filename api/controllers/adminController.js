@@ -28,6 +28,7 @@ const { documentRequest } = require('./staffController.js');
 const { name } = require('ejs');
 const { UserInstance } = require('twilio/lib/rest/ipMessaging/v1/service/user.js');
 const googleMapping = require('../models/googleMapping.js');
+const { firebaseml_v1beta2 } = require('googleapis');
 
 
 /** Category Api's starts */
@@ -2212,11 +2213,15 @@ module.exports.getUnassignedClients = async (req, res) => {
         const { page = 1, limit = 10, search = '', status = 'all' } = req.query;
         const pageNumber = parseInt(page);
         const pageSize = parseInt(limit);
-
-        const assignedClients = await assignClient.find({}, { clientId: 1 }).lean();
+        const assignedClients = await assignClient.find({}, { clientId: 1, staffId: 1 }).lean();
         const assignedClientIds = assignedClients.map(a => a.clientId.toString());
 
-        const query = { _id: { $nin: assignedClientIds } };
+        let query = {
+            $or: [
+                { _id: { $nin: assignedClientIds } },
+                { status: false }
+            ]
+        };
 
         if (status !== 'all') {
             if (status === '1' || status === 1) {
@@ -2225,7 +2230,6 @@ module.exports.getUnassignedClients = async (req, res) => {
                 query.status = false;
             }
         }
-
 
         if (search) {
             query.$or = [
@@ -2236,26 +2240,37 @@ module.exports.getUnassignedClients = async (req, res) => {
             ];
         }
 
-        // Count total unassigned clients
         const totalClients = await Client.countDocuments(query);
-
-        // Fetch clients
         const clients = await Client.find(query)
             .sort({ createdAt: -1 })
             .skip((pageNumber - 1) * pageSize)
             .limit(pageSize)
             .lean();
+        const clientStaffMap = {};
+        assignedClients.forEach(ac => {
+            clientStaffMap[ac.clientId.toString()] = ac.staffId?.toString();
+        });
+        const staffIds = Object.values(clientStaffMap).filter(Boolean);
+        const staffUsers = await Users.find({ _id: { $in: staffIds } }, { first_name: 1, last_name: 1 }).lean();
+        const staffMap = {};
+        staffUsers.forEach(u => {
+            staffMap[u._id.toString()] = `${u.first_name || ''} ${u.last_name || ''}`.trim();
+        });
+        const clientsWithExtras = clients.map(c => {
+            const staffId = clientStaffMap[c._id.toString()];
+            const assignedTo = staffMap[staffId] || null;
 
-        // Add fullName field
-        const clientsWithFullName = clients.map(c => ({
-            ...c,
-            fullName: `${c.name || ''} ${c.lastName || ''}`.trim()
-        }));
+            return {
+                ...c,
+                fullName: `${c.name || ''} ${c.lastName || ''}`.trim(),
+                assignedTo
+            };
+        });
 
         res.status(200).json({
             success: true,
             data: {
-                clients: clientsWithFullName,
+                clients: clientsWithExtras,
                 totalClients,
                 currentPage: pageNumber,
                 limit: pageSize,
@@ -2827,3 +2842,68 @@ exports.addGoogleMappingByAdmin = async (req, res) => {
         });
     }
 };
+
+
+module.exports.mapClientFolders = async (req, res) => {
+    try {
+        const { clientId } = req.body;
+
+        const client = await Client.findById(clientId).lean();
+        if (!client) {
+            return res.status(404).json({
+                success: false,
+                message: "Client not found"
+            });
+        }
+
+        // Find staff assignment
+        const assignment = await assignClient.findOne({ clientId }).lean();
+        if (!assignment) {
+            return res.status(400).json({
+                success: false,
+                message: "Client is not assigned to any staff"
+            });
+        }
+
+        const staff = await Users.findById(assignment.staffId).lean();
+        if (!staff) {
+            return res.status(404).json({
+                success: false,
+                message: "Assigned staff not found"
+            });
+        }
+
+        const updatedClient = await Client.findByIdAndUpdate(
+            clientId,
+            { status: true },
+            { new: true }
+        );
+        const staticRoot = await createClientFolder(staff.first_name, null, client.email, staff._id);
+        const clientsRootId = await createClientFolder("Clients", staticRoot, client.email);
+        const clientFolderId = await createClientFolder(client.name, clientsRootId, client.email);
+        await createClientFolder("Uncategorized", clientFolderId, client.email);
+
+        return res.status(200).json({
+            success: true,
+            message: "Client folders mapped successfully",
+            data: {
+                client: updatedClient,
+                staffId: assignment.staffId,
+                folders: {
+                    staticRoot,
+                    clientsRootId,
+                    clientFolderId
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error("Error in mapClientFolders:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+};
+

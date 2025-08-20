@@ -115,6 +115,7 @@ module.exports = function (app, validator) {
   app.get('/api/admin/getAssociatedClient/:staffId', auth, adminCntrl.getAssociatedClient);
   app.post('/api/admin/addGoogleMapping', auth, adminCntrl.addGoogleMappingByAdmin);
   app.get('/api/admin/get/adminDocument', adminCntrl.getAdminDocu);
+  app.post('/api/admin/client-mapping', auth, adminCntrl.mapClientFolders);
 
 }
 

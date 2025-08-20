@@ -13,6 +13,7 @@ const UploadedDocument = require('../models/uploadDocuments');
 const { uploadProfile } = require('../services/multer.services');
 
 module.exports = function (app, validator) {
+   app.post('/api/staff/login', validator.body(staffModel.loginStaff), staffCntrl.loginWithEmail)
    app.patch('/api/staff/update', auth, uploadProfile.single('profile'), staffCntrl.updateStaff) // update pf
    app.post('/api/staff/requestDocument', auth, validator.body(staffModel.addDocumentRequest), staffCntrl.documentRequest)
    app.get('/api/staff/dashboard', auth, staffCntrl.staffDashboard)
