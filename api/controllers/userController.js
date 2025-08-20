@@ -661,49 +661,72 @@ module.exports.getAllNotifications = async (req, res) => {
         const id = req?.userInfo?.clientId;
         const notificationRes = await notification.find({ clientId: id });
         const upcomingRemainders = await remainder.find({ clientId: id });
+
         let formatReminders = (reminders) => {
             const today = new Date();
             const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
             return reminders.map(reminder => {
-                const title = reminder.customMessage.replace(/<[^>]+>/g, '').trim();
-
-                const day = reminder.days[0]; // assuming only one day
+                const title = reminder.customMessage.replace(/<[^>]+>/g, "").trim();
                 const hourMin = reminder.scheduleTime;
 
-                const targetDayIndex = dayNames.indexOf(day);
-                const todayIndex = today.getDay();
+                // handle multiple days
+                const schedules = reminder.days
+                    .map(day => {
+                        const targetDayIndex = dayNames.indexOf(day);
+                        const todayIndex = today.getDay();
 
+                        if (targetDayIndex === -1) return null; // invalid day skip
+
+                        if ((targetDayIndex - todayIndex + 7) % 7 === 0) {
+                            return "today";
+                        } else if ((targetDayIndex - todayIndex + 7) % 7 === 1) {
+                            return "tomorrow";
+                        } else {
+                            return day;
+                        }
+                    })
+                    .filter(Boolean);
+
+                // build final schedule string
                 let schedule;
-                if ((targetDayIndex - todayIndex + 7) % 7 === 1) {
+                if (schedules.includes("today")) {
+                    schedule = `Scheduled for today at ${hourMin}`;
+                } else if (schedules.includes("tomorrow")) {
                     schedule = `Scheduled for tomorrow at ${hourMin}`;
                 } else {
-                    schedule = `Every ${day} at ${hourMin}`;
+                    schedule = `Every ${schedules.join(", ")} at ${hourMin}`;
                 }
 
                 return { title, schedule };
             });
         };
+
         let data = formatReminders(upcomingRemainders);
+
         if (notificationRes) {
             resModel.success = true;
             resModel.message = "Get All Notifications Successfully";
-            resModel.data = { notification: notificationRes, upcomingRemainders: data };
+            resModel.data = {
+                notification: notificationRes,
+                upcomingRemainders: data,
+            };
             res.status(200).json(resModel);
-        }
-        else {
+        } else {
             resModel.success = true;
             resModel.message = "Notifications Not Found";
             resModel.data = [];
-            res.status(200).json(resModel)
+            res.status(200).json(resModel);
         }
     } catch (error) {
+        console.error("Error in getAllNotifications:", error);
         resModel.success = false;
         resModel.message = "Internal Server Error";
         resModel.data = null;
         res.status(500).json(resModel);
     }
-}
+};
+
 
 
 

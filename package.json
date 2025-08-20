@@ -10,7 +10,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "mkdir -p dist && cp -r src/* dist/",
     "apiDoc": "apidoc -i ./api/controllers -o ./apidoc/doc",
-    "seed": "cross-env NODE_ENV=staging SEED_TYPE_NAME=all node api/seeding/index.js"
+    "seed": "cross-env NODE_ENV=dev SEED_TYPE_NAME=all node api/seeding/index.js"
   },
   "author": "",
   "license": "ISC",
