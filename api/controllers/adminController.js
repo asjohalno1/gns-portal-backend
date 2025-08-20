@@ -1908,8 +1908,8 @@ module.exports.addStaff = async (req, res) => {
                 email,
                 `${first_name} ${last_name}`,
                 password,
-                "https://example.com/login"
-            );
+                "https://meanstack.smartdatainc.com:8076/"
+            )
             responseModel.success = true;
             responseModel.message = "Staff member added successfully";
             responseModel.data = {
