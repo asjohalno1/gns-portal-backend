@@ -41,9 +41,16 @@ const sendEmail = async (email, subject, link, name, doctitle, deadline, docList
 };
 
 
-const sendEmailRemainder = async (email, subject, link, name = "User", msg) => {
+const sendEmailRemainder = async (email, subject, link, name = "User", msg,deadline,title) => {
   try {
-    const htmlContent = await reminderTemplate({ name, link, msg });
+    // const htmlContent = await reminderTemplate({ name, link, msg });
+    let dataRes = await emailTemplate.findOne({ listType: "Reminder" });
+    const dbTemplate = `${dataRes?.description}`
+    const htmlContent = dbTemplate
+      .replace(/{{name}}/g, name)
+      .replace(/{{title}}/g, title)
+      .replace(/{{deadline}}/g, deadline)
+      .replace(/{{link}}/g, link);
 
     const info = await transporter.sendMail({
       from: 'shaktisainisd@gmail.com',
