@@ -755,17 +755,33 @@ module.exports.getAllTrackingByStaff = async (req, res) => {
 
         const results = await Promise.all(
             requests.map(async (request) => {
-
-
                 const uploadedDocs = await uploadDocuments.find({
                     request: request._id,
                 });
-                const totalExpectedDocs = uploadedDocs.length;
 
+                // Filter logic with SubCategory check
+                let totalExpectedDocs = 0;
+                let uploadedCount = 0;
 
-                const uploadedCount = uploadedDocs.filter(
-                    (doc) => (doc.status === "accepted" || doc.status === "approved") && doc.isUploaded
-                ).length;
+                for (const doc of uploadedDocs) {
+                    const subCat = await SubCategory.findById(doc.subCategory);
+                    if (!subCat) continue;
+
+                    if (subCat.name.toLowerCase() === "others") {
+                        if (doc.isUploaded) {
+                            totalExpectedDocs++;
+                            if (doc.status === "accepted" || doc.status === "approved") {
+                                uploadedCount++;
+                            }
+                        }
+                    } else {
+                        totalExpectedDocs++;
+                        if ((doc.status === "accepted" || doc.status === "approved") && doc.isUploaded) {
+                            uploadedCount++;
+                        }
+                    }
+                }
+
                 const progress =
                     totalExpectedDocs > 0
                         ? Math.floor((uploadedCount / totalExpectedDocs) * 100)
@@ -773,7 +789,7 @@ module.exports.getAllTrackingByStaff = async (req, res) => {
 
                 let computedStatus = "Pending";
                 if (progress === 100) computedStatus = "Completed";
-                else if (progress > 30) computedStatus = "Partially fulfilled";
+                else if (progress > 0) computedStatus = "Partially fulfilled";
 
                 return {
                     requestId: request._id.toString().slice(-6).toUpperCase(),
@@ -798,7 +814,7 @@ module.exports.getAllTrackingByStaff = async (req, res) => {
                     subCategory: request.subCategory,
                     findByrequest: request._id,
                     comment: request.comments,
-                    isUploaded: true
+                    isUploaded: uploadedDocs.length > 0,
                 };
             })
         );
@@ -819,7 +835,6 @@ module.exports.getAllTrackingByStaff = async (req, res) => {
         );
         const totalPages = Math.ceil(filteredResults.length / limitNumber);
 
-        // Response
         res.status(200).json({
             success: true,
             message: "Tracking data fetched successfully",
@@ -836,6 +851,7 @@ module.exports.getAllTrackingByStaff = async (req, res) => {
         });
     }
 };
+
 
 
 
@@ -957,15 +973,12 @@ module.exports.sendReminder = async (req, res) => {
         if (!staffId) {
             console.warn("Missing staffId from req.userInfo");
         }
-
-        // Apply default reminder values if isDefault is true
         if (isDefault) {
             let defaultReminder = await DefaultSettingRemainder.findOne({ staffId });
             scheduleTime = defaultReminder?.scheduleTime || scheduleTime || "15:30";
             frequency = defaultReminder?.frequency || frequency || "Daily";
             notifyMethod = defaultReminder?.notifyMethod || notifyMethod || ["email"];
         }
-        // Validate clientId
         if (!Array.isArray(clientId) || clientId.length === 0) {
             console.error("clientId is either not an array or is empty.");
             return res.status(400).json({
@@ -996,6 +1009,7 @@ module.exports.sendReminder = async (req, res) => {
                 data: null
             });
         }
+
 
         let expression = await remainderServices(scheduleTime, days);
         await cronJobService(expression, clientId, templateId, notifyMethod, documentId, "", customMessage);

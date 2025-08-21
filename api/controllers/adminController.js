@@ -968,17 +968,44 @@ module.exports.AdminDocumentRequest = async (req, res) => {
             resModel.message = "clientId, categoryId and subCategoryId must be arrays";
             return res.status(400).json(resModel);
         }
-        function getRemainingWholeHours(dueDateStr) {
-            const now = new Date(); // current time
-            const dueDate = new Date(dueDateStr); // parse due date
 
-            const diffInMs = dueDate - now; // time difference in milliseconds
+        // Find "Others" category and subcategory
+        const othersCategory = await Category.findOne({ name: 'Others', active: true });
+        const othersSubCategory = await subCategory.findOne({
+            name: 'Others',
+            categoryId: othersCategory?._id,
+            active: true
+        });
+
+        if (!othersCategory || !othersSubCategory) {
+            resModel.message = `"Others" category or subcategory not available!`;
+            return res.status(500).json(resModel);
+        }
+
+        // Inject "Others" into request arrays if not present
+        if (!categoryId.includes(othersCategory._id.toString())) {
+            categoryId.push(othersCategory._id.toString());
+        }
+
+        if (!subCategoryId.includes(othersSubCategory._id.toString())) {
+            subCategoryId.push(othersSubCategory._id.toString());
+        }
+
+        // Set default priority for "others" if not defined
+        if (!subcategoryPriorities[othersSubCategory._id.toString()]) {
+            subcategoryPriorities[othersSubCategory._id.toString()] = 'low';
+        }
+
+        function getRemainingWholeHours(dueDateStr) {
+            const now = new Date();
+            const dueDate = new Date(dueDateStr);
+            const diffInMs = dueDate - now;
 
             if (diffInMs <= 0) {
                 return "Deadline has passed.";
             }
 
-            const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60)); // convert to full hours only
+            const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
             return diffInHours;
         }
 
@@ -1013,7 +1040,6 @@ module.exports.AdminDocumentRequest = async (req, res) => {
         }
 
         const currentDate = new Date();
-        // If expiration is a string (like "2025-08-02"), convert it to a Date directly
         let expiryDate;
         if (typeof expiration === 'string') {
             expiryDate = new Date(expiration);
@@ -1022,13 +1048,11 @@ module.exports.AdminDocumentRequest = async (req, res) => {
                 return res.status(400).json(resModel);
             }
         } else if (typeof expiration === 'number') {
-            // If it's a number of days (optional legacy support)
             expiryDate = new Date(currentDate.getTime() + expiration * 24 * 60 * 60 * 1000);
         } else {
             resModel.message = "Expiration must be a valid date string or number of days";
             return res.status(400).json(resModel);
         }
-
 
         const results = [];
 
@@ -1096,9 +1120,7 @@ module.exports.AdminDocumentRequest = async (req, res) => {
                     }
                 }
 
-                //log activity 
-                // const staffName = req.userInfo?.name || "Staff";
-
+                // Log activity
                 let logInfo = {
                     clientId: req?.userInfo?.id,
                     title: "Document Request",
@@ -2217,9 +2239,13 @@ module.exports.getUnassignedClients = async (req, res) => {
         const assignedClientIds = assignedClients.map(a => a.clientId.toString());
 
         let query = {
-            $or: [
-                { _id: { $nin: assignedClientIds } },
-                { status: false }
+            $and: [
+                {
+                    $or: [
+                        { _id: { $nin: assignedClientIds } },
+                        { status: false }
+                    ]
+                }
             ]
         };
 
@@ -2584,17 +2610,34 @@ module.exports.getAllDocumentListing = async (req, res) => {
 
         const results = await Promise.all(
             requests.map(async (request) => {
+                const uploadedDocs = await uploadDocument.find({ request: request._id });
 
+                let totalExpectedDocs = 0;
+                let uploadedCount = 0;
 
-                const uploadedDocs = await uploadDocument.find({
-                    request: request._id,
-                });
-                const totalExpectedDocs = uploadedDocs.length;
+                for (const doc of uploadedDocs) {
+                    // Fetch subCategory document
+                    const subCat = await subCategory.findById(doc.subCategory);
 
+                    if (!subCat) continue;
 
-                const uploadedCount = uploadedDocs.filter(
-                    (doc) => (doc.status === "accepted" || doc.status === "approved") && doc.isUploaded
-                ).length;
+                    if (subCat.name.toLowerCase() === "others") {
+                        // Count "Others" only if uploaded
+                        if (doc.isUploaded) {
+                            totalExpectedDocs++;
+                            if (doc.status === "accepted" || doc.status === "approved") {
+                                uploadedCount++;
+                            }
+                        }
+                    } else {
+                        // Count all other subcategories
+                        totalExpectedDocs++;
+                        if ((doc.status === "accepted" || doc.status === "approved") && doc.isUploaded) {
+                            uploadedCount++;
+                        }
+                    }
+                }
+
                 const progress =
                     totalExpectedDocs > 0
                         ? Math.floor((uploadedCount / totalExpectedDocs) * 100)
@@ -2602,7 +2645,7 @@ module.exports.getAllDocumentListing = async (req, res) => {
 
                 let computedStatus = "Pending";
                 if (progress === 100) computedStatus = "Completed";
-                else if (progress > 30) computedStatus = "Partially fulfilled";
+                else if (progress > 0) computedStatus = "Partially fulfilled";
 
                 return {
                     requestId: request._id.toString().slice(-6).toUpperCase(),
@@ -2627,7 +2670,7 @@ module.exports.getAllDocumentListing = async (req, res) => {
                     subCategory: request.subCategory,
                     findByrequest: request._id,
                     comment: request.comments,
-                    isUploaded: true
+                    isUploaded: uploadedDocs.length > 0,
                 };
             })
         );
@@ -2641,13 +2684,10 @@ module.exports.getAllDocumentListing = async (req, res) => {
             return matchesSearch && matchesStatus;
         });
 
-        const paginatedResults = filteredResults.slice(
-            skip,
-            skip + limitNumber
-        );
+        // Pagination
+        const paginatedResults = filteredResults.slice(skip, skip + limitNumber);
         const totalPages = Math.ceil(filteredResults.length / limitNumber);
 
-        // Response
         res.status(200).json({
             success: true,
             message: "Document data fetched successfully",
@@ -2663,8 +2703,8 @@ module.exports.getAllDocumentListing = async (req, res) => {
             data: null,
         });
     }
+};
 
-}
 
 
 
