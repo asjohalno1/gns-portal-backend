@@ -659,8 +659,8 @@ module.exports.getClientDocuments = async (req, res) => {
 module.exports.getAllNotifications = async (req, res) => {
     try {
         const id = req?.userInfo?.clientId;
-        const notificationRes = await notification.find({ clientId: id });
-        const upcomingRemainders = await remainder.find({ clientId: id });
+        const notificationRes = await notification.find({ clientId: id }).sort({ createdAt: -1 });
+        const upcomingRemainders = await remainder.find({ clientId: id }).sort({ createdAt: -1 });
 
         let formatReminders = (reminders) => {
             const today = new Date();

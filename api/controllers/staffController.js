@@ -1830,17 +1830,16 @@ module.exports.updateDocumentRequestStatus = async (req, res) => {
         const requestObjId = new mongoose.Types.ObjectId(requestId);
         const subCatObjId = new mongoose.Types.ObjectId(subCatId);
 
-
         const updateFields = {
             updatedAt: new Date(),
         };
 
         if (data.status) {
-            const validStatuses = ['approved', 'rejected', 'feedback_saved', 'pending'];
+            const validStatuses = ["approved", "rejected", "feedback_saved", "pending"];
             if (!validStatuses.includes(data.status)) {
                 return res.status(400).json({
                     success: false,
-                    message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
+                    message: `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
                     data: null,
                 });
             }
@@ -1854,8 +1853,6 @@ module.exports.updateDocumentRequestStatus = async (req, res) => {
             updateFields.comments = data.feedback;
         }
 
-
-
         if (!updateFields.status && !updateFields.comments) {
             return res.status(400).json({
                 success: false,
@@ -1863,7 +1860,6 @@ module.exports.updateDocumentRequestStatus = async (req, res) => {
                 data: null,
             });
         }
-
 
         const updatedRequest = await uploadDocuments.findOneAndUpdate(
             {
@@ -1884,6 +1880,25 @@ module.exports.updateDocumentRequestStatus = async (req, res) => {
             });
         }
 
+        const document = await DocumentRequest.findById(requestObjId);
+        if (document) {
+            const clientIds = document.clientId ? [document.clientId] : [];
+            for (let i of clientIds) {
+                let message = "";
+                if (data.status === "approved") message = `Your document "${document.doctitle}" has been approved.`;
+                else if (data.status === "rejected") message = `Your document "${document.doctitle}" has been rejected.`;
+                else if (data.status === "feedback_saved") message = `Feedback added for your document "${document.doctitle}".`;
+                else message = `Update on your document "${document.doctitle}".`;
+
+                const newNotification = new notification({
+                    clientId: i,
+                    message: message,
+                    type: "",
+                });
+                await newNotification.save();
+            }
+        }
+
         res.status(200).json({
             success: true,
             message: `Document request updated successfully`,
@@ -1898,6 +1913,7 @@ module.exports.updateDocumentRequestStatus = async (req, res) => {
         });
     }
 };
+
 
 
 /**
