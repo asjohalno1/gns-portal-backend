@@ -2,8 +2,8 @@
 const twilio = require('twilio');
 
 // Twilio credentials from dashboard
-const accountSid = "ACf9281843367b1f0bb793c25c6ceced83";
-const authToken = "f1adaa6124649e817cd477ca91c2e02f";
+const accountSid = "ACe8a5448f3d92c946c407a0eaf70f09f1";
+const authToken = "1546b35e584fafd967e15ffe58be4eec";
 const client = new twilio(accountSid, authToken);
 
 const sendSmsLink = async (phoneNumber, secureLink) => {
@@ -13,7 +13,7 @@ const sendSmsLink = async (phoneNumber, secureLink) => {
         let smsBody = `Upload docs securely: ${secureLink}`;
         const message = await client.messages.create({
             body: smsBody,
-            from: '+18148854108', // Your Twilio number
+            from: '+19517245831', // Your Twilio number
             to: `+91${phoneNumber}`      // User's phone number in E.164 format (+91 for India, etc.)
         });
         console.log('SMS sent successfully:', message.sid);
