@@ -1186,7 +1186,8 @@ module.exports.AdminDocumentRequest = async (req, res) => {
                         doctitle,
                         dueDate,
                         docList,
-                        instructions
+                        instructions,
+                        doctitle
                     );
                 }
                 if ((notifyMethods === "sms" || notifyMethods.includes("sms")) && clientRes.phoneNumber) {
