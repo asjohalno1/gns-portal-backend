@@ -1880,23 +1880,27 @@ module.exports.updateDocumentRequestStatus = async (req, res) => {
             });
         }
 
-        const document = await DocumentRequest.findById(requestObjId);
+        const document = await uploadDocuments.findOne({
+            request: requestObjId,
+            subCategory: subCatObjId,
+        });
+        const documentTypeDetails = await SubCategory.findOne({ _id: subCatObjId });
         if (document) {
-            const clientIds = document.clientId ? [document.clientId] : [];
-            for (let i of clientIds) {
-                let message = "";
-                if (data.status === "approved") message = `Your document "${document.doctitle}" has been approved.`;
-                else if (data.status === "rejected") message = `Your document "${document.doctitle}" has been rejected.`;
-                else if (data.status === "feedback_saved") message = `Feedback added for your document "${document.doctitle}".`;
-                else message = `Update on your document "${document.doctitle}".`;
+            const clientId = document.clientId;
+            let message = "";
 
-                const newNotification = new notification({
-                    clientId: i,
-                    message: message,
-                    type: "",
-                });
-                await newNotification.save();
-            }
+            if (data.status === "approved") message = `Your document "${documentTypeDetails?.name}" has been approved.`;
+            else if (data.status === "rejected") message = `Your document "${documentTypeDetails?.name}" has been rejected.`;
+            else if (data.status === "feedback_saved") message = `Feedback added for your document "${documentTypeDetails?.name}".`;
+            else message = `Update on your document "${documentTypeDetails?.name}".`;
+
+            const newNotification = new notification({
+                clientId: clientId,
+                message: message,
+                type: data.status === "approved" ? "success" : "warning",
+            });
+            await newNotification.save();
+
         }
 
         res.status(200).json({
@@ -2120,7 +2124,7 @@ module.exports.approvedRequest = async (req, res) => {
     try {
         const { id } = req.params;
 
-
+        // Update document status
         const updatedDoc = await DocumentRequest.findByIdAndUpdate(
             id,
             { status: 'completed' },
@@ -2132,8 +2136,22 @@ module.exports.approvedRequest = async (req, res) => {
             return res.status(404).json(resModel);
         }
 
+        // Send notifications for the clients of this document
+        const clientIds = Array.isArray(updatedDoc.clientId)
+            ? updatedDoc.clientId
+            : [updatedDoc.clientId];
+
+        for (let clientId of clientIds) {
+            const newNotification = new notification({
+                clientId,
+                message: `Your document "${updatedDoc.doctitle}" has been approved and completed.`,
+                type: 'success',
+            });
+            await newNotification.save();
+        }
+
         resModel.success = true;
-        resModel.message = 'Document status updated to completed';
+        resModel.message = 'Document status updated to completed and notifications sent';
         resModel.data = updatedDoc;
         return res.status(200).json(resModel);
 
