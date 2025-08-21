@@ -1150,7 +1150,7 @@ module.exports.AdminDocumentRequest = async (req, res) => {
                     createdReminders.push(newReminder);
 
                     let expression = await remainderServices(scheduler?.scheduleTime, scheduler?.days);
-                    await cronJobService(expression, client, doctitle, scheduler?.notifyMethod, "", dueDate);
+                    await cronJobService(expression, client, scheduler?.notifyMethod, "", dueDate, doctitle);
                 }
 
                 // Generate token + send email/sms

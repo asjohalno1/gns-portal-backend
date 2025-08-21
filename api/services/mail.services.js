@@ -41,7 +41,7 @@ const sendEmail = async (email, subject, link, name, doctitle, deadline, docList
 };
 
 
-const sendEmailRemainder = async (email, subject, link, name = "User", msg,deadline,title) => {
+const sendEmailRemainder = async (email, subject, link, name = "User", deadline, title) => {
   try {
     // const htmlContent = await reminderTemplate({ name, link, msg });
     let dataRes = await emailTemplate.findOne({ listType: "Reminder" });

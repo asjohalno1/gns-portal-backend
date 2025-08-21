@@ -328,9 +328,9 @@ module.exports.documentRequest = async (req, res) => {
                     await cronJobService(
                         expression,
                         client,
-                        doctitle,
                         scheduler?.notifyMethod,
                         "",
+                        doctitle,
                         dueDate
                     );
                 }
@@ -1010,9 +1010,19 @@ module.exports.sendReminder = async (req, res) => {
             });
         }
 
+        let cronJobData = await DocumentRequest.findOne({ _id: documentId });
+        if (!cronJobData) {
+            return res.status(404).json({
+                success: false,
+                message: "Document not found",
+                data: null
+            });
+        }
+        let duedate = cronJobData?.dueDate;
+        let documentTitle = cronJobData?.doctitle;
 
         let expression = await remainderServices(scheduleTime, days);
-        await cronJobService(expression, clientId, templateId, notifyMethod, documentId, "", customMessage);
+        await cronJobService(expression, clientId, notifyMethod, documentId, documentTitle, duedate,);
         let document = await DocumentRequest.findOne({ _id: documentId });
         for (let i of clientId) {
             const newNotification = new notification({
