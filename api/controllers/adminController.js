@@ -1901,13 +1901,13 @@ module.exports.addStaff = async (req, res) => {
             return res.status(400).json(responseModel);
         }
 
-        const hashedPassword = await bcryptService.generatePassword(password);
+        // const hashedPassword = await bcryptService.generatePassword("password@123");
 
         const newUser = new Users({
             first_name,
             last_name,
             email: email.toLowerCase(),
-            password: hashedPassword,
+            // password: hashedPassword,
             role_id: "2",
             rolePermissions: rolePermissions || [],
             active,

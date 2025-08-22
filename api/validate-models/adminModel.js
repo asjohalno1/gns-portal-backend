@@ -95,7 +95,7 @@ module.exports.addStaffValidator = joi.object({
   first_name: joi.string().required(),
   last_name: joi.string().required(),
   email: joi.string().email().required(),
-  password: joi.string().required(),
+  password: joi.string().optional(),
   role_id: joi.string().valid("1", "2", "3").required(),
   active: joi.boolean().default(true),
   phoneNumber: joi.string().allow("", null),
