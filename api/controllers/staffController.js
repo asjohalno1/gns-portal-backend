@@ -2117,41 +2117,30 @@ module.exports.getRecentRequests = async (req, res) => {
     }
 };
 
-
 module.exports.approvedRequest = async (req, res) => {
     const resModel = { success: false, message: '', data: null };
 
     try {
         const { id } = req.params;
-
-        // Update document status
         const updatedDoc = await DocumentRequest.findByIdAndUpdate(
             id,
             { status: 'completed' },
             { new: true, runValidators: false }
         );
-
         if (!updatedDoc) {
             resModel.message = 'Document not found';
             return res.status(404).json(resModel);
         }
+        const newNotification = new notification({
+            clientId: updatedDoc.clientId,
+            message: `Your document request has been approved and marked as completed.`,
+            type: 'success',
+        });
 
-        // Send notifications for the clients of this document
-        const clientIds = Array.isArray(updatedDoc.clientId)
-            ? updatedDoc.clientId
-            : [updatedDoc.clientId];
-
-        for (let clientId of clientIds) {
-            const newNotification = new notification({
-                clientId,
-                message: `Your document "${updatedDoc.doctitle}" has been approved and completed.`,
-                type: 'success',
-            });
-            await newNotification.save();
-        }
+        await newNotification.save();
 
         resModel.success = true;
-        resModel.message = 'Document status updated to completed and notifications sent';
+        resModel.message = 'Document request approved, status updated to completed.';
         resModel.data = updatedDoc;
         return res.status(200).json(resModel);
 
@@ -2161,3 +2150,4 @@ module.exports.approvedRequest = async (req, res) => {
         return res.status(500).json(resModel);
     }
 };
+

@@ -2379,20 +2379,13 @@ module.exports.getStaffPerformanceMetrics = async (req, res) => {
                 { email: { $regex: search, $options: 'i' } }
             ];
         }
-
-        const staffUsers = await Users.find(staffQuery)
-            .skip((pageNumber - 1) * pageSize)
-            .limit(pageSize)
-            .lean();
-
-        const totalStaff = await Users.countDocuments(staffQuery);
-
-        const staffIds = staffUsers.map(staff => staff._id);
+        const allStaffUsers = await Users.find(staffQuery).lean();
+        const totalStaff = allStaffUsers.length;
+        const allStaffIds = allStaffUsers.map(staff => staff._id);
         const allRequests = await DocumentRequest.find({
-            createdBy: { $in: staffIds }
+            createdBy: { $in: allStaffIds }
         }).lean();
-
-        const performanceData = staffUsers.map(staff => {
+        let performanceData = allStaffUsers.map(staff => {
             const staffRequests = allRequests.filter(
                 req => req.createdBy.toString() === staff._id.toString()
             );
@@ -2421,19 +2414,17 @@ module.exports.getStaffPerformanceMetrics = async (req, res) => {
             const avgTurnaround = completedRequests.length > 0
                 ? (totalTurnaround / completedRequests.length).toFixed(1)
                 : 0;
-
-            // Calculate performance status
             let performanceStatus = "-";
             if (staffRequests.length > 0) {
                 const completionPercentage = (completedRequests.length / staffRequests.length) * 100;
 
-                if (completionPercentage < 25) {
+                if (completionPercentage >= 0 && completionPercentage <= 25) {
                     performanceStatus = "Bad";
-                } else if (completionPercentage < 50) {
+                } else if (completionPercentage > 25 && completionPercentage <= 50) {
                     performanceStatus = "Average";
-                } else if (completionPercentage < 75) {
+                } else if (completionPercentage > 50 && completionPercentage <= 75) {
                     performanceStatus = "Good";
-                } else {
+                } else if (completionPercentage > 75 && completionPercentage <= 100) {
                     performanceStatus = "Excellent";
                 }
             }
@@ -2454,6 +2445,16 @@ module.exports.getStaffPerformanceMetrics = async (req, res) => {
             };
         });
 
+        if (status !== 'all') {
+            performanceData = performanceData.filter(staff =>
+                staff.performanceStatus.toLowerCase() === status.toLowerCase()
+            );
+        }
+        const paginatedData = performanceData.slice(
+            (pageNumber - 1) * pageSize,
+            pageNumber * pageSize
+        );
+
         const totalTasks = allRequests.length;
         const totalCompleted = allRequests.filter(
             req => req.status === 'completed'
@@ -2472,19 +2473,17 @@ module.exports.getStaffPerformanceMetrics = async (req, res) => {
         const avgOverallTurnaround = completedRequests.length > 0
             ? (totalTurnaround / completedRequests.length).toFixed(1)
             : 0;
-
-        // Calculate overall performance distribution
         const performanceDistribution = {
             Excellent: performanceData.filter(s => s.performanceStatus === "Excellent").length,
             Good: performanceData.filter(s => s.performanceStatus === "Good").length,
             Average: performanceData.filter(s => s.performanceStatus === "Average").length,
             Bad: performanceData.filter(s => s.performanceStatus === "Bad").length,
-            NA: performanceData.filter(s => s.performanceStatus === "N/A").length
+            NA: performanceData.filter(s => s.performanceStatus === "-").length
         };
 
         res.status(200).json({
             success: true,
-            data: performanceData,
+            data: paginatedData,
             stats: {
                 avgTurnaround: avgOverallTurnaround > 0 ? `${avgOverallTurnaround} days` : "-",
                 totalTasks,
@@ -2493,10 +2492,10 @@ module.exports.getStaffPerformanceMetrics = async (req, res) => {
                 performanceDistribution
             },
             pagination: {
-                total: totalStaff,
+                total: performanceData.length,
                 page: pageNumber,
                 limit: pageSize,
-                totalPages: Math.ceil(totalStaff / pageSize),
+                totalPages: Math.ceil(performanceData.length / pageSize),
             }
         });
 
