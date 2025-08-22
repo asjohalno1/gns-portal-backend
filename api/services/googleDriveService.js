@@ -1,46 +1,213 @@
+// const { google } = require('googleapis');
+// const { v4: uuidv4 } = require('uuid');
+// const path = require('path');
+// const Users = require('../models/userModel');
+// const fs = require('fs');
+// const { logger } = require('sequelize/lib/utils/logger');
+// const KEYFILEPATH = path.join(__dirname, '../../cpa-project-new-c6a5d789e270.json'); // your service account key
+// const SCOPES = ['https://www.googleapis.com/auth/drive'];
+
+// const auth = new google.auth.GoogleAuth({
+//     keyFile: KEYFILEPATH,
+//     scopes: SCOPES,
+// });
+
+// const drive = google.drive({ version: 'v3', auth });
+
+// const createClientFolder = async (name, parentId = null, Email, _id) => {
+//     try {
+//         const q = `'${parentId ? parentId : 'root'}' in parents and name = '${name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+//         const res = await drive.files.list({ q, fields: 'files(id, name)' });
+
+//         if (res.data.files.length > 0) return res.data.files[0].id;
+
+//         const fileMetadata = {
+//             name,
+//             mimeType: 'application/vnd.google-apps.folder',
+//             parents: parentId ? [parentId] : [],
+//         };
+//         const folder = await drive.files.create({
+//             resource: fileMetadata,
+//             fields: 'id',
+//         });
+
+//         // ✅ Share folder with your Google account (so you can see it)
+//         await drive.permissions.create({
+//             fileId: folder.data.id,
+//             requestBody: {
+//                 role: 'writer', // or 'reader' if you want read-only access
+//                 type: 'user',
+//                 emailAddress: Email, // 🔁 Replace with your actual Gmail address
+//             },
+//         });
+//         if (parentId == null) {
+//             await Users.findByIdAndUpdate(
+//                 _id,
+//                 { folderId: folder.data.id }
+//             );
+//         }
+
+//         return folder.data.id;
+//     } catch (error) {
+//         console.error('Error creating folder:', error);
+//     }
+// };
+
+
+// const uploadFileToFolder = async (clientName, files, category, email,staffName) => {
+//     try {
+//         const staticRootId = await createClientFolder(staffName, "", email);
+//         const clientsRootId = await createClientFolder("Clients", staticRootId, email);
+//         const clientFolderId = await createClientFolder(clientName, clientsRootId, email);
+//         const categoryFolderId = await createClientFolder("Uncategorized", clientFolderId, email);
+//         const uploadedFiles = [];
+//         for (const file of files) {
+//             const fileMetadata = {
+//                 name: file.originalname,
+//                 parents: [categoryFolderId],
+//             };
+//             const media = {
+//                 mimeType: file.mimetype,
+//                 body: fs.createReadStream(file.path),
+//             };
+
+//             const uploaded = await drive.files.create({
+//                 resource: fileMetadata,
+//                 media,
+//                 fields: 'id, name, webViewLink',
+//             });
+
+//             // ✅ Make the file publicly viewable (anyone with the link can view)
+//             await drive.permissions.create({
+//                 fileId: uploaded.data.id,
+//                 requestBody: {
+//                     role: 'reader',
+//                     type: 'anyone',  // <-- this is the key fix
+//                 },
+//             });
+
+//             fs.unlinkSync(file.path); // cleanup temp file
+//             uploadedFiles.push(uploaded.data);
+//         }
+
+//         return uploadedFiles;
+//     } catch (error) {
+//         logger.error('Error uploading files:', error);
+//         throw error;
+//     }
+// };
+
 const { google } = require('googleapis');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const Users = require('../models/userModel');
 const fs = require('fs');
 const { logger } = require('sequelize/lib/utils/logger');
-const KEYFILEPATH = path.join(__dirname, '../../cpa-project-new-c6a5d789e270.json'); // your service account key
+
+const KEYFILEPATH = path.join(__dirname, '../../cpa-project-new-c6a5d789e270.json');
 const SCOPES = ['https://www.googleapis.com/auth/drive'];
 
-const auth = new google.auth.GoogleAuth({
-    keyFile: KEYFILEPATH,
-    scopes: SCOPES,
-});
-
-const drive = google.drive({ version: 'v3', auth });
-
-const createClientFolder = async (name, parentId = null, Email, _id) => {
+// Authorization function from second code
+async function authorize() {
     try {
-        const q = `'${parentId ? parentId : 'root'}' in parents and name = '${name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-        const res = await drive.files.list({ q, fields: 'files(id, name)' });
+        const rawData = fs.readFileSync(KEYFILEPATH, "utf8");
+        const apikeys = JSON.parse(rawData);
+
+        const jwtClient = new google.auth.JWT({
+            email: apikeys.client_email,
+            key: apikeys.private_key,
+            scopes: SCOPES,
+        });
+
+        await jwtClient.authorize();
+        console.log("Authorization successful!");
+        return jwtClient;
+    } catch (error) {
+        console.error("Authorization failed:", error.message);
+        throw error;
+    }
+}
+
+// Initialize drive with shared drive support
+let drive;
+let authClient;
+
+// Initialize the Google Drive client
+async function initializeDrive() {
+    if (!authClient) {
+        authClient = await authorize();
+    }
+    if (!drive) {
+        drive = google.drive({ version: 'v3', auth: authClient });
+    }
+    return { drive, authClient };
+}
+
+// Get or create shared drive (you can modify this to use a specific shared drive ID)
+async function getSharedDriveId(driveInstance, sharedDriveName = "CPA Projects") {
+    try {
+        const response = await driveInstance.drives.list({
+            pageSize: 10,
+        });
+
+        if (response.data.drives && response.data.drives.length > 0) {
+            // Return the first shared drive found, or search by name
+            const targetDrive = response.data.drives.find(drive => drive.name === sharedDriveName) || response.data.drives[0];
+            return targetDrive.id;
+        } else {
+            console.log("No shared drives found. Please create a shared drive first.");
+            throw new Error("No shared drives available");
+        }
+    } catch (error) {
+        console.error("Error getting shared drive:", error.message);
+        throw error;
+    }
+}
+
+const createClientFolder = async (name, parentId = null, Email, _id, sharedDriveId = null) => {
+    try {
+        await initializeDrive();
+        
+        let q = `'${parentId ? parentId : 'root'}' in parents and name = '${name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+        
+        // If we're in a shared drive, include the shared drive in the query
+        if (sharedDriveId) {
+            q += ` and '${sharedDriveId}' in parents`;
+        }
+
+        const res = await drive.files.list({
+            q,
+            fields: 'files(id, name)',
+            supportsAllDrives: true,
+            includeItemsFromAllDrives: true
+        });
 
         if (res.data.files.length > 0) return res.data.files[0].id;
 
         const fileMetadata = {
             name,
             mimeType: 'application/vnd.google-apps.folder',
-            parents: parentId ? [parentId] : [],
+            parents: parentId ? [parentId] : (sharedDriveId ? [sharedDriveId] : []),
         };
+
         const folder = await drive.files.create({
             resource: fileMetadata,
             fields: 'id',
+            supportsAllDrives: true
         });
 
-        // ✅ Share folder with your Google account (so you can see it)
+        // ✅ Share folder with your Google account
         await drive.permissions.create({
             fileId: folder.data.id,
             requestBody: {
-                role: 'writer', // or 'reader' if you want read-only access
+                role: 'writer',
                 type: 'user',
-                emailAddress: Email, // 🔁 Replace with your actual Gmail address
+                emailAddress: Email,
             },
+            supportsAllDrives: true
         });
-        if (parentId == null) {
+
+        if (parentId == null && _id) {
             await Users.findByIdAndUpdate(
                 _id,
                 { folderId: folder.data.id }
@@ -50,22 +217,30 @@ const createClientFolder = async (name, parentId = null, Email, _id) => {
         return folder.data.id;
     } catch (error) {
         console.error('Error creating folder:', error);
+        throw error;
     }
 };
 
-
-const uploadFileToFolder = async (clientName, files, category, email,staffName) => {
+const uploadFileToFolder = async (clientName, files, category, email, staffName) => {
     try {
-        const staticRootId = await createClientFolder(staffName, "", email);
+        await initializeDrive();
+        
+        // Get shared drive ID
+        const sharedDriveId = await getSharedDriveId(drive);
+        
+        const staticRootId = await createClientFolder(staffName, null, email, null, sharedDriveId);
         const clientsRootId = await createClientFolder("Clients", staticRootId, email);
         const clientFolderId = await createClientFolder(clientName, clientsRootId, email);
         const categoryFolderId = await createClientFolder("Uncategorized", clientFolderId, email);
+        
         const uploadedFiles = [];
+        
         for (const file of files) {
             const fileMetadata = {
                 name: file.originalname,
                 parents: [categoryFolderId],
             };
+            
             const media = {
                 mimeType: file.mimetype,
                 body: fs.createReadStream(file.path),
@@ -75,15 +250,17 @@ const uploadFileToFolder = async (clientName, files, category, email,staffName) 
                 resource: fileMetadata,
                 media,
                 fields: 'id, name, webViewLink',
+                supportsAllDrives: true
             });
 
-            // ✅ Make the file publicly viewable (anyone with the link can view)
+            // ✅ Make the file publicly viewable
             await drive.permissions.create({
                 fileId: uploaded.data.id,
                 requestBody: {
                     role: 'reader',
-                    type: 'anyone',  // <-- this is the key fix
+                    type: 'anyone',
                 },
+                supportsAllDrives: true
             });
 
             fs.unlinkSync(file.path); // cleanup temp file
@@ -96,6 +273,30 @@ const uploadFileToFolder = async (clientName, files, category, email,staffName) 
         throw error;
     }
 };
+
+// Optional: Function to list available shared drives (for debugging)
+async function listSharedDrives() {
+    try {
+        await initializeDrive();
+        const response = await drive.drives.list({
+            pageSize: 10,
+        });
+
+        console.log("Available Shared Drives:");
+        if (response.data.drives && response.data.drives.length > 0) {
+            response.data.drives.forEach((drive, index) => {
+                console.log(`${index + 1}. Name: ${drive.name}, ID: ${drive.id}`);
+            });
+            return response.data.drives;
+        } else {
+            console.log("No shared drives found.");
+            return [];
+        }
+    } catch (error) {
+        console.error("Error listing shared drives:", error.message);
+        return [];
+    }
+}
 
 //19EY2EOTp9WgOtJAcP4sLYgB62NCKP0kr
 const listFilesInFolderStructure = async (parentFolderId) => {
