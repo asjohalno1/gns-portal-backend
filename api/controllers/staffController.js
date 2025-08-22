@@ -75,12 +75,11 @@ module.exports.loginWithEmail = async (req, res) => {
                 data: null
             });
         }
-
-        // issue JWT
         const accessToken = await jwtServices.issueJwtToken({
             email: userCheck.email,
             id: userCheck._id,
             name: userCheck.first_name,
+            rolePermissions: userCheck.rolePermissions || []
         });
 
         res.status(200).json({

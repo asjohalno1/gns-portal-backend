@@ -100,7 +100,8 @@ module.exports.addStaffValidator = joi.object({
   active: joi.boolean().default(true),
   phoneNumber: joi.string().allow("", null),
   address: joi.string().allow("", null),
-  dob: joi.string().allow("", null)
+  dob: joi.string().allow("", null),
+  rolePermissions: joi.array().items(joi.string()).required()
 });
 
 module.exports.updateAdminProfile = joi.object({

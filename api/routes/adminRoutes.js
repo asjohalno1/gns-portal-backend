@@ -14,6 +14,8 @@ const upload = createUpload('clients');
 const adminModel = require('../validate-models/adminModel');
 /* validate model  import  ends */
 const auth = require('../middleware/auth');
+const { checkPermission } = require('../middleware/checkPermission');
+const { PERMISSIONS } = require('../Constants/permission.constants');
 
 
 module.exports = function (app, validator) {
@@ -113,7 +115,7 @@ module.exports = function (app, validator) {
   /** Admin Google drive api starts */
   app.get('/api/admin/getAllGoogleDocs', auth, adminCntrl.getAllStaffGoogleDocs);
   app.get('/api/admin/getAssociatedClient/:staffId', auth, adminCntrl.getAssociatedClient);
-  app.post('/api/admin/addGoogleMapping', auth, adminCntrl.addGoogleMappingByAdmin);
+  app.post('/api/admin/addGoogleMapping', auth, checkPermission(PERMISSIONS.ADD_MAPPING), adminCntrl.addGoogleMappingByAdmin);
   app.get('/api/admin/get/adminDocument', adminCntrl.getAdminDocu);
   app.post('/api/admin/client-mapping', auth, adminCntrl.mapClientFolders);
 

@@ -197,7 +197,7 @@ module.exports.googleWithLogin = async (req, res) => {
         const [firstName, lastName] = name.split(" ");
         const userCheck = await User.findOne({ email });
         if (userCheck) {
-            const accessToken = await jwtService.issueJwtToken({ email, id: userCheck._id, name: userCheck?.first_name })
+            const accessToken = await jwtService.issueJwtToken({ email, id: userCheck._id, name: userCheck?.first_name, rolePermissions: userCheck?.rolePermissions })
             resModel.success = true;
             resModel.message = "User Login Successfully";
             resModel.data = { token: accessToken, user: userCheck };

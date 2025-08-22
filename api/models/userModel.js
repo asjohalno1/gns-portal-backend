@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { PERMISSIONS } = require("../Constants/permission.constants");
 
 const userSchema = new mongoose.Schema(
   {
@@ -9,7 +10,11 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true },
     password: { type: String, },
     role_id: { type: String, required: true },
-    rolePermissions: { type: Array },
+    rolePermissions: {
+      type: [String],
+      enum: Object.values(PERMISSIONS),
+      default: []
+    },
     active: { type: Boolean, default: true },
     isDeleted: { type: Boolean, default: false },
     phoneNumber: { type: String, default: null },
