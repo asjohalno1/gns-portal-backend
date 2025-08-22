@@ -1890,32 +1890,26 @@ module.exports.getAllLogs = async (req, res) => {
  */
 
 module.exports.addStaff = async (req, res) => {
-    const responseModel = {
-        success: false,
-        message: "",
-        data: null
-    };
+    const responseModel = { success: false, message: "", data: null };
 
     try {
-        const { first_name, last_name, email, password, role_id, active, phoneNumber, address, dob } = req.body;
+        const { first_name, last_name, email, password, active, phoneNumber, address, dob, rolePermissions } = req.body;
 
-        // Check if user already exists
         const existingUser = await Users.findOne({ email });
         if (existingUser) {
             responseModel.message = "User with this email already exists";
             return res.status(400).json(responseModel);
         }
 
-        // Hash password
-        const hashedPassword = await bcryptService.generatePassword(password);
+        // const hashedPassword = await bcryptService.generatePassword("password@123");
 
-        // Create new user
         const newUser = new Users({
             first_name,
             last_name,
             email: email.toLowerCase(),
-            password: hashedPassword,
-            role_id,
+            // password: hashedPassword,
+            role_id: "2",
+            rolePermissions: rolePermissions || [],
             active,
             phoneNumber: phoneNumber || null,
             address: address || null,
@@ -1926,31 +1920,36 @@ module.exports.addStaff = async (req, res) => {
         if (!savedUser) {
             responseModel.message = "Failed to add staff";
             return res.status(400).json(responseModel);
-        } else {
-            await mailServices.sendStaffAddedEmail(
-                email,
-                `${first_name} ${last_name}`,
-                password,
-                "https://meanstack.smartdatainc.com:8076/"
-            )
-            responseModel.success = true;
-            responseModel.message = "Staff member added successfully";
-            responseModel.data = {
-                _id: savedUser._id,
-                name: `${savedUser.first_name} ${savedUser.last_name}`,
-                email: savedUser.email,
-                role_id: savedUser.role_id,
-                active: savedUser.active
-            };
-
-            return res.status(201).json(responseModel);
         }
+
+        // send email
+        await mailServices.sendStaffAddedEmail(
+            email,
+            `${first_name} ${last_name}`,
+            password,
+            "https://meanstack.smartdatainc.com:8076/"
+        );
+
+        responseModel.success = true;
+        responseModel.message = "Staff member added successfully";
+        responseModel.data = {
+            _id: savedUser._id,
+            name: `${savedUser.first_name} ${savedUser.last_name}`,
+            email: savedUser.email,
+            role_id: savedUser.role_id,
+            rolePermissions: savedUser.rolePermissions,
+            active: savedUser.active
+        };
+
+        return res.status(201).json(responseModel);
+
     } catch (error) {
         console.error("Error adding staff:", error);
         responseModel.message = "Internal server error";
         return res.status(500).json(responseModel);
     }
 };
+
 
 
 
@@ -2169,14 +2168,12 @@ module.exports.deleteStaff = async (req, res) => {
             return res.status(404).json(responseModel);
         }
 
-        // Check if staff has any associated clients
         const clientCount = await Client.countDocuments({ staffId: staff._id });
         if (clientCount > 0) {
             responseModel.message = "Cannot delete staff with associated clients";
             return res.status(400).json(responseModel);
         }
 
-        // Soft delete: set isDeleted = true
         staff.isDeleted = true;
         await staff.save();
 
@@ -2195,27 +2192,36 @@ module.exports.updateStaff = async (req, res) => {
     const responseModel = {
         success: false,
         message: "",
-        data: null
+        data: null,
     };
 
     try {
         const { id } = req.params;
-        const { first_name, last_name, phoneNumber, dob, address, active } = req.body;
+        const {
+            first_name,
+            last_name,
+            phoneNumber,
+            dob,
+            address,
+            active,
+            rolePermissions,
+        } = req.body;
 
-        // Find staff by ID
         const staff = await Users.findById(id);
         if (!staff || staff.isDeleted) {
             responseModel.message = "Staff not found";
             return res.status(404).json(responseModel);
         }
-        //test
-
         staff.first_name = first_name ?? staff.first_name;
         staff.last_name = last_name ?? staff.last_name;
         staff.phoneNumber = phoneNumber ?? staff.phoneNumber;
         staff.dob = dob ?? staff.dob;
         staff.address = address ?? staff.address;
         staff.active = active ?? staff.active;
+
+        if (Array.isArray(rolePermissions)) {
+            staff.rolePermissions = rolePermissions;
+        }
 
         await staff.save();
 
