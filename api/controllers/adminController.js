@@ -2690,7 +2690,7 @@ module.exports.getAllDocumentListing = async (req, res) => {
             return matchesSearch && matchesStatus;
         });
 
-        // Pagination
+
         const paginatedResults = filteredResults.slice(skip, skip + limitNumber);
         const totalPages = Math.ceil(filteredResults.length / limitNumber);
 
@@ -2724,8 +2724,10 @@ exports.getAllStaffGoogleDocs = async (req, res) => {
             resModel.data = [];
             return res.status(200).json(resModel);
         }
+
         const staffDriveData = await Promise.all(
             staffList.map(async (staff) => {
+
                 if (!staff.folderId) {
                     return {
                         staffId: staff._id,
@@ -2735,12 +2737,32 @@ exports.getAllStaffGoogleDocs = async (req, res) => {
                     };
                 }
 
-                const data = await listFilesInFolderStructure(staff.folderId);
-                return {
-                    staffId: staff._id,
-                    staffName: `${staff.first_name || ""} ${staff.last_name || ""}`.trim(),
-                    driveData: data
-                };
+                try {
+                    const data = await listFilesInFolderStructure(staff.folderId);
+
+                    // If folder exists but has no files/folders
+                    if (!data || (!data.files?.length && !data.folders?.length)) {
+                        return {
+                            staffId: staff._id,
+                            staffName: `${staff.first_name || ""} ${staff.last_name || ""}`.trim(),
+                            driveData: null,
+                            message: "No Google Drive documents found"
+                        };
+                    }
+                    return {
+                        staffId: staff._id,
+                        staffName: `${staff.first_name || ""} ${staff.last_name || ""}`.trim(),
+                        driveData: data
+                    };
+                } catch (err) {
+                    console.error(` Error fetching Drive data for staff ${staff._id}:`, err.message);
+                    return {
+                        staffId: staff._id,
+                        staffName: `${staff.first_name || ""} ${staff.last_name || ""}`.trim(),
+                        driveData: null,
+                        message: "No Google Drive documents found"
+                    };
+                }
             })
         );
 
@@ -2757,6 +2779,7 @@ exports.getAllStaffGoogleDocs = async (req, res) => {
         res.status(500).json(resModel);
     }
 };
+
 
 
 
@@ -2786,7 +2809,7 @@ exports.getAssociatedClient = async (req, res) => {
         return res.status(200).json(resModel);
 
     } catch (error) {
-        console.error("❌ Error fetching associated clients:", error);
+        console.error(" Error fetching associated clients:", error);
         resModel.success = false;
         resModel.message = "Internal Server Error";
         resModel.data = null;

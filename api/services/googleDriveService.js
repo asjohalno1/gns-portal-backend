@@ -391,21 +391,71 @@ const listFilesInFolderStructure = async (parentFolderId) => {
 
 const deleteAllFolders = async () => {
     try {
+        await initializeDrive();
+
+        // ✅ Get all top-level folders (adjust query if you want only under a parent)
         const foldersRes = await drive.files.list({
             q: `mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
             fields: 'files(id, name)',
-            pageSize: 1000, // adjust if needed
+            pageSize: 1000,
+            includeItemsFromAllDrives: true,
+            supportsAllDrives: true
         });
 
-        const folders = foldersRes.data.files;
+        const folders = foldersRes.data?.files || [];
 
         if (!folders.length) {
             console.log('ℹ️ No folders found.');
             return;
         }
 
+        // ✅ Recursive delete helper
+        const deleteFolderRecursively = async (folderId) => {
+            try {
+                // 1. Delete all files inside this folder
+                const filesRes = await drive.files.list({
+                    q: `'${folderId}' in parents and trashed = false and mimeType != 'application/vnd.google-apps.folder'`,
+                    fields: 'files(id, name)',
+                    includeItemsFromAllDrives: true,
+                    supportsAllDrives: true
+                });
+
+                const files = filesRes.data?.files || [];
+                for (const file of files) {
+                    console.log(`🗑️ Deleting file: ${file.name} (${file.id})`);
+                    await drive.files.delete({
+                        fileId: file.id,
+                        supportsAllDrives: true
+                    });
+                }
+
+                // 2. Get all subfolders
+                const subFoldersRes = await drive.files.list({
+                    q: `'${folderId}' in parents and trashed = false and mimeType = 'application/vnd.google-apps.folder'`,
+                    fields: 'files(id, name)',
+                    includeItemsFromAllDrives: true,
+                    supportsAllDrives: true
+                });
+
+                const subFolders = subFoldersRes.data?.files || [];
+                for (const subFolder of subFolders) {
+                    await deleteFolderRecursively(subFolder.id);
+                }
+
+                // 3. Finally delete the folder itself
+                console.log(`🧹 Deleting folder: ${folderId}`);
+                await drive.files.delete({
+                    fileId: folderId,
+                    supportsAllDrives: true
+                });
+            } catch (err) {
+                console.error(`❌ Error deleting folder ${folderId}:`, err.message);
+            }
+        };
+
+        // ✅ Loop through all folders found at root
         for (const folder of folders) {
-            console.log(`🧹 Deleting folder: ${folder.name} (${folder.id})`);
+            console.log(`🧹 Deleting top-level folder: ${folder.name} (${folder.id})`);
             await deleteFolderRecursively(folder.id);
         }
 
@@ -414,6 +464,7 @@ const deleteAllFolders = async () => {
         console.error('❌ Error deleting folders:', error.message);
     }
 };
+
 
 const deleteFolderRecursively = async (folderId) => {
     const listRes = await drive.files.list({
