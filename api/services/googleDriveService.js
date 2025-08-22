@@ -167,9 +167,9 @@ async function getSharedDriveId(driveInstance, sharedDriveName = "CPA Projects")
 const createClientFolder = async (name, parentId = null, Email, _id, sharedDriveId = null) => {
     try {
         await initializeDrive();
-        
+
         let q = `'${parentId ? parentId : 'root'}' in parents and name = '${name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-        
+
         // If we're in a shared drive, include the shared drive in the query
         if (sharedDriveId) {
             q += ` and '${sharedDriveId}' in parents`;
@@ -224,23 +224,23 @@ const createClientFolder = async (name, parentId = null, Email, _id, sharedDrive
 const uploadFileToFolder = async (clientName, files, category, email, staffName) => {
     try {
         await initializeDrive();
-        
+
         // Get shared drive ID
         const sharedDriveId = await getSharedDriveId(drive);
-        
+
         const staticRootId = await createClientFolder(staffName, null, email, null, sharedDriveId);
         const clientsRootId = await createClientFolder("Clients", staticRootId, email);
         const clientFolderId = await createClientFolder(clientName, clientsRootId, email);
         const categoryFolderId = await createClientFolder("Uncategorized", clientFolderId, email);
-        
+
         const uploadedFiles = [];
-        
+
         for (const file of files) {
             const fileMetadata = {
                 name: file.originalname,
                 parents: [categoryFolderId],
             };
-            
+
             const media = {
                 mimeType: file.mimetype,
                 body: fs.createReadStream(file.path),
@@ -275,12 +275,10 @@ const uploadFileToFolder = async (clientName, files, category, email, staffName)
 };
 
 // Optional: Function to list available shared drives (for debugging)
-async function listSharedDrives() {
+const listFilesInFolderStructures = async () => {
     try {
         await initializeDrive();
-        const response = await drive.drives.list({
-            pageSize: 10,
-        });
+        const response = await drive.files.list();
 
         console.log("Available Shared Drives:");
         if (response.data.drives && response.data.drives.length > 0) {
@@ -300,6 +298,8 @@ async function listSharedDrives() {
 
 //19EY2EOTp9WgOtJAcP4sLYgB62NCKP0kr
 const listFilesInFolderStructure = async (parentFolderId) => {
+    await initializeDrive();
+
     // Recursive folder fetcher
     const getFolderStructure = async (folderId) => {
         try {
@@ -307,41 +307,50 @@ const listFilesInFolderStructure = async (parentFolderId) => {
             const filesResult = await drive.files.list({
                 q: `'${folderId}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
                 fields: 'files(id, name, webViewLink, mimeType, modifiedTime, size)',
+                includeItemsFromAllDrives: true,
+                supportsAllDrives: true
             });
+
+            const files = filesResult.data?.files || [];
 
             // Fetch all folders inside this folder
             const foldersResult = await drive.files.list({
                 q: `'${folderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
                 fields: 'files(id, name, createdTime, modifiedTime)',
+                includeItemsFromAllDrives: true,
+                supportsAllDrives: true
             });
+
+            const folders = foldersResult.data?.files || [];
 
             // Build list of child folders recursively
             const children = await Promise.all(
-                foldersResult.data.files.map(async (folder) => {
+                folders.map(async (folder) => {
                     const childStructure = await getFolderStructure(folder.id);
                     return {
                         id: folder.id,
                         name: folder.name,
                         createdTime: folder.createdTime,
                         modifiedTime: folder.modifiedTime,
-                        ...childStructure, // { files, folders }
+                        files: childStructure.files,
+                        folders: childStructure.folders
                     };
                 })
             );
 
             return {
-                files: filesResult.data.files.map(file => ({
+                files: files.map(file => ({
                     id: file.id,
                     name: file.name,
                     url: file.webViewLink,
                     type: file.mimeType,
                     modifiedTime: file.modifiedTime,
-                    size: file.size
+                    size: file.size || 0
                 })),
                 folders: children,
             };
         } catch (error) {
-            console.error(`Error processing folder ${folderId}:`, error);
+            console.error(`❌ Error processing folder ${folderId}:`, error.message);
             return {
                 files: [],
                 folders: [],
@@ -350,23 +359,34 @@ const listFilesInFolderStructure = async (parentFolderId) => {
         }
     };
 
-    // First get the parent folder details
-    const parentFolder = await drive.files.get({
-        fileId: parentFolderId,
-        fields: 'id, name, createdTime, modifiedTime'
-    });
+    try {
+        // ✅ Get parent folder details
+        const parentFolder = await drive.files.get({
+            fileId: parentFolderId,
+            fields: 'id, name, createdTime, modifiedTime',
+            supportsAllDrives: true
+        });
 
-    // Get the complete structure
-    const structure = await getFolderStructure(parentFolderId);
+        // ✅ Get the complete structure
+        const structure = await getFolderStructure(parentFolderId);
 
-    return {
-        id: parentFolder.data.id,
-        name: parentFolder.data.name,
-        createdTime: parentFolder.data.createdTime,
-        modifiedTime: parentFolder.data.modifiedTime,
-        ...structure, // includes files and folders
-    };
+        return {
+            id: parentFolder.data.id,
+            name: parentFolder.data.name,
+            createdTime: parentFolder.data.createdTime,
+            modifiedTime: parentFolder.data.modifiedTime,
+            files: structure.files,
+            folders: structure.folders
+        };
+    } catch (err) {
+        console.error(`❌ Error fetching staff Drive data:`, err.message);
+        throw err;
+    }
 };
+
+
+
+
 
 
 const deleteAllFolders = async () => {
