@@ -10,9 +10,11 @@ module.exports.checkPermission = (requiredPermission) => {
         if (!user.rolePermissions || !user.rolePermissions.includes(requiredPermission)) {
             return res.status(403).json({
                 success: false,
-                message: `Permission denied: ${requiredPermission} required`
+                message: `Permission denied !`,
+                premission: "denied",
             });
         }
+
         next();
     };
 };
