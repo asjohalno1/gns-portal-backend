@@ -14,15 +14,16 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const sendEmail = async (email, subject, link, name, doctitle, deadline, docList, instructions, title, description, linkNote) => {
+const sendEmail = async (email, subject, link, name, doctitle, deadline, docLists, instructions, title, description, linkNote) => {
   try {
+   let docList =  docLists.filter(item => item !== 'Others');
     // const htmlContent = await generateTemplate({ name,link,doctitle,deadline,docList,instructions,title,description,linkNote});
     let dataRes = await emailTemplate.findOne({ listType: "Document Request" });
     const dbTemplate = `${dataRes?.description}`
     const formattedDocList = Array.isArray(docList)
       ? `<ul>${docList.map(item => `<li>${item}</li>`).join('')}</ul>`
       : docList;
-    const htmlContent = dbTemplate
+    const htmlContent = dbTemplate    
       .replace(/{{name}}/g, name)
       .replace(/{{title}}/g, title)
       .replace(/{{deadline}}/g, deadline)

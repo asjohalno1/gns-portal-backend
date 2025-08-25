@@ -23,7 +23,7 @@ const bcryptService = require('../services/bcrypt.services');
 
 
 
-const { listFilesInFolderStructure, uploadFileToFolder, createClientFolder, listFilesInFolder } = require('../services/googleDriveService.js');
+const { listFilesInFolderStructure, uploadFileToFolder, createClientFolder, listFilesInFolder, getnewFolderStructure } = require('../services/googleDriveService.js');
 const { documentRequest } = require('./staffController.js');
 const { name } = require('ejs');
 const { UserInstance } = require('twilio/lib/rest/ipMessaging/v1/service/user.js');
@@ -297,9 +297,9 @@ module.exports.addClient = async (req, res) => {
             staffId,
         });
         await newAssign.save();
-        const getStaff = await Users.findOne({ _id: staffId });
-        const staticRoot = await createClientFolder(getStaff?.first_name, null, email, staffId);
-        const clientsRootId = await createClientFolder("Clients", staticRoot, email);
+        // const getStaff = await Users.findOne({ _id: staffId });
+        // const staticRoot = await createClientFolder(getStaff?.first_name, null, email, staffId);
+        const clientsRootId = await createClientFolder("Clients", null, email);
         const clientFolderId = await createClientFolder(name, clientsRootId, email);
         await createClientFolder("Uncategorized", clientFolderId, email);
 
@@ -2714,72 +2714,94 @@ module.exports.getAllDocumentListing = async (req, res) => {
 
 //error handle 
 
+// exports.getAllStaffGoogleDocs = async (req, res) => {
+//     try {
+//         const staffList = await Users.find({ role_id: "2" });
+
+//         if (!staffList || staffList.length === 0) {
+//             resModel.success = true;
+//             resModel.message = "No staff found";
+//             resModel.data = [];
+//             return res.status(200).json(resModel);
+//         }
+
+//         const staffDriveData = await Promise.all(
+//             staffList.map(async (staff) => {
+
+//                 if (!staff.folderId) {
+//                     return {
+//                         staffId: staff._id,
+//                         staffName: `${staff.first_name || ""} ${staff.last_name || ""}`.trim(),
+//                         driveData: null,
+//                         message: "No Google Drive folder assigned"
+//                     };
+//                 }
+
+//                 try {
+//                     const data = await listFilesInFolderStructure(staff.folderId);
+
+//                     // If folder exists but has no files/folders
+//                     if (!data || (!data.files?.length && !data.folders?.length)) {
+//                         return {
+//                             staffId: staff._id,
+//                             staffName: `${staff.first_name || ""} ${staff.last_name || ""}`.trim(),
+//                             driveData: null,
+//                             message: "No Google Drive documents found"
+//                         };
+//                     }
+//                     return {
+//                         staffId: staff._id,
+//                         staffName: `${staff.first_name || ""} ${staff.last_name || ""}`.trim(),
+//                         driveData: data
+//                     };
+//                 } catch (err) {
+//                     console.error(` Error fetching Drive data for staff ${staff._id}:`, err.message);
+//                     return {
+//                         staffId: staff._id,
+//                         staffName: `${staff.first_name || ""} ${staff.last_name || ""}`.trim(),
+//                         driveData: null,
+//                         message: "No Google Drive documents found"
+//                     };
+//                 }
+//             })
+//         );
+
+//         resModel.success = true;
+//         resModel.message = "Fetched all staff Google Drive data successfully";
+//         resModel.data = staffDriveData;
+//         res.status(200).json(resModel);
+
+//     } catch (error) {
+//         console.error("❌ Error fetching staff Drive data:", error);
+//         resModel.success = false;
+//         resModel.message = "Internal Server Error";
+//         resModel.data = null;
+//         res.status(500).json(resModel);
+//     }
+// };
 exports.getAllStaffGoogleDocs = async (req, res) => {
     try {
-        const staffList = await Users.find({ role_id: "2" });
-
-        if (!staffList || staffList.length === 0) {
-            resModel.success = true;
-            resModel.message = "No staff found";
+        const structure = await getnewFolderStructure();
+        if (!structure) {
+            resModel.success = false;
+            resModel.message = "No Data found";
             resModel.data = [];
             return res.status(200).json(resModel);
+        } else {
+            resModel.success = true;
+            resModel.message = "Fetched all staff Google Drive data successfully";
+            resModel.data = structure;
+            res.status(200).json(resModel);
         }
-
-        const staffDriveData = await Promise.all(
-            staffList.map(async (staff) => {
-
-                if (!staff.folderId) {
-                    return {
-                        staffId: staff._id,
-                        staffName: `${staff.first_name || ""} ${staff.last_name || ""}`.trim(),
-                        driveData: null,
-                        message: "No Google Drive folder assigned"
-                    };
-                }
-
-                try {
-                    const data = await listFilesInFolderStructure(staff.folderId);
-
-                    // If folder exists but has no files/folders
-                    if (!data || (!data.files?.length && !data.folders?.length)) {
-                        return {
-                            staffId: staff._id,
-                            staffName: `${staff.first_name || ""} ${staff.last_name || ""}`.trim(),
-                            driveData: null,
-                            message: "No Google Drive documents found"
-                        };
-                    }
-                    return {
-                        staffId: staff._id,
-                        staffName: `${staff.first_name || ""} ${staff.last_name || ""}`.trim(),
-                        driveData: data
-                    };
-                } catch (err) {
-                    console.error(` Error fetching Drive data for staff ${staff._id}:`, err.message);
-                    return {
-                        staffId: staff._id,
-                        staffName: `${staff.first_name || ""} ${staff.last_name || ""}`.trim(),
-                        driveData: null,
-                        message: "No Google Drive documents found"
-                    };
-                }
-            })
-        );
-
-        resModel.success = true;
-        resModel.message = "Fetched all staff Google Drive data successfully";
-        resModel.data = staffDriveData;
-        res.status(200).json(resModel);
-
     } catch (error) {
-        console.error("❌ Error fetching staff Drive data:", error);
-        resModel.success = false;
-        resModel.message = "Internal Server Error";
-        resModel.data = null;
-        res.status(500).json(resModel);
+        console.error("Error fetching drive list:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch Google Drive list",
+            error: error.message
+        });
     }
 };
-
 
 
 
@@ -2850,8 +2872,8 @@ exports.addGoogleMappingByAdmin = async (req, res) => {
 
         // Create folders based on uncategorized
         if (uncategorized) {
-            const staticRoot = await createClientFolder(getStaff.first_name, null, clientRes.email, staffId);
-            const clientsRootId = await createClientFolder("Clients", staticRoot, clientRes.email, staffId);
+            // const staticRoot = await createClientFolder(getStaff.first_name, null, clientRes.email, staffId);
+            const clientsRootId = await createClientFolder("Clients", null, clientRes.email, staffId);
             const staticRootId = await createClientFolder(clientRes.name, clientsRootId, clientRes.email, staffId);
             await createClientFolder("uncategorized", staticRootId, clientRes.email);
         }
@@ -2947,8 +2969,8 @@ module.exports.mapClientFolders = async (req, res) => {
             { status: true },
             { new: true }
         );
-        const staticRoot = await createClientFolder(staff.first_name, null, client.email, staff._id);
-        const clientsRootId = await createClientFolder("Clients", staticRoot, client.email);
+        // const staticRoot = await createClientFolder(staff.first_name, null, client.email, staff._id);
+        const clientsRootId = await createClientFolder("Clients", null, client.email);
         const clientFolderId = await createClientFolder(client.name, clientsRootId, client.email);
         await createClientFolder("Uncategorized", clientFolderId, client.email);
 

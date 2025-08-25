@@ -144,11 +144,20 @@ async function initializeDrive() {
 }
 
 // Get or create shared drive (you can modify this to use a specific shared drive ID)
-async function getSharedDriveId(driveInstance, sharedDriveName = "CPA Projects") {
+async function getSharedDriveId(driveInstance, sharedDriveName = "CPA Projects", list) {
     try {
-        const response = await driveInstance.drives.list({
-            pageSize: 10,
-        });
+        let response
+        if (list) {
+            response = await driveInstance.drive.drives.list({
+                pageSize: 10,
+            });
+
+        } else {
+            response = await driveInstance.drives.list({
+                pageSize: 10,
+            });
+        }
+
 
         if (response.data.drives && response.data.drives.length > 0) {
             // Return the first shared drive found, or search by name
@@ -168,12 +177,10 @@ const createClientFolder = async (name, parentId = null, Email, _id, sharedDrive
     try {
         await initializeDrive();
 
-        let q = `'${parentId ? parentId : 'root'}' in parents and name = '${name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+        // Build query: check inside given parent (or shared drive root)
+        let parent = parentId ? parentId : sharedDriveId ? sharedDriveId : 'root';
 
-        // If we're in a shared drive, include the shared drive in the query
-        if (sharedDriveId) {
-            q += ` and '${sharedDriveId}' in parents`;
-        }
+        const q = `'${parent}' in parents and name = '${name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
 
         const res = await drive.files.list({
             q,
@@ -182,12 +189,16 @@ const createClientFolder = async (name, parentId = null, Email, _id, sharedDrive
             includeItemsFromAllDrives: true
         });
 
-        if (res.data.files.length > 0) return res.data.files[0].id;
+        // ✅ If folder exists, return it
+        if (res.data.files.length > 0) {
+            return res.data.files[0].id;
+        }
 
+        // ✅ Otherwise, create new folder
         const fileMetadata = {
             name,
             mimeType: 'application/vnd.google-apps.folder',
-            parents: parentId ? [parentId] : (sharedDriveId ? [sharedDriveId] : []),
+            parents: [parent],
         };
 
         const folder = await drive.files.create({
@@ -196,7 +207,7 @@ const createClientFolder = async (name, parentId = null, Email, _id, sharedDrive
             supportsAllDrives: true
         });
 
-        // ✅ Share folder with your Google account
+        // ✅ Share folder with the given user
         await drive.permissions.create({
             fileId: folder.data.id,
             requestBody: {
@@ -207,7 +218,8 @@ const createClientFolder = async (name, parentId = null, Email, _id, sharedDrive
             supportsAllDrives: true
         });
 
-        if (parentId == null && _id) {
+        // ✅ Save folderId if it’s root client folder
+        if (!parentId && _id) {
             await Users.findByIdAndUpdate(
                 _id,
                 { folderId: folder.data.id }
@@ -221,6 +233,7 @@ const createClientFolder = async (name, parentId = null, Email, _id, sharedDrive
     }
 };
 
+
 const uploadFileToFolder = async (clientName, files, category, email, staffName) => {
     try {
         await initializeDrive();
@@ -228,16 +241,25 @@ const uploadFileToFolder = async (clientName, files, category, email, staffName)
         // Get shared drive ID
         const sharedDriveId = await getSharedDriveId(drive);
 
-        const staticRootId = await createClientFolder(staffName, null, email, null, sharedDriveId);
-        const clientsRootId = await createClientFolder("Clients", staticRootId, email);
+        // Create folder hierarchy
+        const clientsRootId = await createClientFolder("Clients", null, email, null, sharedDriveId);
         const clientFolderId = await createClientFolder(clientName, clientsRootId, email);
         const categoryFolderId = await createClientFolder("Uncategorized", clientFolderId, email);
 
         const uploadedFiles = [];
 
         for (const file of files) {
+            // ✅ Format date-time for file name
+            const now = new Date();
+            const date = now.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).replace(/ /g, "-");
+            const time = now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }).replace(":", "-");
+            const timestamp = `${date}_${time}`;
+
+            // ✅ New file name with timestamp
+            const newFileName = `${timestamp}_${file.originalname}`;
+
             const fileMetadata = {
-                name: file.originalname,
+                name: newFileName,
                 parents: [categoryFolderId],
             };
 
@@ -249,7 +271,7 @@ const uploadFileToFolder = async (clientName, files, category, email, staffName)
             const uploaded = await drive.files.create({
                 resource: fileMetadata,
                 media,
-                fields: 'id, name, webViewLink',
+                fields: 'id, name, webViewLink, createdTime, modifiedTime',
                 supportsAllDrives: true
             });
 
@@ -273,6 +295,7 @@ const uploadFileToFolder = async (clientName, files, category, email, staffName)
         throw error;
     }
 };
+
 
 // Optional: Function to list available shared drives (for debugging)
 const listFilesInFolderStructures = async () => {
@@ -558,8 +581,99 @@ const listFilesInFolder = async (parentFolderId = 'root') => {
 };
 
 
+const getnewFolderStructure = async () => {
+    const getFolderStructure = async (folderId, drive) => {
+        try {
+            // Fetch all files (non-folders) in this folder
+            const filesResult = await drive.drive.files.list({
+                q: `'${folderId}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
+                fields: 'files(id, name, webViewLink, mimeType, modifiedTime, size)',
+                supportsAllDrives: true,
+                includeItemsFromAllDrives: true
+            });
 
+            // Fetch all folders inside this folder
+            const foldersResult = await drive.drive.files.list({
+                q: `'${folderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+                fields: 'files(id, name, createdTime, modifiedTime)',
+                supportsAllDrives: true,
+                includeItemsFromAllDrives: true
+            });
 
+            // Recursively build folder structure
+            const children = await Promise.all(
+                foldersResult.data.files.map(async (folder) => {
+                    const childStructure = await getFolderStructure(folder.id, drive);
+                    return {
+                        id: folder.id,
+                        name: folder.name,
+                        createdTime: folder.createdTime,
+                        modifiedTime: folder.modifiedTime,
+                        ...childStructure,
+                    };
+                })
+            );
+
+            return {
+                files: filesResult.data.files.map(file => ({
+                    id: file.id,
+                    name: file.name,
+                    url: file.webViewLink,
+                    type: file.mimeType,
+                    modifiedTime: file.modifiedTime,
+                    size: file.size || null
+                })),
+                folders: children,
+            };
+        } catch (error) {
+            console.error(`Error processing folder ${folderId}:`, error);
+            return {
+                files: [],
+                folders: [],
+                error: error.message
+            };
+        }
+    };
+
+    // ✅ Initialize drive before using
+    const drive = await initializeDrive();
+
+    // ✅ Get shared drive root
+    const folderId = await getSharedDriveId(drive, "CPA Projects",true);
+
+    // ✅ Fetch top-level children
+    const res = await drive.drive.files.list({
+        q: `'${folderId}' in parents and trashed = false`,
+        fields: 'files(id, name, mimeType, webViewLink)',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true
+    });
+
+    const items = [];
+
+    for (const file of res.data.files) {
+        if (file.mimeType === 'application/vnd.google-apps.folder') {
+            // Recursive fetch for subfolders
+            const children = await getFolderStructure(file.id, drive);
+            items.push({
+                id: file.id,
+                name: file.name,
+                mimeType: file.mimeType,
+                webViewLink: file.webViewLink || null,
+                children
+            });
+        } else {
+            items.push({
+                id: file.id,
+                name: file.name,
+                mimeType: file.mimeType,
+                webViewLink: file.webViewLink || null
+            });
+        }
+    }
+
+    return items;
+};
 
 
 
@@ -568,5 +682,6 @@ module.exports = {
     listFilesInFolderStructure,
     createClientFolder,
     deleteAllFolders,
-    listFilesInFolder
+    listFilesInFolder,
+    getnewFolderStructure
 };
