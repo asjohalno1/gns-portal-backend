@@ -415,93 +415,104 @@ module.exports.getClientDashboard = async (req, res) => {
     const status = req.query.status?.trim().toLowerCase();
     const statusRecentActivity = req.query.statusRecentActivity?.trim().toLowerCase();
 
-
-
     try {
         const now = new Date();
 
-        const uploadedDocs = await uploadDocuments
+        // Fetch requests for the client with proper population
+        const requests = await DocumentRequest
             .find({ clientId })
             .populate("category")
             .populate("subCategory")
-            .populate("request")
-            .populate("isUploaded")
-            .populate({
-                path: "request",
-                select: "_id subcategoryPriorities",
-            });
+            .sort({ createdAt: -1 })
+            .lean();
 
-        const totalDocuments = uploadedDocs.length;
-        const pendingCount = uploadedDocs.filter((doc) => doc.status === "pending").length;
-        const overdueCount = uploadedDocs.filter(
-            (doc) => doc.status === "pending" && new Date(doc.dueDate) < now
+        // Calculate statistics based on requests
+        const totalRequests = requests.length;
+        const pendingCount = requests.filter((req) => req.status === "pending").length;
+        const completedCount = requests.filter((req) => req.status === "completed").length;
+
+        // For overdue count, we need to check dueDate against pending requests
+        const overdueCount = requests.filter((req) =>
+            req.status === "pending" && req.dueDate && new Date(req.dueDate) < now
         ).length;
-        const completedCount = await uploadDocuments.countDocuments({ clientId, isUploaded: true });
 
-        let filteredDocs = [...uploadedDocs];
+        let filteredRequests = [...requests];
 
+        // Filter by status
         if (status && status !== 'all') {
-            filteredDocs = filteredDocs.filter((doc) => doc.status.toLowerCase() === status);
+            filteredRequests = filteredRequests.filter((req) => req.status.toLowerCase() === status);
         }
-        if (search) {
-            filteredDocs = filteredDocs.filter((doc) => {
-                const subCat = doc.subCategory?.name?.toLowerCase() || '';
-                const cat = doc.category?.name?.toLowerCase() || '';
-                const filteredTitle = doc.doctitle?.toLowerCase() || '';
-                return subCat.includes(search) || cat.includes(search) || filteredTitle.includes(search);
 
+        // Filter by search
+        if (search) {
+            filteredRequests = filteredRequests.filter((req) => {
+                const categoryNames = req.category?.map(cat => cat?.name?.toLowerCase() || '').join(' ') || '';
+                const subCategoryNames = req.subCategory?.map(sub => sub?.name?.toLowerCase() || '').join(' ') || '';
+                const requestTitle = req.doctitle?.toLowerCase() || '';
+
+                return categoryNames.includes(search) ||
+                    subCategoryNames.includes(search) ||
+                    requestTitle.includes(search);
             });
         }
-        filteredDocs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        const totalFiltered = filteredDocs.length;
-        const paginatedDocs = filteredDocs.slice((page - 1) * limit, page * limit);
 
-        let upcomingDeadlines = uploadedDocs
-            .filter((doc) => doc.dueDate)
-            .filter((doc) => {
+        const totalFiltered = filteredRequests.length;
+        const paginatedRequests = filteredRequests.slice((page - 1) * limit, page * limit);
+
+        // Prepare upcoming deadlines based on requests
+        let upcomingDeadlines = requests
+            .filter((req) => req.dueDate)
+            .filter((req) => {
                 if (statusRecentActivity && statusRecentActivity !== 'all') {
-                    return doc.status?.toLowerCase() === statusRecentActivity;
+                    return req.status?.toLowerCase() === statusRecentActivity;
                 }
                 return true;
             })
-            .map((doc) => {
-                const diffDays = Math.ceil((new Date(doc.dueDate) - now) / (1000 * 60 * 60 * 24));
+            .map((req) => {
+                const diffDays = Math.ceil((new Date(req.dueDate) - now) / (1000 * 60 * 60 * 24));
                 const daysLeft = diffDays < 0 ? "Expired" : diffDays;
 
                 let priority = "-";
+                // Get priority from the first subcategory if available
+                if (req.subcategoryPriorities && req.subCategory && req.subCategory.length > 0) {
+                    const firstSubCatId = req.subCategory[0]._id.toString();
+                    let storedPriority;
 
-                if (doc.request && doc.request.subcategoryPriorities && doc.subCategory && doc.subCategory._id) {
-                    const subCatId = doc.subCategory._id.toString();
-                    const storedPriority = doc.request.subcategoryPriorities.get(subCatId); // Use .get() for Map
+                    if (req.subcategoryPriorities instanceof Map) {
+                        storedPriority = req.subcategoryPriorities.get(firstSubCatId);
+                    } else if (typeof req.subcategoryPriorities === 'object') {
+                        storedPriority = req.subcategoryPriorities[firstSubCatId];
+                    }
+
                     if (storedPriority) {
                         priority = storedPriority.charAt(0).toUpperCase() + storedPriority.slice(1).toLowerCase();
                     }
                 }
+
                 return {
-                    document: doc.subCategory?.name || "Unnamed Document",
-                    type: doc.category?.name || "Unknown",
-                    dueDate: doc.dueDate,
+                    document: req.doctitle || req.subCategory?.[0]?.name || "Document Request",
+                    type: req.category?.[0]?.name || "General",
+                    dueDate: req.dueDate,
                     priority,
                     daysLeft,
                 };
             });
 
-
-        const activeAssignments = await logModel.find({ clientId }).sort({ createdAt: -1 });
+        const activeAssignments = await logModel.find({ clientId }).sort({ createdAt: -1 }).lean();
 
         res.status(200).json({
             success: true,
             message: "Client Dashboard Data Found successfully",
             data: {
                 stats: {
-                    totalDocuments,
+                    totalDocuments: totalRequests, // Renamed to match original response format
                     completed: completedCount,
                     pending: pendingCount,
                     overdue: overdueCount,
                 },
                 upcomingDeadlines,
                 recentAssignments: activeAssignments,
-                documentRequest: paginatedDocs,
+                documentRequest: paginatedRequests, // This now contains request objects, not documents
                 pagination: {
                     total: totalFiltered,
                     page,
@@ -519,8 +530,6 @@ module.exports.getClientDashboard = async (req, res) => {
         });
     }
 };
-
-
 
 /**
  * @api {get} /api/user/clientDocuments  Get Client Documents
@@ -832,10 +841,12 @@ exports.getAllUploadedDocuments = async (req, res) => {
 
         const categoryIds = [...new Set(uploadedDocuments.map(doc => String(doc.category)))];
         const subCategoryIds = [...new Set(uploadedDocuments.map(doc => String(doc.subCategory)))];
+        const requestTitle = [...new Set(uploadedDocuments.map(doc => String(doc.request)))];
 
-        const [categories, subCategories] = await Promise.all([
+        const [categories, subCategories, requestTitles] = await Promise.all([
             Category.find({ _id: { $in: categoryIds } }).lean(),
             SubCategory.find({ _id: { $in: subCategoryIds } }).lean(),
+            DocumentRequest.find({ _id: { $in: requestTitle } }).select('doctitle').lean()
         ]);
 
         const categoryMap = Object.fromEntries(categories.map(cat => [String(cat._id), cat.name]));
@@ -851,6 +862,7 @@ exports.getAllUploadedDocuments = async (req, res) => {
             documentPath: doc.documentPath,
             isUploaded: doc.isUploaded,
             requestId: doc.request,
+            documentTitle: requestTitles.find(req => String(req._id) === String(doc.request))?.doctitle || "N/A",
         }));
 
         res.status(200).json({
