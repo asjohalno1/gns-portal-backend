@@ -639,7 +639,7 @@ const getnewFolderStructure = async () => {
     const drive = await initializeDrive();
 
     // ✅ Get shared drive root
-    const folderId = await getSharedDriveId(drive, "CPA Projects",true);
+    const folderId = await getSharedDriveId(drive, "CPA Projects", true);
 
     // ✅ Fetch top-level children
     const res = await drive.drive.files.list({

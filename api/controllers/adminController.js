@@ -647,12 +647,11 @@ module.exports.updateTemplate = async (req, res) => {
 module.exports.getAllTemplates = async (req, res) => {
     try {
         const templates = await Template.find().sort({ createdAt: -1 });
-
         if (!templates || templates.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: "Templates not found",
-                data: null,
+            return res.status(200).json({
+                success: true,
+                message: "No templates found",
+                data: [],
             });
         }
 
@@ -679,7 +678,6 @@ module.exports.getAllTemplates = async (req, res) => {
                     linkMethod: template.linkMethod,
                     createdAt: template.createdAt,
                     updatedAt: template.updatedAt,
-                    // dueDate: template.dueDate
                 };
             })
         );
