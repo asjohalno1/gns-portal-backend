@@ -20,7 +20,7 @@ const logModel = require('../models/userLog');
 const remainder = require('../models/remainer');
 
 
-const { listFilesInFolderStructure, uploadFileToFolder } = require('../services/googleDriveService.js');
+const { listFilesInFolderStructure, uploadFileToFolder, getnewFolderStructure } = require('../services/googleDriveService.js');
 const { default: mongoose } = require('mongoose');
 
 
@@ -739,52 +739,78 @@ module.exports.getAllNotifications = async (req, res) => {
 
 
 
+// exports.getClientDocu = async (req, res) => {
+//     try {
+//         const staffId = req?.userInfo?.id;
+
+//         const staffRes = await User.findOne({ _id: staffId });
+
+//         // if (!staffRes?.folderId) {
+//         //     return res.status(200).json({
+//         //         success: true,
+//         //         message: "No Google Drive folder linked to this staff.",
+//         //         data: []
+//         //     });
+//         // }
+
+//         let data;
+//         try {
+//             data = await getnewFolderStructure();
+//         } catch (err) {
+
+//             console.error(`❌ Google Drive folder not found for staff ${staffId}:`, err.message);
+//             return res.status(200).json({
+//                 success: true,
+//                 message: "No Google Drive documents found",
+//                 data: []
+//             });
+//         }
+
+//         if (!data || (!data.files?.length && !data.folders?.length)) {
+//             return res.status(200).json({
+//                 success: true,
+//                 message: "No Google Drive documents found",
+//                 data: []
+//             });
+//         }
+
+//         return res.status(200).json({
+//             success: true,
+//             message: "Fetched Google Drive documents successfully",
+//             data
+//         });
+
+//     } catch (error) {
+//         console.error(" Error in getClientDocu:", error.message);
+//         return res.status(500).json({
+//             success: false,
+//             message: "Internal Server Error",
+//             data: null
+//         });
+//     }
+// };
+
+
 exports.getClientDocu = async (req, res) => {
     try {
-        const staffId = req?.userInfo?.id;
-        const staffRes = await User.findOne({ _id: staffId });
-
-        if (!staffRes?.folderId) {
-            return res.status(200).json({
-                success: true,
-                message: "No Google Drive folder linked to this staff.",
-                data: []
-            });
+        const structure = await getnewFolderStructure();
+        if (!structure) {
+            resModel.success = false;
+            resModel.message = "No Data found";
+            resModel.data = [];
+            return res.status(200).json(resModel);
+        } else {
+            resModel.success = true;
+            resModel.message = "Fetched all staff Google Drive data successfully";
+            resModel.data = structure;
+            res.status(200).json(resModel);
         }
-
-        let data;
-        try {
-            data = await listFilesInFolderStructure(staffRes.folderId);
-        } catch (err) {
-            // ✅ Folder might not exist in Drive anymore
-            console.error(`❌ Google Drive folder not found for staff ${staffId}:`, err.message);
-            return res.status(200).json({
-                success: true,
-                message: "No Google Drive documents found",
-                data: []
-            });
-        }
-
-        if (!data || (!data.files?.length && !data.folders?.length)) {
-            return res.status(200).json({
-                success: true,
-                message: "No Google Drive documents found",
-                data: []
-            });
-        }
-
-        return res.status(200).json({
-            success: true,
-            message: "Fetched Google Drive documents successfully",
-            data
-        });
-
     } catch (error) {
-        console.error(" Error in getClientDocu:", error.message);
+        console.error("Error fetching drive list:", error);
         return res.status(500).json({
             success: false,
-            message: "Internal Server Error",
-            data: null
+            message: "Failed to fetch Google Drive list",
+            error: error.message
         });
     }
 };

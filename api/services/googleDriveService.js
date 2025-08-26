@@ -244,23 +244,26 @@ const uploadFileToFolder = async (clientName, files, category, email, staffName)
         // Create folder hierarchy
         const clientsRootId = await createClientFolder("Clients", null, email, null, sharedDriveId);
         const clientFolderId = await createClientFolder(clientName, clientsRootId, email);
-        const categoryFolderId = await createClientFolder("Uncategorized", clientFolderId, email);
+        const uncategorizedFolderId = await createClientFolder("Uncategorized", clientFolderId, email);
+
+        // ✅ Create or get today's date folder inside Uncategorized
+        const today = new Date();
+        const todayFolderName = today.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", }).replace(/\//g, "-");
+        const todayFolderId = await createClientFolder(todayFolderName, uncategorizedFolderId, email);
 
         const uploadedFiles = [];
 
         for (const file of files) {
-            // ✅ Format date-time for file name
             const now = new Date();
             const date = now.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).replace(/ /g, "-");
             const time = now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }).replace(":", "-");
             const timestamp = `${date}_${time}`;
 
-            // ✅ New file name with timestamp
             const newFileName = `${timestamp}_${file.originalname}`;
 
             const fileMetadata = {
                 name: newFileName,
-                parents: [categoryFolderId],
+                parents: [todayFolderId], // ✅ Save inside today's folder
             };
 
             const media = {
@@ -295,6 +298,7 @@ const uploadFileToFolder = async (clientName, files, category, email, staffName)
         throw error;
     }
 };
+
 
 
 // Optional: Function to list available shared drives (for debugging)
@@ -406,6 +410,8 @@ const listFilesInFolderStructure = async (parentFolderId) => {
         throw err;
     }
 };
+
+
 
 
 
