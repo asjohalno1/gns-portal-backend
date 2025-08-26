@@ -595,7 +595,7 @@ const getnewFolderStructure = async () => {
             // Fetch all folders inside this folder
             const foldersResult = await drive.drive.files.list({
                 q: `'${folderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
-                fields: 'files(id, name, createdTime, modifiedTime)',
+                fields: 'files(id, name, createdTime, modifiedTime, webViewLink)',
                 supportsAllDrives: true,
                 includeItemsFromAllDrives: true
             });
@@ -607,9 +607,12 @@ const getnewFolderStructure = async () => {
                     return {
                         id: folder.id,
                         name: folder.name,
+                        mimeType: 'application/vnd.google-apps.folder',
+                        webViewLink: folder.webViewLink || null,
                         createdTime: folder.createdTime,
                         modifiedTime: folder.modifiedTime,
-                        ...childStructure,
+                        files: childStructure.files,   // ✅ always include, even empty
+                        folders: childStructure.folders // ✅ always include, even empty
                     };
                 })
             );
@@ -623,7 +626,7 @@ const getnewFolderStructure = async () => {
                     modifiedTime: file.modifiedTime,
                     size: file.size || null
                 })),
-                folders: children,
+                folders: children
             };
         } catch (error) {
             console.error(`Error processing folder ${folderId}:`, error);
@@ -660,7 +663,8 @@ const getnewFolderStructure = async () => {
                 name: file.name,
                 mimeType: file.mimeType,
                 webViewLink: file.webViewLink || null,
-                children
+                files: children.files,   // ✅ always return files (empty or not)
+                folders: children.folders // ✅ always return folders (empty or not)
             });
         } else {
             items.push({
@@ -674,6 +678,7 @@ const getnewFolderStructure = async () => {
 
     return items;
 };
+
 
 
 
