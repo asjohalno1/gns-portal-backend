@@ -2854,15 +2854,7 @@ exports.getAssociatedClient = async (req, res) => {
 
 exports.addGoogleMappingByAdmin = async (req, res) => {
     try {
-        const { staffId, clientId, clientFolderName, uncategorized, standardFolder, additionalSubfolders } = req.body;
-
-        if (!staffId) {
-            return res.status(400).json({
-                success: false,
-                message: "staffId is required",
-                data: null,
-            });
-        }
+        const { clientId, clientFolderName, uncategorized, standardFolder, additionalSubfolders } = req.body;
 
         const clientRes = await Client.findOne({ _id: clientId });
         if (!clientRes) {
@@ -2873,27 +2865,16 @@ exports.addGoogleMappingByAdmin = async (req, res) => {
             });
         }
 
-        const getStaff = await Users.findOne({ _id: staffId });
-        if (!getStaff) {
-            return res.status(404).json({
-                success: false,
-                message: "Staff not found",
-                data: null,
-            });
-        }
-
         // Create folders based on uncategorized
         if (uncategorized) {
-            // const staticRoot = await createClientFolder(getStaff.first_name, null, clientRes.email, staffId);
-            const clientsRootId = await createClientFolder("Clients", null, clientRes.email, staffId);
-            const staticRootId = await createClientFolder(clientRes.name, clientsRootId, clientRes.email, staffId);
+            const clientsRootId = await createClientFolder("Clients", null, clientRes.email);
+            const staticRootId = await createClientFolder(clientRes.name, clientsRootId, clientRes.email);
             await createClientFolder("uncategorized", staticRootId, clientRes.email);
         }
 
         // Create standard folders
         if (standardFolder) {
-            const staticRoot = await createClientFolder(getStaff.first_name, "", clientRes.email);
-            const clientsRootId = await createClientFolder("Clients", staticRoot, clientRes.email);
+            const clientsRootId = await createClientFolder("Clients", null, clientRes.email);
             const staticRootId = await createClientFolder(clientRes.name, clientsRootId, clientRes.email);
             const folderList = ["Tax Returns", "Bookkeeping"];
             for (const folderName of folderList) {
@@ -2903,8 +2884,7 @@ exports.addGoogleMappingByAdmin = async (req, res) => {
 
         // Create additional subfolders
         if (additionalSubfolders?.length > 0) {
-            const staticRoot = await createClientFolder(getStaff.first_name, "", clientRes.email);
-            const clientsRootId = await createClientFolder("Clients", staticRoot, clientRes.email);
+            const clientsRootId = await createClientFolder("Clients", null, clientRes.email);
             const staticRootId = await createClientFolder(clientRes.name, clientsRootId, clientRes.email);
             for (const folderName of additionalSubfolders) {
                 await createClientFolder(folderName, staticRootId, clientRes.email);
@@ -2913,7 +2893,6 @@ exports.addGoogleMappingByAdmin = async (req, res) => {
 
         // Save Google Mapping
         const newMapping = new googleMapping({
-            staffId,
             clientId,
             clientFolderName,
             uncategorized,
@@ -2937,7 +2916,7 @@ exports.addGoogleMappingByAdmin = async (req, res) => {
         }
 
     } catch (error) {
-        console.error("Error in addGoogleMappingWithStaffFromFrontend:", error);
+        console.error("Error in addGoogleMappingByAdmin:", error);
         return res.status(500).json({
             success: false,
             message: "Internal Server Error",
@@ -2945,6 +2924,7 @@ exports.addGoogleMappingByAdmin = async (req, res) => {
         });
     }
 };
+
 
 
 module.exports.mapClientFolders = async (req, res) => {
