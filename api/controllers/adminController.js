@@ -344,49 +344,67 @@ module.exports.addClient = async (req, res) => {
 module.exports.updateClient = async (req, res) => {
     try {
         const clientId = req.params.id;
-        const { dateOfBirth, isGoogleDrive, name, lastName, email, phoneNumber, address, company, notes, status, staffId } = req.body;
+        const {
+            dateOfBirth,
+            isGoogleDrive,
+            name,
+            lastName,
+            email,
+            phoneNumber,
+            address,
+            company,
+            notes,
+            status,
+            staffId
+        } = req.body;
+
         let updatedData = {
             name,
             lastName,
-            email: email.toLowerCase(),
+            email: email?.toLowerCase(),
             phoneNumber,
             address,
             company,
             notes,
             status: status || false,
             isGoogleDrive,
-            dateOfBirth: dateOfBirth
+            dateOfBirth
         };
+
         const updatedClient = await Client.findByIdAndUpdate(clientId, updatedData, { new: true });
-        const existingAssign = await assignClient.findOne({ clientId: clientId });
-        if (existingAssign) {
-            existingAssign.staffId = staffId;
-            await existingAssign.save();
-        } else {
-            const newAssign = new assignClient({
-                clientId: clientId,
-                staffId,
-            });
-            await newAssign.save();
+
+        if (staffId) {
+            const existingAssign = await assignClient.findOne({ clientId });
+
+            if (existingAssign) {
+                existingAssign.staffId = staffId;
+                await existingAssign.save();
+            } else {
+                const newAssign = new assignClient({ clientId, staffId });
+                await newAssign.save();
+            }
         }
+
         if (updatedClient) {
             resModel.success = true;
             resModel.message = "Client updated successfully";
             resModel.data = updatedClient;
-            res.status(200).json(resModel);
+            return res.status(200).json(resModel);
         } else {
-            resModel.success = true;
-            resModel.message = "Error While Updating Client";
-            resModel.data = updatedClient;
-            res.status(400).json(resModel);
+            resModel.success = false;
+            resModel.message = "Error while updating client";
+            resModel.data = null;
+            return res.status(400).json(resModel);
         }
+
     } catch (error) {
         resModel.success = false;
         resModel.message = "Internal Server Error";
         resModel.data = null;
-        res.status(500).json(resModel);
+        return res.status(500).json(resModel);
     }
 };
+
 
 /**
  * @api {get} /api/client/details/:id  Get Client Details
@@ -1234,7 +1252,7 @@ module.exports.AdminDocumentRequest = async (req, res) => {
 // get all client listing without pagination for admin 
 module.exports.getAllClientsWithoutPagination = async (req, res) => {
     try {
-        const clients = await Client.find({ status: true }).sort({ createdAt: -1 });
+        const clients = await Client.find({ status: true, isDeleted: false }).sort({ createdAt: -1 });
 
         if (!clients || clients.length === 0) {
             return res.status(404).json({
@@ -2244,15 +2262,11 @@ module.exports.getUnassignedClients = async (req, res) => {
         const assignedClientIds = assignedClients.map(a => a.clientId.toString());
 
         let query = {
-            $and: [
-                {
-                    $or: [
-                        { _id: { $nin: assignedClientIds } },
-                        { status: false }
-                    ]
-                }
-            ]
+            _id: { $nin: assignedClientIds },
+            status: false,
+            isDeleted: false
         };
+
 
         if (status !== 'all') {
             if (status === '1' || status === 1) {
