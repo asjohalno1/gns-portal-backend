@@ -2260,11 +2260,19 @@ module.exports.getUnassignedClients = async (req, res) => {
         const pageSize = parseInt(limit);
         const assignedClients = await assignClient.find({}, { clientId: 1, staffId: 1 }).lean();
         const assignedClientIds = assignedClients.map(a => a.clientId.toString());
-
         let query = {
-            _id: { $nin: assignedClientIds },
-            status: false,
-            isDeleted: false
+            $or: [
+                {
+                    _id: { $nin: assignedClientIds },
+                    status: false,
+                    isDeleted: false
+                },
+                {
+                    _id: { $in: assignedClientIds },
+                    status: false,
+                    isDeleted: false
+                }
+            ]
         };
 
 
