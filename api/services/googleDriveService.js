@@ -686,7 +686,16 @@ const getnewFolderStructure = async () => {
 };
 
 
+const getSharedFolderDriveId = async () => {
+    try {
+        await initializeDrive();
+        let sharedDriveId = await getSharedDriveId(drive);
+        return sharedDriveId
 
+    } catch (error) {
+
+    }
+}
 
 module.exports = {
     uploadFileToFolder,
@@ -694,5 +703,6 @@ module.exports = {
     createClientFolder,
     deleteAllFolders,
     listFilesInFolder,
-    getnewFolderStructure
+    getnewFolderStructure,
+    getSharedFolderDriveId
 };

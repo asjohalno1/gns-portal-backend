@@ -23,7 +23,7 @@ const bcryptService = require('../services/bcrypt.services');
 
 
 
-const { listFilesInFolderStructure, uploadFileToFolder, createClientFolder, listFilesInFolder, getnewFolderStructure } = require('../services/googleDriveService.js');
+const { listFilesInFolderStructure, uploadFileToFolder, createClientFolder, listFilesInFolder, getnewFolderStructure, getSharedFolderDriveId } = require('../services/googleDriveService.js');
 const { documentRequest } = require('./staffController.js');
 const { name } = require('ejs');
 const { UserInstance } = require('twilio/lib/rest/ipMessaging/v1/service/user.js');
@@ -299,7 +299,8 @@ module.exports.addClient = async (req, res) => {
         await newAssign.save();
         // const getStaff = await Users.findOne({ _id: staffId });
         // const staticRoot = await createClientFolder(getStaff?.first_name, null, email, staffId);
-        const clientsRootId = await createClientFolder("Clients", null, email);
+       let sharedId = await getSharedFolderDriveId();
+        const clientsRootId = await createClientFolder("Clients", null, email,sharedId);
         const clientFolderId = await createClientFolder(name, clientsRootId, email);
         await createClientFolder("Uncategorized", clientFolderId, email);
 
@@ -2882,7 +2883,8 @@ exports.addGoogleMappingByAdmin = async (req, res) => {
 
         // Create standard folders
         if (standardFolder) {
-            const clientsRootId = await createClientFolder("Clients", null, clientRes.email);
+            let sharedId = await getSharedFolderDriveId();
+            const clientsRootId = await createClientFolder("Clients", null, clientRes.email,sharedId);
             const staticRootId = await createClientFolder(clientRes.name, clientsRootId, clientRes.email);
             const folderList = ["Tax Returns", "Bookkeeping"];
             for (const folderName of folderList) {
@@ -2892,7 +2894,8 @@ exports.addGoogleMappingByAdmin = async (req, res) => {
 
         // Create additional subfolders
         if (additionalSubfolders?.length > 0) {
-            const clientsRootId = await createClientFolder("Clients", null, clientRes.email);
+            let sharedId = await getSharedFolderDriveId();
+            const clientsRootId = await createClientFolder("Clients", null, clientRes.email,sharedId);
             const staticRootId = await createClientFolder(clientRes.name, clientsRootId, clientRes.email);
             for (const folderName of additionalSubfolders) {
                 await createClientFolder(folderName, staticRootId, clientRes.email);
@@ -2970,7 +2973,8 @@ module.exports.mapClientFolders = async (req, res) => {
             { new: true }
         );
         // const staticRoot = await createClientFolder(staff.first_name, null, client.email, staff._id);
-        const clientsRootId = await createClientFolder("Clients", null, client.email);
+        let sharedId = await getSharedFolderDriveId();
+        const clientsRootId = await createClientFolder("Clients", null, client.email,sharedId);
         const clientFolderId = await createClientFolder(client.name, clientsRootId, client.email);
         await createClientFolder("Uncategorized", clientFolderId, client.email);
 
