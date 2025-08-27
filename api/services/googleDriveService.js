@@ -262,7 +262,7 @@ const uploadFileToFolder = async (clientName, files, category, email, staffName)
             const newFileName = `${timestamp}_${file.originalname}`;
 
             const fileMetadata = {
-                name: newFileName,
+                name: file.originalname,
                 parents: [todayFolderId], // ✅ Save inside today's folder
             };
 
