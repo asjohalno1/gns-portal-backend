@@ -29,7 +29,7 @@ const SuperAdminService = () => {
 
             const page = parseInt(pageNumber);
             const skip = (page - 1) * limit;
-            const filter = { isDeleted: false };
+            const filter = { isDeleted: false, status: true };
             if (search) {
                 filter.$or = [
                     { name: { $regex: search, $options: 'i' } },
@@ -110,9 +110,9 @@ const SuperAdminService = () => {
         try {
             const filePath = file?.path;
             if (!filePath) throw new Error('No file path found');
-    
+
             let records = [];
-    
+
             if (filePath.endsWith('.csv')) {
                 records = await parseCSV(filePath);
             } else if (filePath.endsWith('.xlsx')) {
@@ -120,7 +120,7 @@ const SuperAdminService = () => {
             } else {
                 throw new Error('Unsupported file format');
             }
-    
+
             // ✅ Filter only records with mandatory email and name
             const filteredRecords = records.filter(record => {
                 const email = record?.email?.trim();
@@ -128,13 +128,13 @@ const SuperAdminService = () => {
             });
 
             return filteredRecords;
-    
+
         } catch (error) {
             console.error('parseClients error:', error);
             throw error;
         }
     };
-    
+
     const addBulkClients = async (clients) => {
         try {
             // ✅ Step 1: sanitize keys in all client objects
@@ -146,24 +146,24 @@ const SuperAdminService = () => {
                 }
                 return cleaned;
             };
-    
+
             clients = clients.map(cleanKeys);
-    
+
             // ✅ Step 2: check duplicates by email
             const emails = clients.map((client) => client.email);
             const existingClients = await Client.find({ email: { $in: emails } }).select('email');
             const existingEmails = new Set(existingClients.map((client) => client.email));
-    
+
             // ✅ Step 3: only keep new ones
             const newClients = clients.filter((client) => !existingEmails.has(client.email));
-    
+
             if (newClients.length === 0) {
                 console.log('No new clients to insert.');
                 return [];
             }
-    
+
             console.log(Object.keys(newClients[0])); // now should show ['name','LastName','Company','phoneNumber','email']
-    
+
             // ✅ Step 4: insert clean clients
             const createdClients = await Client.insertMany(newClients);
             return createdClients;
@@ -172,7 +172,7 @@ const SuperAdminService = () => {
             throw error;
         }
     };
-    
+
 
     const getAdminDashboard = async (query) => {
         try {
