@@ -173,7 +173,7 @@ async function getSharedDriveId(driveInstance, sharedDriveName = "CPA Projects",
     }
 }
 
-const createClientFolder = async (name, parentId = null, Email, _id, sharedDriveId = null) => {
+const createClientFolder = async (name, parentId = null, Email, sharedDriveId = null) => {
     try {
         await initializeDrive();
 
@@ -219,12 +219,12 @@ const createClientFolder = async (name, parentId = null, Email, _id, sharedDrive
         });
 
         // ✅ Save folderId if it’s root client folder
-        if (!parentId && _id) {
-            await Users.findByIdAndUpdate(
-                _id,
-                { folderId: folder.data.id }
-            );
-        }
+        // if (!parentId && _id) {
+        //     await Users.findByIdAndUpdate(
+        //         _id,
+        //         { folderId: folder.data.id }
+        //     );
+        // }
 
         return folder.data.id;
     } catch (error) {

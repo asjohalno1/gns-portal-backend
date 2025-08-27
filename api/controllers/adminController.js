@@ -299,8 +299,8 @@ module.exports.addClient = async (req, res) => {
         await newAssign.save();
         // const getStaff = await Users.findOne({ _id: staffId });
         // const staticRoot = await createClientFolder(getStaff?.first_name, null, email, staffId);
-       let sharedId = await getSharedFolderDriveId();
-        const clientsRootId = await createClientFolder("Clients", null, email,sharedId);
+        let sharedId = await getSharedFolderDriveId();
+        const clientsRootId = await createClientFolder("Clients", null, email, sharedId);
         const clientFolderId = await createClientFolder(name, clientsRootId, email);
         await createClientFolder("Uncategorized", clientFolderId, email);
 
@@ -2875,16 +2875,17 @@ exports.addGoogleMappingByAdmin = async (req, res) => {
         }
 
         // Create folders based on uncategorized
-        if (uncategorized) {
-            const clientsRootId = await createClientFolder("Clients", null, clientRes.email);
-            const staticRootId = await createClientFolder(clientRes.name, clientsRootId, clientRes.email);
-            await createClientFolder("uncategorized", staticRootId, clientRes.email);
-        }
+        // if (uncategorized) {
+        //     let sharedId = await getSharedFolderDriveId();
+        //     const clientsRootId = await createClientFolder("Clients", null, clientRes.email);
+        //     const staticRootId = await createClientFolder(clientRes.name, clientsRootId, clientRes.email);
+        //     await createClientFolder("uncategorized", staticRootId, clientRes.email);
+        // }
 
         // Create standard folders
         if (standardFolder) {
             let sharedId = await getSharedFolderDriveId();
-            const clientsRootId = await createClientFolder("Clients", null, clientRes.email,sharedId);
+            const clientsRootId = await createClientFolder("Clients", null, clientRes.email, sharedId);
             const staticRootId = await createClientFolder(clientRes.name, clientsRootId, clientRes.email);
             const folderList = ["Tax Returns", "Bookkeeping"];
             for (const folderName of folderList) {
@@ -2895,7 +2896,7 @@ exports.addGoogleMappingByAdmin = async (req, res) => {
         // Create additional subfolders
         if (additionalSubfolders?.length > 0) {
             let sharedId = await getSharedFolderDriveId();
-            const clientsRootId = await createClientFolder("Clients", null, clientRes.email,sharedId);
+            const clientsRootId = await createClientFolder("Clients", null, clientRes.email, sharedId);
             const staticRootId = await createClientFolder(clientRes.name, clientsRootId, clientRes.email);
             for (const folderName of additionalSubfolders) {
                 await createClientFolder(folderName, staticRootId, clientRes.email);
@@ -2974,7 +2975,7 @@ module.exports.mapClientFolders = async (req, res) => {
         );
         // const staticRoot = await createClientFolder(staff.first_name, null, client.email, staff._id);
         let sharedId = await getSharedFolderDriveId();
-        const clientsRootId = await createClientFolder("Clients", null, client.email,sharedId);
+        const clientsRootId = await createClientFolder("Clients", null, client.email, sharedId);
         const clientFolderId = await createClientFolder(client.name, clientsRootId, client.email);
         await createClientFolder("Uncategorized", clientFolderId, client.email);
 
@@ -2985,7 +2986,6 @@ module.exports.mapClientFolders = async (req, res) => {
                 client: updatedClient,
                 staffId: assignment.staffId,
                 folders: {
-                    staticRoot,
                     clientsRootId,
                     clientFolderId
                 }

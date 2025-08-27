@@ -26,7 +26,7 @@ const remainderServices = require('../services/remainder.services');
 const cronJobService = require('../services/cron.services');
 const userLog = require('../models/userLog');
 const mongoose = require('mongoose');
-const { createClientFolder } = require('../services/googleDriveService.js');
+const { createClientFolder, getSharedFolderDriveId } = require('../services/googleDriveService.js');
 const googleMaping = require('../models/googleMapping');
 const path = require('path');
 
@@ -1948,7 +1948,7 @@ exports.addGoogleMaping = async (req, res) => {
         if (standardFolder) {
             // const staticRoot = await createClientFolder(getStaff?.first_name, "", clientRes?.email);
             let sharedId = await getSharedFolderDriveId();
-            const clientsRootId = await createClientFolder("Clients", null, clientRes?.email,sharedId);
+            const clientsRootId = await createClientFolder("Clients", null, clientRes?.email, sharedId);
             const staticRootId = await createClientFolder(clientRes?.name, clientsRootId, clientRes?.email);
             let folder = ["Tax Returns", "Bookkeeping"]
             for (const folderName of folder) {
@@ -1958,7 +1958,7 @@ exports.addGoogleMaping = async (req, res) => {
         if (additionalSubfolders.length > 0) {
             // const staticRoot = await createClientFolder(getStaff?.first_name, "", clientRes?.email);
             let sharedId = await getSharedFolderDriveId();
-            const clientsRootId = await createClientFolder("Clients", null, clientRes?.email,sharedId);
+            const clientsRootId = await createClientFolder("Clients", null, clientRes?.email, sharedId);
             const staticRootId = await createClientFolder(clientRes?.name, clientsRootId, clientRes?.email);
             for (const folderName of additionalSubfolders) {
                 await createClientFolder(folderName, staticRootId, clientRes?.email);
