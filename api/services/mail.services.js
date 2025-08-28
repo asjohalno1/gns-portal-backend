@@ -23,15 +23,21 @@ const sendEmail = async (email, subject, link, name, doctitle, deadline, docList
 
     // fetch email template from DB
     let dataRes = await emailTemplate.findOne({ listType: "Document Request" });
-    const dbTemplate = `${dataRes?.description}`;
+    let dbTemplate = `${dataRes?.description}`;
+
+    // sanitize quill HTML to remove extra spacing
+    dbTemplate = dbTemplate
+      .replace(/<p>/g, '<p style="margin:0; padding:0;">') // remove default margins
+      .replace(/<div>/g, '<div style="margin:0; padding:0;">') // same for divs
+      .replace(/<br>/g, '<br style="line-height:1;">'); // control line height
 
     // format document list with categories
     const formattedDocList = docList
       .map(group => {
         const items = group.items
-          .map(item => `<li>${item}</li>`)
+          .map(item => `<li style="margin:0; padding:2px 0;">${item}</li>`)
           .join("");
-        return `<p><strong>${group.category}</strong></p><ul>${items}</ul>`;
+        return `<p style="margin:0; padding:4px 0;"><strong>${group.category}</strong></p><ul style="margin:0; padding-left:15px;">${items}</ul>`;
       })
       .join("");
 
@@ -56,6 +62,7 @@ const sendEmail = async (email, subject, link, name, doctitle, deadline, docList
     console.error("Error sending email:", error);
   }
 };
+
 
 
 const sendEmailRemainder = async (email, subject, link, name = "User", deadline, title) => {
