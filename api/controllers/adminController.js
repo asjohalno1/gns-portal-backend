@@ -1995,12 +1995,12 @@ module.exports.addStaff = async (req, res) => {
         }
 
         // send email
-        await mailServices.sendStaffAddedEmail(
-            email,
-            `${first_name} ${last_name}`,
-            password,
-            "https://meanstack.smartdatainc.com:8076/"
-        );
+        // await mailServices.sendStaffAddedEmail(
+        //     email,
+        //     `${first_name} ${last_name}`,
+        //     password,
+        //     "https://meanstack.smartdatainc.com:8076/"
+        // );
 
         responseModel.success = true;
         responseModel.message = "Staff member added successfully";
