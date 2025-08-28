@@ -196,7 +196,7 @@ module.exports.getAllSubCategory = async (req, res) => {
     try {
         let categoryCheck
         if (req.query.categoryId) {
-            categoryCheck = await subCategory.find({ categoryId: req.query.categoryId });
+            categoryCheck = await subCategory.find({ categoryId: req.query.categoryId, isCustom: false });
         } else {
             categoryCheck = await subCategory.find();
         }
