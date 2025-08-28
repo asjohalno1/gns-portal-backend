@@ -417,7 +417,6 @@ module.exports.documentRequest = async (req, res) => {
 };
 const { Types } = require("mongoose");
 async function getDocsByCategory(allSubCategories) {
-    // 1. Get subcategories
     const subCats = await SubCategory.find({ _id: { $in: allSubCategories } });
 
     if (!subCats.length) return [];
