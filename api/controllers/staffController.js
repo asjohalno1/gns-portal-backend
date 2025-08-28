@@ -177,8 +177,10 @@ module.exports.documentRequest = async (req, res) => {
 
         const getRemainingWholeHours = (dueDateStr) => {
             const now = new Date();
+            const yesterday = new Date(now);
+            yesterday.setDate(now.getDate() - 1);
             const dueDate = new Date(dueDateStr);
-            const diffInMs = dueDate - now;
+            const diffInMs = dueDate - yesterday;
             if (diffInMs <= 0) return "Deadline has passed.";
             return Math.floor(diffInMs / (1000 * 60 * 60));
         };
@@ -417,30 +419,30 @@ const { Types } = require("mongoose");
 async function getDocsByCategory(allSubCategories) {
     // 1. Get subcategories
     const subCats = await SubCategory.find({ _id: { $in: allSubCategories } });
-  
+
     if (!subCats.length) return [];
-  
+
     // 2. Get unique categoryIds (string in subCats)
     const categoryIds = [...new Set(subCats.map(sc => sc.categoryId))];
-  
+
     // 3. Convert categoryIds (string) -> ObjectId and fetch categories
     const objectIds = categoryIds.map(id => new Types.ObjectId(id));
     const categories = await Category.find({ _id: { $in: objectIds } });
-  
+
     // 4. Build response
     const result = categories.map(cat => {
-      const items = subCats
-        .filter(sc => sc.categoryId === String(cat._id)) // match string vs ObjectId
-        .map(sc => sc.name);
-  
-      return {
-        category: cat.name,
-        items
-      };
+        const items = subCats
+            .filter(sc => sc.categoryId === String(cat._id)) // match string vs ObjectId
+            .map(sc => sc.name);
+
+        return {
+            category: cat.name,
+            items
+        };
     });
-  
+
     return result;
-  }
+}
 
 /**
  * @api {get} /api/staff/dashboard  Staff Dashboard
