@@ -16,12 +16,12 @@ const { PERMISSIONS } = require('../Constants/permission.constants');
 
 module.exports = function (app, validator) {
    app.post('/api/staff/login', validator.body(staffModel.loginStaff), staffCntrl.loginWithEmail)
-   app.patch('/api/staff/update', auth, uploadProfile.single('profile'), staffCntrl.updateStaff) // update pf
+   app.patch('/api/staff/update', auth, uploadProfile.single('profile'), staffCntrl.updateStaff)
    app.post('/api/staff/requestDocument', auth, checkPermission(PERMISSIONS.GENERATE_DOC_REQUEST), validator.body(staffModel.addDocumentRequest), staffCntrl.documentRequest)
    app.get('/api/staff/dashboard', auth, staffCntrl.staffDashboard)
    app.get('/api/staff/getAllClients', auth, staffCntrl.getAllClientsByStaff)
    app.get('/api/staff/getActiveClients', auth, staffCntrl.getAllActiveClients)
-   app.get('/api/staff/getAllUploadedDocuments', auth, staffCntrl.getAllUploadedDocuments)//staff 
+   app.get('/api/staff/getAllUploadedDocuments', auth, staffCntrl.getAllUploadedDocuments)
    app.get('/api/document/title', auth, staffCntrl.getAllDocumentTitle)
    app.get('/api/staff/getAllTracking', auth, staffCntrl.getAllTrackingByStaff)
    app.post('/api/staff/addFolder', auth, validator.body(staffModel.addFolder), staffCntrl.addFolder)
