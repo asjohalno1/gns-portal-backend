@@ -1638,6 +1638,7 @@ module.exports.getAllScheduledList = async (req, res) => {
             .sort({ createdAt: -1 });
 
         const formattedData = reminders.map((reminder) => ({
+            _id: reminder._id,
             clientName: reminder.clientId && reminder.clientId.length > 0
                 ? reminder.clientId.map((client) => client?.name || "Unknown Client").join(", ")
                 : "No Clients Assigned",
@@ -1665,6 +1666,62 @@ module.exports.getAllScheduledList = async (req, res) => {
         });
     }
 };
+
+
+
+
+
+// send remonder now api
+
+
+module.exports.sendRemainderNow = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const reminder = await Remainder.findById(id);
+        if (!reminder) {
+            return res.status(404).json({
+                success: false,
+                message: "Reminder not found",
+                data: null,
+            });
+        }
+        const document = await DocumentRequest.findById(reminder.documentId);
+        if (!document) {
+            return res.status(404).json({
+                success: false,
+                message: "Document not found",
+                data: null,
+            });
+        }
+        const { doctitle, dueDate, requestLink } = document;
+        const subject = `Reminder: Upload ${doctitle}`;
+        for (const clientId of reminder.clientId) {
+            const client = await Client.findById(clientId).select("email name");
+            if (!client) continue;
+
+            await mailServices.sendEmailRemainder(
+                client.email,
+                subject,
+                requestLink,
+                client.name,
+                dueDate,
+                doctitle
+            );
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Reminders sent successfully",
+        });
+    } catch (error) {
+        console.error("Error in sendReminder:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+        });
+    }
+};
+
 
 
 
@@ -2999,4 +3056,6 @@ module.exports.mapClientFolders = async (req, res) => {
         });
     }
 };
+
+
 
