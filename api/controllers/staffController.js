@@ -351,9 +351,9 @@ module.exports.documentRequest = async (req, res) => {
                 const expiresIn = parseInt(expirationHours);
                 const requestLink = await jwt.linkToken(tokenInfo, expiresIn);
 
-                let docRes = await SubCategory.find({ _id: { $in: allSubCategories } });
-                let docList = docRes.map(doc => doc.name);
-
+                // let docRes = await SubCategory.find({ _id: { $in: allSubCategories } });
+                // let docList = docRes.map(doc => doc.name);
+                const docList = await getDocsByCategory(allSubCategories);
                 if (linkMethod === "email" || notifyMethod.includes("email")) {
                     await DocumentRequest.findByIdAndUpdate(
                         requestRes._id,
@@ -413,8 +413,34 @@ module.exports.documentRequest = async (req, res) => {
         return res.status(500).json(resModel);
     }
 };
-
-
+const { Types } = require("mongoose");
+async function getDocsByCategory(allSubCategories) {
+    // 1. Get subcategories
+    const subCats = await SubCategory.find({ _id: { $in: allSubCategories } });
+  
+    if (!subCats.length) return [];
+  
+    // 2. Get unique categoryIds (string in subCats)
+    const categoryIds = [...new Set(subCats.map(sc => sc.categoryId))];
+  
+    // 3. Convert categoryIds (string) -> ObjectId and fetch categories
+    const objectIds = categoryIds.map(id => new Types.ObjectId(id));
+    const categories = await Category.find({ _id: { $in: objectIds } });
+  
+    // 4. Build response
+    const result = categories.map(cat => {
+      const items = subCats
+        .filter(sc => sc.categoryId === String(cat._id)) // match string vs ObjectId
+        .map(sc => sc.name);
+  
+      return {
+        category: cat.name,
+        items
+      };
+    });
+  
+    return result;
+  }
 
 /**
  * @api {get} /api/staff/dashboard  Staff Dashboard

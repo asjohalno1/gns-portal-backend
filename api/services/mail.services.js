@@ -16,26 +16,42 @@ const transporter = nodemailer.createTransport({
 
 const sendEmail = async (email, subject, link, name, doctitle, deadline, docLists, instructions, title, description, linkNote) => {
   try {
-    let docList = docLists.filter(item => item !== 'Others');
-    // const htmlContent = await generateTemplate({ name,link,doctitle,deadline,docList,instructions,title,description,linkNote});
+    // remove category "Others" if exists
+    let docList = Array.isArray(docLists)
+      ? docLists.filter(group => group.category !== "Others")
+      : [];
+
+    // fetch email template from DB
     let dataRes = await emailTemplate.findOne({ listType: "Document Request" });
-    const dbTemplate = `${dataRes?.description}`
-    const formattedDocList = Array.isArray(docList)
-      ? `<ul>${docList.map(item => `<li>${item}</li>`).join('')}</ul>`
-      : docList;
+    const dbTemplate = `${dataRes?.description}`;
+
+    // format document list with categories
+    const formattedDocList = docList
+      .map(group => {
+        const items = group.items
+          .map(item => `<li>${item}</li>`)
+          .join("");
+        return `<p><strong>${group.category}</strong></p><ul>${items}</ul>`;
+      })
+      .join("");
+
+    // inject into template
     const htmlContent = dbTemplate
       .replace(/{{name}}/g, name)
       .replace(/{{title}}/g, doctitle)
       .replace(/{{deadline}}/g, deadline)
       .replace(/{{documentList}}/g, formattedDocList)
-      .replace(/{{Instructions}}/g, instructions)
+      .replace(/{{instructions}}/g, instructions)
       .replace(/{{link}}/g, link);
+
+    // send email
     const info = await transporter.sendMail({
-      from: 'shaktisainisd@gmail.com',
+      from: "shaktisainisd@gmail.com",
       to: email,
       subject: subject,
       html: htmlContent,
     });
+
   } catch (error) {
     console.error("Error sending email:", error);
   }
