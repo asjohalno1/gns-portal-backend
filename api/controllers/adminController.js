@@ -1304,8 +1304,6 @@ module.exports.getAllClientsWithoutPagination = async (req, res) => {
 module.exports.getAssociatedSubCategory = async (req, res) => {
     try {
         const categoryId = req.query.id;
-        console.log(categoryId);
-
         if (!categoryId) {
             return res.status(400).json({
                 success: false,
@@ -1314,7 +1312,7 @@ module.exports.getAssociatedSubCategory = async (req, res) => {
             });
         }
 
-        const subCategories = await subCategory.find({ categoryId: categoryId });
+        const subCategories = await subCategory.find({ categoryId: categoryId, isCustom: false });
 
         resModel.success = true;
         resModel.message = "Subcategories fetched successfully";
