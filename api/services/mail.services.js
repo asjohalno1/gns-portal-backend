@@ -67,14 +67,28 @@ const sendEmail = async (email, subject, link, name, doctitle, deadline, docList
 
 const sendEmailRemainder = async (email, subject, link, name = "User", deadline, title) => {
   try {
-    // const htmlContent = await reminderTemplate({ name, link, msg });
     let dataRes = await emailTemplate.findOne({ listType: "Reminder" });
-    const dbTemplate = `${dataRes?.description}`
-    const htmlContent = dbTemplate
+    let dbTemplate = `${dataRes?.description}`;
+
+    // sanitize quill HTML to remove extra spacing (same as sendEmail)
+    dbTemplate = dbTemplate
+      .replace(/<p>/g, '<p style="margin:0; padding:0;">')
+      .replace(/<div>/g, '<div style="margin:0; padding:0;">')
+      .replace(/<br>/g, '<br style="line-height:1;">');
+
+    // replace variables
+    let htmlContent = dbTemplate
       .replace(/{{name}}/g, name)
       .replace(/{{title}}/g, title)
       .replace(/{{deadline}}/g, deadline)
       .replace(/{{link}}/g, link);
+
+    // final cleanup (extra whitespace between tags)
+    htmlContent = htmlContent
+      .replace(/\n+/g, " ")
+      .replace(/\s{2,}/g, " ")
+      .replace(/>\s+</g, "><")
+      .trim();
 
     const info = await transporter.sendMail({
       from: 'shaktisainisd@gmail.com',
@@ -88,6 +102,9 @@ const sendEmailRemainder = async (email, subject, link, name = "User", deadline,
     console.error("Error sending email:", error);
   }
 };
+
+
+
 
 const sendStaffAddedEmail = async (email, name, password, loginLink) => {
   try {

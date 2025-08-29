@@ -943,6 +943,29 @@ module.exports.getDocumentManagement = async (req, res) => {
     }
 }
 
+// get doc list for document request
+const { Types } = require("mongoose");
+async function getDocsByCategory(allSubCategories) {
+    const subCats = await subCategory.find({ _id: { $in: allSubCategories } });
+    if (!subCats.length) return [];
+    const categoryIds = [...new Set(subCats.map(sc => sc.categoryId))];
+    const objectIds = categoryIds.map(id => new Types.ObjectId(id));
+    const categories = await Category.find({ _id: { $in: objectIds } });
+    const result = categories.map(cat => {
+        const items = subCats
+            .filter(sc => sc.categoryId === String(cat._id))
+            .map(sc => sc.name);
+
+        return {
+            category: cat.name,
+            items
+        };
+    });
+
+    return result;
+}
+
+
 
 /**
  * @api {post} /api/admin/documentrequest Admin Document Request
@@ -1188,7 +1211,8 @@ module.exports.AdminDocumentRequest = async (req, res) => {
                 const requestLink = await jwt.linkToken(tokenInfo, expiresIn);
 
                 let docRes = await subCategory.find({ _id: subCategoryId });
-                let docList = docRes.map(doc => doc.name);
+                // let docList = docRes.map(doc => doc.name);
+                let formatedDocList = await getDocsByCategory(docRes);
 
                 if ((notifyMethods === "email" || notifyMethods.includes("email"))) {
                     await DocumentRequest.findByIdAndUpdate(
@@ -1202,9 +1226,8 @@ module.exports.AdminDocumentRequest = async (req, res) => {
                         clientRes.name,
                         doctitle,
                         dueDate,
-                        docList,
+                        formatedDocList,
                         instructions,
-                        doctitle
                     );
                 }
                 if ((notifyMethods === "sms" || notifyMethods.includes("sms")) && clientRes.phoneNumber) {
