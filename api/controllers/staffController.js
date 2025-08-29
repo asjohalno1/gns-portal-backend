@@ -1419,11 +1419,32 @@ module.exports.getAllActiveClients = async (req, res) => {
 module.exports.getAllDocumentTitle = async (req, res) => {
     try {
         const createdBy = req.userInfo?.id;
-        const dataRes = await DocumentRequest.find({ createdBy }).select('doctitle');
-        if (dataRes) {
+
+        // Fetch all documents for the user
+        const documents = await DocumentRequest.find({ createdBy })
+            .select('doctitle clientId _id');
+
+        // Group by doctitle
+        const groupedData = {};
+        documents.forEach(doc => {
+            if (!groupedData[doc.doctitle]) {
+                groupedData[doc.doctitle] = {
+                    doctitle: doc.doctitle,
+                    documentIds: [],
+                    clientIds: [],
+                    _id: doc._id
+                };
+            }
+            groupedData[doc.doctitle].documentIds.push(doc._id);
+            groupedData[doc.doctitle].clientIds.push(doc.clientId);
+        });
+
+        const result = Object.values(groupedData);
+
+        if (result.length > 0) {
             resModel.success = true;
             resModel.message = "Data Found Successfully";
-            resModel.data = dataRes;
+            resModel.data = result;
             res.status(200).json(resModel);
         } else {
             resModel.success = false;
@@ -1433,12 +1454,14 @@ module.exports.getAllDocumentTitle = async (req, res) => {
         }
 
     } catch (error) {
+        console.error(error);
         resModel.success = false;
         resModel.message = "Internal Server Error";
         resModel.data = null;
         res.status(500).json(resModel);
     }
 };
+
 
 /**
  * @api {get} /api/staff/getReminderTemplate/:id Get Reminder Template by ID
@@ -2177,6 +2200,42 @@ module.exports.approvedRequest = async (req, res) => {
         console.error(error);
         resModel.message = 'Internal Server Error';
         return res.status(500).json(resModel);
+    }
+};
+
+
+
+/*  reminder to clint api get all clints for send reminders */
+module.exports.getAllRemindersClients = async (req, res) => {
+    try {
+        const staffId = req.userInfo?.id;
+        const { ids, search } = req.query;
+        const assigned = await assignClient.find({ staffId }).select('clientId');
+        const assignedClientIds = assigned.map(a => a.clientId.toString());
+
+        let query = {
+            _id: { $in: assignedClientIds },
+            status: true
+        };
+
+        if (ids) {
+            const clientIds = ids.split(',');
+            query._id = { $in: clientIds.filter(id => assignedClientIds.includes(id)) };
+        }
+        if (search) {
+            query.name = { $regex: search, $options: "i" };
+        }
+        const clients = await Client.find(query).select('name email');
+        resModel.success = true;
+        resModel.message = "Clients Found Successfully";
+        resModel.data = clients;
+        res.status(200).json(resModel);
+
+    } catch (error) {
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
     }
 };
 

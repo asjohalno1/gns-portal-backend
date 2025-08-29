@@ -21,6 +21,7 @@ module.exports = function (app, validator) {
    app.get('/api/staff/dashboard', auth, staffCntrl.staffDashboard)
    app.get('/api/staff/getAllClients', auth, staffCntrl.getAllClientsByStaff)
    app.get('/api/staff/getActiveClients', auth, staffCntrl.getAllActiveClients)
+   app.get('/api/staff/getAllReminderClients', auth, staffCntrl.getAllRemindersClients)
    app.get('/api/staff/getAllUploadedDocuments', auth, staffCntrl.getAllUploadedDocuments)
    app.get('/api/document/title', auth, staffCntrl.getAllDocumentTitle)
    app.get('/api/staff/getAllTracking', auth, staffCntrl.getAllTrackingByStaff)
