@@ -95,19 +95,30 @@ const sendEmailRemainder = async (email, subject, link, name = "User", deadline,
   try {
     let dataRes = await emailTemplate.findOne({ listType: "Reminder" });
     let dbTemplate = `${dataRes?.description}`;
+    dbTemplate = dbTemplate.replace(/" rel="noopener noreferrer" target="_blank">Secure Upload Link:/g, '');
 
     // sanitize quill HTML to remove extra spacing (same as sendEmail)
     dbTemplate = dbTemplate
       .replace(/<p>/g, '<p style="margin:0; padding:0;">')
       .replace(/<div>/g, '<div style="margin:0; padding:0;">')
       .replace(/<br>/g, '<br style="line-height:1;">');
-
+    const buttonHtml = `
+      <table cellpadding="0" cellspacing="0" border="0" style="margin: 15px 0;">
+        <tr>
+          <td align="center" bgcolor="#007bff" style="border-radius: 4px;">
+            <a href="${link}" target="_blank" style="font-size: 16px; font-family: Helvetica, Arial, sans-serif; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 4px; display: inline-block; font-weight: bold;">
+              Upload Documents
+            </a>
+          </td>
+        </tr>
+      </table>
+    `;
     // replace variables
     let htmlContent = dbTemplate
       .replace(/{{name}}/g, name)
       .replace(/{{title}}/g, title)
       .replace(/{{deadline}}/g, deadline)
-      .replace(/{{link}}/g, link);
+      .replace(/{{link}}/g, `${buttonHtml}`);
 
     // final cleanup (extra whitespace between tags)
     htmlContent = htmlContent
