@@ -330,7 +330,7 @@ module.exports.documentRequest = async (req, res) => {
                         expression,
                         client,
                         scheduler?.notifyMethod,
-                        "",
+                        requestRes._id,
                         doctitle,
                         dueDate
                     );

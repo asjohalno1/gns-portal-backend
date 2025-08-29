@@ -19,14 +19,14 @@ async function scheduleDailyReminder(expression, clientIds, notifyMethod, docume
         const clients = await Client.find({ _id: { $in: clientIds } });
         for (const client of clients) {
           const { _id: clientId, email, name } = client;
-          if (notifyMethod[0] === "email") {
+          if (notifyMethod[0] === "email" || notifyMethod[1] === "email") {
             const subject = `Reminder: Upload ${doctitle}`;
             //const msg = `Dear ${name},\n\nPlease upload the document "${doctitle}" by ${dueDate?.toDateString() || 'the due date'}.\n\nClick here to upload: ${requestLink}`;
             await mailServices.sendEmailRemainder(email, subject, requestLink, name, duedate, documentTitle);
             console.log(`[Email Reminder] Sent to ${email}`);
-          } else if (notifyMethod === "sms") {
-            await twilioServices(clientId, templateId, documentId);
-            console.log(`[SMS Reminder] Sent to client ${clientId}`);
+          } else if (notifyMethod[0] === "sms" ||notifyMethod[1] === "sms") {
+            await twilioServices.sendSmsReminder(name,documentTitle,duedate,client?.phoneNumber,requestLink);
+            console.log(`[SMS Reminder] Sent to client ${name}`);
           }
         }
 
@@ -40,14 +40,19 @@ async function scheduleDailyReminder(expression, clientIds, notifyMethod, docume
       try {
         const client = await Client.findOne({ _id: clientIds });
         const { _id: clientId, email, name } = client;
+        const document = await documentRequests.findOne({ _id: documentId });
+        if (!document) {
+          console.error(`[Reminder Cron] Document not found for ID: ${documentId}`);
+          return;
+        }
+        const { doctitle, requestLink } = document;
         if (notifyMethod[0] === "email") {
-          const subject = `Reminder: Upload ${templateId}`;
-          const msg = `Dear ${name},\n\nPlease upload the document "${templateId}" by ${dueDate || 'the due date'}`;
-          await mailServices.sendEmailRemainder(email, subject, "", name, msg);
+          const subject = `Reminder: Upload ${doctitle}`;
+          await mailServices.sendEmailRemainder(email, subject, requestLink, name, duedate, documentTitle);
           console.log(`[Email Reminder] Sent to ${email}`);
         } else if (notifyMethod === "sms") {
-          await twilioServices(clientId, templateId, documentId);
-          console.log(`[SMS Reminder] Sent to client ${clientId}`);
+          await twilioServices.sendSmsReminder(name,documentTitle,duedate,client?.phoneNumber,requestLink);
+          console.log(`[SMS Reminder] Sent to client ${name}`);
         }
 
 
