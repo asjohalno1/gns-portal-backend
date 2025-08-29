@@ -25,6 +25,9 @@ const sendEmail = async (email, subject, link, name, doctitle, deadline, docList
     let dataRes = await emailTemplate.findOne({ listType: "Document Request" });
     let dbTemplate = `${dataRes?.description}`;
 
+    // Remove the unwanted text from the template
+    dbTemplate = dbTemplate.replace(/" rel="noopener noreferrer" target="_blank">Secure Upload Link:/g, '');
+
     // sanitize quill HTML to remove extra spacing
     dbTemplate = dbTemplate
       .replace(/<p>/g, '<p style="margin:0; padding:0;">') // remove default margins
@@ -41,6 +44,27 @@ const sendEmail = async (email, subject, link, name, doctitle, deadline, docList
       })
       .join("");
 
+    // Create email-client compatible button
+    const buttonHtml = `
+      <table cellpadding="0" cellspacing="0" border="0" style="margin: 15px 0;">
+        <tr>
+          <td align="center" bgcolor="#007bff" style="border-radius: 4px;">
+            <a href="${link}" target="_blank" style="font-size: 16px; font-family: Helvetica, Arial, sans-serif; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 4px; display: inline-block; font-weight: bold;">
+              Upload Documents
+            </a>
+          </td>
+        </tr>
+      </table>
+    `;
+
+    // Alternative text link for email clients that struggle with HTML
+    const textLink = `
+      <p style="margin:10px 0; font-size:12px; color:#666;">
+        If the button doesn't work, copy and paste this link into your browser:<br>
+        ${link}
+      </p>
+    `;
+
     // inject into template
     const htmlContent = dbTemplate
       .replace(/{{name}}/g, name)
@@ -48,7 +72,7 @@ const sendEmail = async (email, subject, link, name, doctitle, deadline, docList
       .replace(/{{deadline}}/g, deadline)
       .replace(/{{documentList}}/g, formattedDocList)
       .replace(/{{instructions}}/g, instructions)
-      .replace(/{{link}}/g, link);
+      .replace(/{{link}}/g, `${buttonHtml}`);
 
     // send email
     const info = await transporter.sendMail({
@@ -57,6 +81,8 @@ const sendEmail = async (email, subject, link, name, doctitle, deadline, docList
       subject: subject,
       html: htmlContent,
     });
+
+    console.log("Email sent successfully:", info.messageId);
 
   } catch (error) {
     console.error("Error sending email:", error);
