@@ -457,8 +457,7 @@ module.exports.staffDashboard = async (req, res) => {
         const search = req.query.search?.toLowerCase() || '';
         const clientStatus = req.query.status || 'all';
 
-
-        // Get pagination parameters
+        // Pagination
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const startIndex = (page - 1) * limit;
@@ -486,32 +485,27 @@ module.exports.staffDashboard = async (req, res) => {
             const client = assignment.clientId;
             if (!client || client.status !== true || client.isDeleted === true) continue;
 
-
             summary.activeClients += 1;
 
             const docs = await uploadDocuments.find({ clientId: client._id }).sort({ updatedAt: -1 });
 
             const totalRequests = docs.length;
-            const completed = totalRequests;
             const uploaded = docs.filter(doc => doc.isUploaded === true).length;
             const pending = docs.filter(doc => doc.status === 'pending').length;
-            const overdue = docs.filter(doc => doc.dueDate && new Date(doc.dueDate) < now && doc.status === 'pending').length;
+            const overdueCount = docs.filter(doc => doc.dueDate && new Date(doc.dueDate) < now && doc.status === 'pending').length;
 
-            summary.documentsProcessed += completed;
+            summary.documentsProcessed += totalRequests;
             summary.pendingRequests += pending;
-            summary.overdue += overdue;
+            summary.overdue += overdueCount;
 
             let statusUpdate = '-';
-            if (overdue > 0) statusUpdate = 'Overdue';
+            if (overdueCount > 0) statusUpdate = 'Overdue';
             else if (pending > 0) statusUpdate = 'Pending';
 
+            // Task Deadline Calculation
             let taskDeadline = '—';
             let color = 'gray';
-
-            const futureDueDocs = docs
-                .filter(doc => doc.dueDate)
-                .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
-
+            const futureDueDocs = docs.filter(doc => doc.dueDate).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
             if (futureDueDocs.length) {
                 const nextDoc = futureDueDocs[0];
                 const daysLeft = Math.ceil((new Date(nextDoc.dueDate) - now) / (1000 * 60 * 60 * 24));
@@ -530,18 +524,16 @@ module.exports.staffDashboard = async (req, res) => {
                 }
             }
 
+            // Urgent tasks
             for (const doc of docs) {
                 if (doc.status !== 'pending' || !doc.dueDate) continue;
-
                 const dueDate = new Date(doc.dueDate);
                 const diffInDays = Math.floor((dueDate - now) / (1000 * 60 * 60 * 24));
 
                 let categoryName = 'Unnamed Document';
                 if (doc.category) {
                     const categoryDoc = await Category.findById(doc.category);
-                    if (categoryDoc) {
-                        categoryName = categoryDoc.name;
-                    }
+                    if (categoryDoc) categoryName = categoryDoc.name;
                 }
 
                 const taskEntry = {
@@ -550,15 +542,19 @@ module.exports.staffDashboard = async (req, res) => {
                     isUploaded: doc.isUploaded,
                 };
 
-                if (diffInDays < 0) {
-                    taskEntry.daysOverdue = Math.abs(diffInDays);
-                    urgentTasks.overdue.push(taskEntry);
-                } else if (diffInDays === 0) {
-                    urgentTasks.today.push(taskEntry);
-                } else if (diffInDays === 1) {
-                    urgentTasks.tomorrow.push(taskEntry);
-                }
+                if (diffInDays < 0) urgentTasks.overdue.push({ ...taskEntry, daysOverdue: Math.abs(diffInDays) });
+                else if (diffInDays === 0) urgentTasks.today.push(taskEntry);
+                else if (diffInDays === 1) urgentTasks.tomorrow.push(taskEntry);
             }
+
+            // Process & Process Status
+            const process = totalRequests ? Math.round((uploaded / totalRequests) * 100) : 0;
+            let processStatus = 'Not Started';
+            if (process > 0 && process <= 25) processStatus = '0-25% Completed';
+            else if (process > 25 && process <= 50) processStatus = '25-50% Completed';
+            else if (process > 50 && process <= 75) processStatus = '50-75% Completed';
+            else if (process > 75) processStatus = '75-100% Completed';
+            else if (process === 0 && !totalRequests) processStatus = 'Not Assign Any Request';
 
             fullDashboardData.push({
                 clientId: client._id,
@@ -570,23 +566,27 @@ module.exports.staffDashboard = async (req, res) => {
                 taskDeadline,
                 taskDeadlineColor: color,
                 statusUpdate,
-                lastActivity: docs[0]?.updatedAt || client.createdAt
+                lastActivity: docs[0]?.updatedAt || client.createdAt,
+                process,
+                processStatus
             });
         }
-        let documentCompletion = await staffService().getCategoryLogs(staffId)
+
+        const documentCompletion = await staffService().getCategoryLogs(staffId);
+
+        // Filtering
         const filteredClients = fullDashboardData.filter(client => {
             const matchesSearch = search
                 ? client.name.toLowerCase().includes(search) ||
                 client.email.toLowerCase().includes(search)
                 : true;
+
             const matchesStatus = clientStatus === 'all'
                 ? true
                 : client.statusUpdate.toLowerCase() === clientStatus.toLowerCase();
 
             return matchesSearch && matchesStatus;
         });
-
-
 
         const paginatedClients = filteredClients.slice(startIndex, endIndex);
 
@@ -602,7 +602,6 @@ module.exports.staffDashboard = async (req, res) => {
                 page,
                 limit,
                 totalPages: Math.ceil(filteredClients.length / limit),
-
             }
         };
         res.status(200).json(resModel);

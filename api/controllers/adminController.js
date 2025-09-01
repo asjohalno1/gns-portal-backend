@@ -1768,15 +1768,13 @@ module.exports.sendRemainderNow = async (req, res) => {
 // get reminder clinets 
 module.exports.getReminderClients = async (req, res) => {
     try {
-        const { ids, search, id } = req.query; // Add 'id' parameter
+        const { ids, search, id } = req.query;
         let query = { status: true };
 
-        // Handle both formats: comma-separated and array format
         let clientIds = [];
         if (ids) {
             clientIds = ids.split(',');
         } else if (id) {
-            // Handle array format: id[]=value1&id[]=value2
             clientIds = Array.isArray(id) ? id : [id];
         }
 
