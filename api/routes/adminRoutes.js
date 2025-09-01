@@ -81,7 +81,7 @@ module.exports = function (app, validator) {
   app.get('/api/admin/getAllReminderTemplates', auth, adminCntrl.getAllReminderTemplates);
   app.get('/api/admin/getAllScheduledReminder', auth, adminCntrl.getAllScheduledList);
   app.post('/api/admin/send-reminder-mail/:id', auth, adminCntrl.sendRemainderNow);
-
+  app.get('/api/admin/get-reminder-clients', auth, adminCntrl.getReminderClients);
   /**Delete records */
   //app.get('/api/delete/document', clearDbCntrl.handleDelete);
 

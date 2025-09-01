@@ -137,24 +137,19 @@ const SuperAdminService = () => {
 
     const addBulkClients = async (clients) => {
         try {
-            // ✅ Step 1: sanitize keys in all client objects
             const cleanKeys = (obj) => {
                 const cleaned = {};
                 for (let key in obj) {
-                    const newKey = key.trim().replace(/^\uFEFF/, ""); // remove BOM/hidden chars
+                    const newKey = key.trim().replace(/^\uFEFF/, "");
                     cleaned[newKey] = obj[key];
                 }
                 return cleaned;
             };
 
             clients = clients.map(cleanKeys);
-
-            // ✅ Step 2: check duplicates by email
             const emails = clients.map((client) => client.email);
             const existingClients = await Client.find({ email: { $in: emails } }).select('email');
             const existingEmails = new Set(existingClients.map((client) => client.email));
-
-            // ✅ Step 3: only keep new ones
             const newClients = clients.filter((client) => !existingEmails.has(client.email));
 
             if (newClients.length === 0) {
@@ -162,9 +157,7 @@ const SuperAdminService = () => {
                 return [];
             }
 
-            console.log(Object.keys(newClients[0])); // now should show ['name','LastName','Company','phoneNumber','email']
-
-            // ✅ Step 4: insert clean clients
+            console.log(Object.keys(newClients[0]));
             const createdClients = await Client.insertMany(newClients);
             return createdClients;
         } catch (error) {
@@ -182,14 +175,18 @@ const SuperAdminService = () => {
             const statusFilter = query.status || 'all';
             const skip = (page - 1) * limit;
 
-            const assignedClients = await assignClient.find().populate('clientId');
-            const userRes = await userModel.find({});
+            const assignedClients = await assignClient.find()
+                .populate({
+                    path: "clientId",
+                    match: { isDeleted: false },
+                });
 
-
+            const validAssignedClients = assignedClients.filter(ac => ac.clientId !== null);
+            const userRes = await userModel.find({ role_id: 2, isDeleted: false });
 
             let fullDashboardData = [];
             let summary = {
-                totalClients: assignedClients?.length,
+                totalClients: validAssignedClients?.length,
                 totalStaff: userRes?.length,
                 activeSecureLink: 0,
                 completedDocumentsRequest: 0,
@@ -206,17 +203,16 @@ const SuperAdminService = () => {
 
             const now = new Date();
 
-            for (const assignment of assignedClients) {
+            for (const assignment of validAssignedClients) {
                 const client = assignment.clientId;
                 if (!client) continue;
-
-                const docs = await uploadDocuments.find({ clientId: client._id }).sort({ updatedAt: -1 });
-                const totalRequests = docs.length;
-                const completed = docs.filter(doc => doc.status === 'accepted').length;
-                const pending = docs.filter(doc => doc.status === 'pending').length;
-                const overdue = docs.filter(doc => doc.dueDate && new Date(doc.dueDate) < now && doc.status === 'pending').length;
-                const notExpiredLinks = docs.filter(doc => doc.linkExpire && new Date(doc.linkExpire) > now && doc.status === 'pending').length;
-
+                const docs = await uploadDocuments.find({ clientId: client._id }).sort({ updatedAt: -1 }).populate("subCategory");
+                const filteredDocs = docs.filter(doc => !(doc.subCategory?.name === "Others" && !doc.isUploaded));
+                const totalRequests = filteredDocs.length;
+                const completed = filteredDocs.filter(doc => doc.status === 'approved').length;
+                const pending = filteredDocs.filter(doc => doc.status === 'pending').length;
+                const overdue = filteredDocs.filter(doc => doc.dueDate && new Date(doc.dueDate) < now && doc.status === 'pending').length;
+                const notExpiredLinks = filteredDocs.filter(doc => doc.linkExpire && new Date(doc.linkExpire) > now && doc.status === 'pending').length;
                 summary.completedDocumentsRequest += completed;
                 summary.activeSecureLink += notExpiredLinks;
                 summary.activeAssigments += notExpiredLinks;
@@ -225,7 +221,7 @@ const SuperAdminService = () => {
                 const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
                 const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
 
-                summary.completedToday += docs.filter(doc =>
+                summary.completedToday += filteredDocs.filter(doc =>
                     doc.status === 'accepted' &&
                     doc.reviewedAt &&
                     new Date(doc.reviewedAt) >= startOfDay &&
@@ -237,67 +233,41 @@ const SuperAdminService = () => {
                 else if (pending > 0) statusUpdate = 'Pending';
 
                 let taskDeadline = '—';
-                let color = 'gray';
-
-                const futureDueDocs = docs
+                const futureDueDocs = filteredDocs
                     .filter(doc => doc.dueDate)
                     .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
 
                 if (futureDueDocs.length) {
                     const nextDoc = futureDueDocs[0];
                     const daysLeft = Math.ceil((new Date(nextDoc.dueDate) - now) / (1000 * 60 * 60 * 24));
-                    if (daysLeft < 0) {
-                        taskDeadline = 'Overdue';
-                    } else if (daysLeft === 0) {
-                        taskDeadline = 'Today';
-                    } else if (daysLeft === 1) {
-                        taskDeadline = 'Tomorrow';
-                    } else {
-                        taskDeadline = `${daysLeft} Days`;
-                    }
+                    if (daysLeft < 0) taskDeadline = 'Overdue';
+                    else if (daysLeft === 0) taskDeadline = 'Today';
+                    else if (daysLeft === 1) taskDeadline = 'Tomorrow';
+                    else taskDeadline = `${daysLeft} Days`;
                 }
 
-                for (const doc of docs) {
-                    if (doc.status !== 'pending' || !doc.dueDate) continue;
-
-                    const dueDate = new Date(doc.dueDate);
-                    const diffInDays = Math.floor((dueDate - now) / (1000 * 60 * 60 * 24));
-                    let categoryName = 'Unnamed Document';
-
-                    if (doc.category) {
-                        const categoryDoc = await Category.findById(doc.category);
-                        if (categoryDoc) {
-                            categoryName = categoryDoc.name;
-                        }
-                    }
-
-                    const taskEntry = {
-                        clientName: client.name,
-                        category: categoryName,
-                    };
-
-                    if (diffInDays < 0) {
-                        taskEntry.daysOverdue = Math.abs(diffInDays);
-                        urgentTasks.overdue.push(taskEntry);
-                    } else if (diffInDays === 0) {
-                        urgentTasks.today.push(taskEntry);
-                    } else if (diffInDays === 1) {
-                        urgentTasks.tomorrow.push(taskEntry);
-                    }
-                }
-
-                // Determine main category for this client from the most recent document
                 let categoryName = '-';
-                if (docs[0]?.category) {
-                    const categoryDoc = await Category.findById(docs[0].category);
-                    if (categoryDoc) {
-                        categoryName = categoryDoc.name;
-                    }
+                if (filteredDocs[0]?.category) {
+                    const categoryDoc = await Category.findById(filteredDocs[0].category);
+                    if (categoryDoc) categoryName = categoryDoc.name;
                 }
+
                 const requestById = await requestDocument
-                    .find({ _id: docs[0]?.request })
+                    .find({ _id: filteredDocs[0]?.request })
                     .select('_id createdAt');
 
+                // ✅ Calculate progress excluding unuploaded "Others"
+                let process = 0;
+                if (totalRequests > 0) {
+                    process = Math.round((completed / totalRequests) * 100);
+                }
+
+                let processStatus = "Not Started";
+                if (process > 0 && process <= 25) processStatus = "25% Completed";
+                else if (process > 25 && process <= 50) processStatus = "50% Completed";
+                else if (process > 50 && process <= 75) processStatus = "75% Completed";
+                else if (process > 75 && process < 100) processStatus = "Almost Done";
+                else if (process === 100) processStatus = "Completed";
 
                 fullDashboardData.push({
                     title: categoryName,
@@ -308,12 +278,15 @@ const SuperAdminService = () => {
                         : 'Not Assign Any Document',
                     taskDeadline,
                     statusUpdate,
-                    lastActivity: docs[0]?.updatedAt || client.createdAt,
+                    lastActivity: filteredDocs[0]?.updatedAt || client.createdAt,
                     status: statusUpdate.toLowerCase(),
-                    createdAt: docs[0]?.createdAt,
-                    requestById
+                    createdAt: filteredDocs[0]?.createdAt,
+                    requestById,
+                    process,
+                    processStatus
                 });
             }
+
 
             // 🔍 Filter by search and status
             let filteredClients = fullDashboardData.filter(client => {
@@ -344,24 +317,8 @@ const SuperAdminService = () => {
                     : log.description
             }));
 
-            const teamWork = [
-                {
-                    name: "shakti saini",
-                    percentage: 60
-                },
-                {
-                    name: "John Doe",
-                    percentage: 80
-                },
-                {
-                    name: "Smith Doe",
-                    percentage: 40
-                }
-            ];
-
             return {
                 recentActivity,
-                teamWork,
                 summary,
                 urgentTasks,
                 clients: paginatedClients,
@@ -374,6 +331,7 @@ const SuperAdminService = () => {
             throw error;
         }
     };
+
 
     const getAllStaff = async () => {
         try {
@@ -391,7 +349,6 @@ const SuperAdminService = () => {
             const limit = parseInt(query.limit) || 10;
             const skip = (page - 1) * limit;
 
-            // Build dynamic search query
             const searchQuery = {};
             if (search) {
                 const clientIds = await Client.find({ name: { $regex: search, $options: "i" } }).distinct('_id');
@@ -471,7 +428,6 @@ const SuperAdminService = () => {
             const totalDocsCount = await requestDocument.countDocuments();
             const allDocumentsForSummary = await requestDocument.find({});
 
-            // Prepare header summary
             let totalComplete = 0;
             let totalPending = 0;
             let overdue = 0;

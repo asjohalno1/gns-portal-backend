@@ -547,6 +547,7 @@ module.exports.staffDashboard = async (req, res) => {
                 const taskEntry = {
                     clientName: client.name,
                     category: categoryName,
+                    isUploaded: doc.isUploaded,
                 };
 
                 if (diffInDays < 0) {
@@ -1676,6 +1677,9 @@ module.exports.getAllUploadedDocuments = async (req, res) => {
                 })
                 .populate({
                     path: 'category',
+                    select: 'name'
+                }).populate({
+                    path: 'subCategory',
                     select: 'name'
                 })
                 .skip(skip)

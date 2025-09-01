@@ -19,7 +19,7 @@ const emailTemplate = require('../models/emailTemplates.js');
 const logsUser = require('../models/userLog');
 const twilioServices = require('../services/twilio.services');
 const bcryptService = require('../services/bcrypt.services');
-
+const logUser = require('../models/userLog');
 
 
 
@@ -1553,12 +1553,30 @@ module.exports.getAllEmailTemplate = async (req, res) => {
 
 module.exports.getAllDocumentTitle = async (req, res) => {
     try {
+        // Fetch only required fields
+        const documents = await DocumentRequest.find({});
 
-        const dataRes = await DocumentRequest.find({}).select('doctitle');
-        if (dataRes) {
+        const groupedData = {};
+
+        documents.forEach(doc => {
+            if (!groupedData[doc.doctitle]) {
+                groupedData[doc.doctitle] = {
+                    _id: doc._id,
+                    doctitle: doc.doctitle,
+                    documentIds: [],
+                    clientIds: [],
+                };
+            }
+            groupedData[doc.doctitle].documentIds.push(doc._id);
+            groupedData[doc.doctitle].clientIds.push(doc.clientId);
+        });
+
+        const result = Object.values(groupedData);
+
+        if (result.length > 0) {
             resModel.success = true;
             resModel.message = "Data Found Successfully";
-            resModel.data = dataRes;
+            resModel.data = result;
             res.status(200).json(resModel);
         } else {
             resModel.success = false;
@@ -1568,12 +1586,14 @@ module.exports.getAllDocumentTitle = async (req, res) => {
         }
 
     } catch (error) {
+        console.error(error);
         resModel.success = false;
         resModel.message = "Internal Server Error";
         resModel.data = null;
         res.status(500).json(resModel);
     }
 };
+
 
 module.exports.getAllReminderTemplates = async (req, res) => {
     try {
@@ -1745,8 +1765,44 @@ module.exports.sendRemainderNow = async (req, res) => {
     }
 };
 
+// get reminder clinets 
+module.exports.getReminderClients = async (req, res) => {
+    try {
+        const { ids, search, id } = req.query; // Add 'id' parameter
+        let query = { status: true };
 
+        // Handle both formats: comma-separated and array format
+        let clientIds = [];
+        if (ids) {
+            clientIds = ids.split(',');
+        } else if (id) {
+            // Handle array format: id[]=value1&id[]=value2
+            clientIds = Array.isArray(id) ? id : [id];
+        }
 
+        if (clientIds.length > 0) {
+            query._id = { $in: clientIds };
+        }
+
+        if (search) {
+            query.name = { $regex: search, $options: 'i' };
+        }
+
+        const clients = await Client.find(query).select('name email');
+
+        resModel.success = true;
+        resModel.message = "Clients Found Successfully";
+        resModel.data = clients;
+        res.status(200).json(resModel);
+
+    } catch (error) {
+        console.error(error);
+        resModel.success = false;
+        resModel.message = "Internal Server Error";
+        resModel.data = null;
+        res.status(500).json(resModel);
+    }
+};
 
 module.exports.updateSubCategoryName = async (req, res) => {
     try {
@@ -2010,6 +2066,15 @@ module.exports.addStaff = async (req, res) => {
             address: address || null,
             dob: dob || null
         });
+
+
+        let logInfo = {
+            clientId: req?.userInfo?.id,
+            title: "New Staff Added",
+            description: `Admin ${first_name} ${last_name} added a new staff.`
+        };
+        const newLog = new logsUser(logInfo);
+        await newLog.save();
 
         const savedUser = await newUser.save();
         if (!savedUser) {
