@@ -206,13 +206,16 @@ const SuperAdminService = () => {
             for (const assignment of validAssignedClients) {
                 const client = assignment.clientId;
                 if (!client) continue;
+
                 const docs = await uploadDocuments.find({ clientId: client._id }).sort({ updatedAt: -1 }).populate("subCategory");
                 const filteredDocs = docs.filter(doc => !(doc.subCategory?.name === "Others" && !doc.isUploaded));
+
                 const totalRequests = filteredDocs.length;
                 const completed = filteredDocs.filter(doc => doc.status === 'approved').length;
                 const pending = filteredDocs.filter(doc => doc.status === 'pending').length;
                 const overdue = filteredDocs.filter(doc => doc.dueDate && new Date(doc.dueDate) < now && doc.status === 'pending').length;
                 const notExpiredLinks = filteredDocs.filter(doc => doc.linkExpire && new Date(doc.linkExpire) > now && doc.status === 'pending').length;
+
                 summary.completedDocumentsRequest += completed;
                 summary.activeSecureLink += notExpiredLinks;
                 summary.activeAssigments += notExpiredLinks;
@@ -246,6 +249,32 @@ const SuperAdminService = () => {
                     else taskDeadline = `${daysLeft} Days`;
                 }
 
+                for (const doc of filteredDocs) {
+                    if (doc.status !== 'pending' || !doc.dueDate) continue;
+                    const dueDate = new Date(doc.dueDate);
+                    const diffInDays = Math.floor((dueDate - now) / (1000 * 60 * 60 * 24));
+
+                    let categoryName = 'Unnamed Document';
+                    if (doc.category) {
+                        const categoryDoc = await Category.findById(doc.category);
+                        if (categoryDoc) categoryName = categoryDoc.name;
+                    }
+
+                    const taskEntry = {
+                        clientId: client._id,
+                        clientName: client.name,
+                        documentId: doc._id,
+                        category: categoryName,
+                        dueDate: doc.dueDate,
+                        status: doc.status,
+                        isUploaded: doc.isUploaded,
+                    };
+
+                    if (diffInDays < 0) urgentTasks.overdue.push({ ...taskEntry, daysOverdue: Math.abs(diffInDays) });
+                    else if (diffInDays === 0) urgentTasks.today.push(taskEntry);
+                    else if (diffInDays === 1) urgentTasks.tomorrow.push(taskEntry);
+                }
+
                 let categoryName = '-';
                 if (filteredDocs[0]?.category) {
                     const categoryDoc = await Category.findById(filteredDocs[0].category);
@@ -256,14 +285,12 @@ const SuperAdminService = () => {
                     .find({ _id: filteredDocs[0]?.request })
                     .select('_id createdAt');
 
-                // ✅ Calculate progress excluding unuploaded "Others"
                 let process = 0;
                 if (totalRequests > 0) {
                     process = Math.round((completed / totalRequests) * 100);
                 }
 
                 let processStatus = "Not Started";
-
                 if (process === 0 && !totalRequests) {
                     processStatus = "Unassigned";
                 } else if (process > 0 && process <= 25) {
@@ -277,7 +304,6 @@ const SuperAdminService = () => {
                 } else if (process === 100) {
                     processStatus = "Completed";
                 }
-
 
                 fullDashboardData.push({
                     title: categoryName,
@@ -296,7 +322,6 @@ const SuperAdminService = () => {
                     processStatus
                 });
             }
-
 
             // 🔍 Filter by search and status
             let filteredClients = fullDashboardData.filter(client => {
@@ -330,7 +355,7 @@ const SuperAdminService = () => {
             return {
                 recentActivity,
                 summary,
-                urgentTasks,
+                urgentTasks, // ✅ return ke andar bhi wapas add
                 clients: paginatedClients,
                 totalPages: Math.ceil(filteredClients.length / limit),
                 currentPage: page,
