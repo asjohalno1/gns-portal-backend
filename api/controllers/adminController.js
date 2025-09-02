@@ -1359,6 +1359,7 @@ module.exports.getAllRequestedDocuments = async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const skip = (page - 1) * limit;
+        const status = req.query.status || "all";
 
         const searchQuery = {};
         if (search) {
@@ -1372,11 +1373,19 @@ module.exports.getAllRequestedDocuments = async (req, res) => {
             ];
         }
 
+        if (status !== "all") {
+            const matchingRequests = await DocumentRequest.find({
+                linkStatus: status,
+            }).distinct("_id");
+            searchQuery.request = { $in: matchingRequests };
+        }
+
         const docs = await uploadDocument
             .find(searchQuery)
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
+
 
         const enrichedDocs = await Promise.all(
             docs.map(async (doc) => {

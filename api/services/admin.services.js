@@ -380,6 +380,7 @@ const SuperAdminService = () => {
     const getDocumentManagement = async (query) => {
         try {
             const search = query.search?.toLowerCase() || "";
+            const statusFilter = query.status && query.status !== "all" ? query.status : null;
             const page = parseInt(query.page) || 1;
             const limit = parseInt(query.limit) || 10;
             const skip = (page - 1) * limit;
@@ -392,8 +393,11 @@ const SuperAdminService = () => {
                 searchQuery.$or = [
                     { clientId: { $in: clientIds } },
                     { category: { $in: categoryIds } },
-                    { doctitle: { $regex: search, $options: "i" } }
+                    { doctitle: { $regex: search, $options: "i" } },
                 ];
+            }
+            if (statusFilter) {
+                searchQuery.status = statusFilter;
             }
 
             const documents = await requestDocument
