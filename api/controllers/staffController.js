@@ -550,11 +550,19 @@ module.exports.staffDashboard = async (req, res) => {
             // Process & Process Status
             const process = totalRequests ? Math.round((uploaded / totalRequests) * 100) : 0;
             let processStatus = 'Not Started';
-            if (process > 0 && process <= 25) processStatus = '0-25% Completed';
-            else if (process > 25 && process <= 50) processStatus = '25-50% Completed';
-            else if (process > 50 && process <= 75) processStatus = '50-75% Completed';
-            else if (process > 75) processStatus = '75-100% Completed';
-            else if (process === 0 && !totalRequests) processStatus = 'Not Assign Any Request';
+            if (process === 0 && !totalRequests) {
+                processStatus = 'Unassigned';
+            } else if (process > 0 && process <= 25) {
+                processStatus = 'Pending';
+            } else if (process > 25 && process <= 50) {
+                processStatus = 'Under Review';
+            } else if (process > 50 && process <= 75) {
+                processStatus = 'In Progress';
+            } else if (process > 75 && process < 100) {
+                processStatus = 'Finalizing';
+            } else if (process === 100) {
+                processStatus = 'Completed';
+            }
 
             fullDashboardData.push({
                 clientId: client._id,
