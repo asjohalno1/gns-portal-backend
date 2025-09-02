@@ -1036,18 +1036,25 @@ module.exports.AdminDocumentRequest = async (req, res) => {
             subcategoryPriorities[othersSubCategory._id.toString()] = 'low';
         }
 
-        function getRemainingWholeHours(dueDateStr) {
+        //    const getRemainingWholeHours = (dueDateStr) => {
+        //     const now = new Date();
+        //     const yesterday = new Date(now);
+        //     yesterday.setDate(now.getDate() - 1);
+        //     const dueDate = new Date(dueDateStr);
+        //     const diffInMs = dueDate - yesterday;
+        //     if (diffInMs <= 0) return "Deadline has passed.";
+        //     return Math.floor(diffInMs / (1000 * 60 * 60));
+        // };
+
+        const getRemainingWholeHours = (dueDateStr) => {
             const now = new Date();
+            const yesterday = new Date(now);
+            yesterday.setDate(now.getDate() - 1);
             const dueDate = new Date(dueDateStr);
-            const diffInMs = dueDate - now;
-
-            if (diffInMs <= 0) {
-                return "Deadline has passed.";
-            }
-
-            const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
-            return diffInHours;
-        }
+            const diffInMs = dueDate - yesterday;
+            if (diffInMs <= 0) return "Deadline has passed.";
+            return Math.floor(diffInMs / (1000 * 60 * 60));
+        };
 
         const validPriorities = ['low', 'medium', 'high'];
         for (const [subCatId, priority] of Object.entries(subcategoryPriorities)) {
