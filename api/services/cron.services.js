@@ -1,5 +1,5 @@
 const cron = require('node-cron');
-const Client = require('../models/clientModel'); 
+const Client = require('../models/clientModel');
 const documentRequests = require('../models/documentRequest');
 const mailServices = require('../services/mail.services');
 const twilioServices = require('../services/twilio.services');
@@ -16,7 +16,8 @@ async function scheduleDailyReminder(expression, clientIds, notifyMethod, docume
     // 👇 Add timezone here
     cron.schedule(expression, async () => {
       try {
-        const { doctitle, requestLink } = document;
+        const documents = await documentRequests.findOne({ _id: documentId });
+        const { doctitle, requestLink } = documents;
         const clients = await Client.find({ _id: { $in: clientIds } });
         for (const client of clients) {
           const { email, name } = client;
