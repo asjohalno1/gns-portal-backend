@@ -46,7 +46,7 @@ const clientSchema = new mongoose.Schema({
     },
     profilePicture: {
         type: String,
-        default: 'default-profile.png',
+        default: '',
     },
     dateOfBirth: {
         type: Date,
