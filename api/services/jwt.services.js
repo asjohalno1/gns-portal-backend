@@ -13,7 +13,6 @@ module.exports = {
     const expiresInHours = expiresIn * 24;
     const token = jwt.sign(payload, secret_key, { expiresIn: `${expiresInHours}h` });
     const finalUrl = `${url}/?token=${token}`
-
     return finalUrl;
   },
 
