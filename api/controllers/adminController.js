@@ -2211,8 +2211,6 @@ module.exports.getRecentActivities = async (req, res) => {
         const { page = 1, limit = 10, search = '', status = 'all' } = req.query;
 
         const query = {};
-
-        // Search filter
         if (search) {
             query.$or = [
                 { title: { $regex: search, $options: 'i' } },
@@ -2226,10 +2224,11 @@ module.exports.getRecentActivities = async (req, res) => {
             query.createdAt = { $gte: sevenDaysAgo };
             sortCriteria = { createdAt: -1 };
         } else if (status === 'old') {
-            query.createdAt = { $lt: sevenDaysAgo };
             sortCriteria = { createdAt: 1 };
         }
-        // if status === 'all', no date filter applied, default sort is newest first
+        else if (status === 'all') {
+            sortCriteria = { createdAt: -1 };
+        }
 
         const recentLogs = await logsUser.find(query)
             .sort(sortCriteria)
