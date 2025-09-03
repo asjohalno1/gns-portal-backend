@@ -12,7 +12,7 @@ module.exports = {
     let url = process.env.LINK_URL;
     const expiresInHours = expiresIn * 24;
     const token = jwt.sign(payload, secret_key, { expiresIn: `${expiresInHours}h` });
-    const finalUrl = `${url}/?token=${token}`
+    const finalUrl = `${url}?token=${token}`
     return finalUrl;
   },
 
