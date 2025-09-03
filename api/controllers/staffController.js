@@ -1753,8 +1753,7 @@ module.exports.getAllUploadedDocuments = async (req, res) => {
 module.exports.updateUploadedDocument = async (req, res) => {
     try {
         const { id } = req.params;
-        const { status, tags = [], comments
-            , subCategory } = req.body;
+        const { status, tags = [], comments, subCategory } = req.body;
         const staffId = req.userInfo?.id;
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -1765,35 +1764,46 @@ module.exports.updateUploadedDocument = async (req, res) => {
             });
         }
 
-        const updateQuery = {};
-
-        if (status || subCategory || comments
-        ) {
-            updateQuery.$set = {};
-            if (status) updateQuery.$set.status = status;
-            if (status === "rejected") updateQuery.$set.isUploaded = false;
-            if (subCategory) updateQuery.$set.subCategory = subCategory;
-            if (comments
-            ) updateQuery.$set.comments = comments
-                    ;
-        }
-
-        if (tags && tags.length >= 0) {
-            updateQuery.$set.tags = tags;
-        }
-
-        const dataRes = await uploadDocuments.findOneAndUpdate(
-            { _id: id, staffId },
-            updateQuery,
-            { new: true }
-        );
-
-        if (!dataRes) {
+        // Fetch the document first (to compare status before update)
+        const existingDoc = await uploadDocuments.findOne({ _id: id, staffId });
+        if (!existingDoc) {
             return res.status(404).json({
                 success: false,
                 message: "Document not found",
                 data: null
             });
+        }
+
+        const updateQuery = {};
+        if (status || subCategory || comments) {
+            updateQuery.$set = {};
+            if (status) updateQuery.$set.status = status;
+            if (status === "rejected") updateQuery.$set.isUploaded = false;
+            if (subCategory) updateQuery.$set.subCategory = subCategory;
+            if (comments) updateQuery.$set.comments = comments;
+        }
+
+        if (tags && tags.length > 0) {
+            updateQuery.$set.tags = tags;
+        }
+
+        // Perform the update
+        const dataRes = await uploadDocuments.findOneAndUpdate(
+            { _id: id, staffId },
+            updateQuery,
+            { new: true }
+        );
+        const uploadedDocumentName = await SubCategory.findOne({ _id: dataRes?.subCategory });
+
+        // Create notification ONLY if status actually changed
+        if (status && existingDoc.status !== status) {
+            const messageLogs = {
+                clientId: dataRes.clientId,
+                message: `Your document "${uploadedDocumentName?.name}" has been ${status}.`,
+                type: status === "approved" ? "success" : "warning",
+            };
+
+            await notification.create(messageLogs);
         }
 
         return res.status(200).json({
