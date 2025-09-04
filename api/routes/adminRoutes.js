@@ -119,7 +119,7 @@ module.exports = function (app, validator) {
   app.post('/api/admin/addGoogleMapping', auth, checkPermission(PERMISSIONS.ADD_MAPPING), adminCntrl.addGoogleMappingByAdmin);
   app.get('/api/admin/get/adminDocument', adminCntrl.getAdminDocu);
   app.post('/api/admin/client-mapping', auth, adminCntrl.mapClientFolders);
-
+  app.post('/api/admin/move-to-folder', auth, adminCntrl.moveFileToAnotherFolder);
 }
 
 

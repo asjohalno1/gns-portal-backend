@@ -489,10 +489,26 @@ module.exports.staffDashboard = async (req, res) => {
 
             const docs = await uploadDocuments.find({ clientId: client._id }).sort({ updatedAt: -1 });
 
-            const totalRequests = docs.length;
-            const uploaded = docs.filter(doc => doc.isUploaded === true).length;
-            const pending = docs.filter(doc => doc.status === 'pending').length;
-            const overdueCount = docs.filter(doc => doc.dueDate && new Date(doc.dueDate) < now && doc.status === 'pending').length;
+            let validDocs = [];
+            for (const doc of docs) {
+                let include = true;
+
+                if (doc.category) {
+                    const categoryDoc = await Category.findById(doc.category).lean();
+                    if (categoryDoc && categoryDoc.name === "Others" && !doc.isUploaded) {
+                        include = false;
+                    }
+                }
+
+                if (include) validDocs.push(doc);
+            }
+
+            const totalRequests = validDocs.length;
+            const uploaded = validDocs.filter(doc => doc.isUploaded === true).length;
+            const pending = validDocs.filter(doc => doc.status === 'pending').length;
+            const overdueCount = validDocs.filter(
+                doc => doc.dueDate && new Date(doc.dueDate) < now && doc.status === 'pending'
+            ).length;
 
             summary.documentsProcessed += totalRequests;
             summary.pendingRequests += pending;
@@ -526,7 +542,7 @@ module.exports.staffDashboard = async (req, res) => {
 
             // Urgent tasks
             for (const doc of docs) {
-                if (doc.status !== 'pending' || !doc.dueDate) continue;
+                if ((doc.status !== 'pending' && doc.status !== 'rejected') || !doc.dueDate) continue;
                 const dueDate = new Date(doc.dueDate);
                 const diffInDays = Math.floor((dueDate - now) / (1000 * 60 * 60 * 24));
 
@@ -536,10 +552,19 @@ module.exports.staffDashboard = async (req, res) => {
                     if (categoryDoc) categoryName = categoryDoc.name;
                 }
 
+                let subCategoryName = 'Unnamed Sub-Category';
+                if (doc.subCategory) {
+                    const subCategoryDoc = await SubCategory.findById(doc.subCategory);
+                    if (subCategoryDoc) subCategoryName = subCategoryDoc.name;
+                }
+
                 const taskEntry = {
                     clientName: client.name,
                     category: categoryName,
+                    documentType: subCategoryName,
                     isUploaded: doc.isUploaded,
+                    status: doc.status,
+                    ...(doc.status === 'rejected' && { comments: doc.comments })
                 };
 
                 if (diffInDays < 0) urgentTasks.overdue.push({ ...taskEntry, daysOverdue: Math.abs(diffInDays) });
@@ -707,14 +732,21 @@ module.exports.getAllClientsByStaff = async (req, res) => {
                 const now = new Date();
                 const dueDate = new Date(doc.dueDate);
 
-                if (dueDate < now) {
+                // Normalize both dates to midnight (ignore hours, minutes, seconds, ms)
+                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const dueDay = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+
+                if (dueDay < today) {
                     linkStatus = "Expired";
+                } else if (dueDay.getTime() === today.getTime()) {
+                    linkStatus = "Expire Today";
                 } else {
                     const hoursUntilDue = (dueDate - now) / (1000 * 60 * 60);
                     if (hoursUntilDue <= 24) {
                         linkStatus = "Expire Soon";
                     }
                 }
+
 
                 allDocs.push({
                     documentRequiredTitle: doc.title,
@@ -2158,7 +2190,7 @@ module.exports.getRecentRequests = async (req, res) => {
         const recentDocuments = await DocumentRequest.find({ createdBy: staffId })
             .sort({ createdAt: -1 })
             .limit(4)
-            .select('doctitle category clientId')
+            .select('doctitle category clientId status createdAt')
             .populate('clientId', 'name email')
             .populate('category', 'name');
 
@@ -2171,9 +2203,12 @@ module.exports.getRecentRequests = async (req, res) => {
 
         const formattedData = recentDocuments.map(doc => ({
             title: doc.doctitle,
-            category: doc.category.map(cat => cat.name),
-            clientName: doc.clientId?.name || null
+            category: Array.isArray(doc.category) ? doc.category.map(cat => cat.name) : [doc.category?.name || "Others"],
+            clientName: doc.clientId?.name || null,
+            status: doc.status,
+            createdAt: doc.createdAt
         }));
+
 
         resModel.success = true;
         resModel.message = 'Recent documents fetched successfully';

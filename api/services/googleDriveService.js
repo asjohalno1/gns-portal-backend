@@ -697,6 +697,28 @@ const getSharedFolderDriveId = async () => {
     }
 }
 
+
+const moveFileToAnotherFolder = async (fileId, oldFolderId, newFolderId) => {
+    try {
+        await initializeDrive();
+
+        const updatedFile = await drive.files.update({
+            fileId,
+            addParents: newFolderId,
+            removeParents: oldFolderId,
+            fields: "id, name, parents",
+            supportsAllDrives: true,
+        });
+
+        console.log(`✅ File moved: ${updatedFile.data.name} (${updatedFile.data.id})`);
+        return updatedFile.data;
+    } catch (error) {
+        console.error("❌ Error moving file:", error.message);
+        throw error;
+    }
+};
+
+
 module.exports = {
     uploadFileToFolder,
     listFilesInFolderStructure,
@@ -704,5 +726,6 @@ module.exports = {
     deleteAllFolders,
     listFilesInFolder,
     getnewFolderStructure,
-    getSharedFolderDriveId
+    getSharedFolderDriveId,
+    moveFileToAnotherFolder
 };

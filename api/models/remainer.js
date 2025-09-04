@@ -11,12 +11,12 @@ const remainderSchema = new mongoose.Schema(
         frequency: { type: String, enum: ["Daily", "Weekly"], required: true },
         days: { type: Array },
         notifyMethod: {
-            type: [String], // Array of strings
+            type: [String],
             enum: ["email", "sms", "portal", "AiCall"],
             required: true,
             validate: {
                 validator: function (arr) {
-                    return arr.length > 0; // must have at least one method
+                    return arr.length > 0;
                 },
                 message: "At least one notify method must be selected.",
             },

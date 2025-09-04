@@ -23,7 +23,7 @@ const logUser = require('../models/userLog');
 
 
 
-const { listFilesInFolderStructure, uploadFileToFolder, createClientFolder, listFilesInFolder, getnewFolderStructure, getSharedFolderDriveId } = require('../services/googleDriveService.js');
+const { listFilesInFolderStructure, uploadFileToFolder, createClientFolder, listFilesInFolder, getnewFolderStructure, getSharedFolderDriveId, moveFileToAnotherFolder } = require('../services/googleDriveService.js');
 const { documentRequest } = require('./staffController.js');
 const { name } = require('ejs');
 const { UserInstance } = require('twilio/lib/rest/ipMessaging/v1/service/user.js');
@@ -2529,6 +2529,12 @@ module.exports.assignStaffToClient = async (req, res) => {
             updatedAt: new Date()
         });
 
+        const updatedClient = await Client.findByIdAndUpdate(
+            clientId,
+            { status: true },
+            { new: true }
+        );
+
         res.status(201).json({
             success: true,
             message: "Staff assigned to client successfully",
@@ -3124,12 +3130,6 @@ module.exports.mapClientFolders = async (req, res) => {
             });
         }
 
-        const updatedClient = await Client.findByIdAndUpdate(
-            clientId,
-            { status: true },
-            { new: true }
-        );
-        // const staticRoot = await createClientFolder(staff.first_name, null, client.email, staff._id);
         let sharedId = await getSharedFolderDriveId();
         const clientsRootId = await createClientFolder("Clients", null, client.email, sharedId);
         const clientFolderId = await createClientFolder(client.name, clientsRootId, client.email);
@@ -3158,5 +3158,34 @@ module.exports.mapClientFolders = async (req, res) => {
     }
 };
 
+
+
+module.exports.moveFileToAnotherFolder = async (req, res) => {
+    try {
+        const { fileId, oldFolderId, newFolderId } = req.body;
+
+        if (!fileId || !oldFolderId || !newFolderId) {
+            return res.status(400).json({
+                success: false,
+                message: "fileId, oldFolderId, and newFolderId are required"
+            });
+        }
+
+        await moveFileToAnotherFolder(fileId, oldFolderId, newFolderId);
+
+        return res.status(200).json({
+            success: true,
+            message: "File moved successfully"
+        });
+
+    } catch (error) {
+        console.error("Error moving file:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+    }
+}
 
 
