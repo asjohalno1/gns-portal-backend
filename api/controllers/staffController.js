@@ -673,102 +673,179 @@ module.exports.getAllClientsByStaff = async (req, res) => {
         const limit = parseInt(req.query.limit) || 10;
         const skip = (page - 1) * limit;
 
-        const assignedClients = await assignClient.find({ staffId }).populate('clientId');
-        let allDocs = [];
+        // Get assigned clients with populated client data in one query
+        const assignedClients = await assignClient.find({ staffId }).populate('clientId').lean();
+
+        if (assignedClients.length === 0) {
+            resModel.success = true;
+            resModel.message = "No documents found";
+            resModel.data = {
+                currentPage: page,
+                totalPages: 0,
+                totalDocuments: 0,
+                documents: []
+            };
+            return res.status(200).json(resModel);
+        }
+
+        // Extract client IDs and create client lookup map
+        const clientIds = [];
+        const clientLookup = {};
+        const searchLower = search.toLowerCase();
 
         for (const assignment of assignedClients) {
             const client = assignment.clientId;
             if (!client) continue;
 
-            const searchLower = search.toLowerCase();
-            if (
-                search &&
+            // Apply search filter early
+            if (search &&
                 !client.name.toLowerCase().includes(searchLower) &&
-                !client.email.toLowerCase().includes(searchLower)
-            ) continue;
-
-            const documentRequests = await uploadDocuments.find({ clientId: client._id });
-
-            for (const doc of documentRequests) {
-                const created = new Date(doc.createdAt);
-                if (dateFrom && created < new Date(dateFrom)) continue;
-                if (dateTo && created > new Date(dateTo)) continue;
-
-                const subCatLink = await DocumentSubCategory.findOne({
-                    request: doc.request,
-                    category: doc.category,
-                    subCategory: doc.subCategory
-                }).populate('category').populate('subCategory');
-
-                if (!subCatLink) continue;
-
-                const categoryName = subCatLink?.category?.name || '—';
-                const subCategoryName = subCatLink?.subCategory?.name || 'Unnamed Document';
-
-                if (categoryName.toLowerCase() === "others" && !doc.isUploaded || doc.isCustom) {
-                    continue;
-                }
-
-                const docStatus = doc.status?.charAt(0).toUpperCase() + doc.status?.slice(1) || '—';
-                if (status && docStatus.toLowerCase() !== status.toLowerCase()) continue;
-
-                const keywordLower = keyword.toLowerCase();
-                if (
-                    keyword &&
-                    ![
-                        doc.title,
-                        doc.doctitle,
-                        client.name,
-                        categoryName,
-                        subCategoryName
-                    ].some(field => field?.toLowerCase().includes(keywordLower))
-                ) continue;
-
-                const findLinkStatus = await DocumentRequest.findOne(
-                    { _id: doc.request },
-                    { linkStatus: 1, _id: 0 }
-                );
-                let linkStatus = findLinkStatus?.linkStatus || "-";
-                const now = new Date();
-                const dueDate = new Date(doc.dueDate);
-
-                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                const dueDay = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
-
-                if (dueDay < today) {
-                    linkStatus = "Expired";
-                } else if (dueDay.getTime() === today.getTime()) {
-                    linkStatus = "Expire Today";
-                } else {
-                    const hoursUntilDue = (dueDate - now) / (1000 * 60 * 60);
-                    if (hoursUntilDue <= 24) {
-                        linkStatus = "Expire Soon";
-                    }
-                }
-
-                allDocs.push({
-                    documentRequiredTitle: doc.title,
-                    clientName: client.name,
-                    document: subCategoryName,
-                    type: categoryName,
-                    status: docStatus,
-                    dateRequested: doc.createdAt,
-                    doctitle: doc.doctitle,
-                    isUploaded: doc.isUploaded,
-                    linkStatus,
-                    dueDate: doc.dueDate,
-                    createdAt: doc.createdAt
-                });
+                !client.email.toLowerCase().includes(searchLower)) {
+                continue;
             }
 
+            clientIds.push(client._id);
+            clientLookup[client._id.toString()] = client;
         }
 
+        if (clientIds.length === 0) {
+            resModel.success = true;
+            resModel.message = "No documents found";
+            resModel.data = {
+                currentPage: page,
+                totalPages: 0,
+                totalDocuments: 0,
+                documents: []
+            };
+            return res.status(200).json(resModel);
+        }
+
+        // Build document query with filters
+        const docQuery = { clientId: { $in: clientIds } };
+
+        // Apply date filters at database level
+        if (dateFrom || dateTo) {
+            docQuery.createdAt = {};
+            if (dateFrom) docQuery.createdAt.$gte = new Date(dateFrom);
+            if (dateTo) docQuery.createdAt.$lte = new Date(dateTo);
+        }
+
+        // Get all documents for filtered clients
+        const documentRequests = await uploadDocuments.find(docQuery).lean();
+
+        if (documentRequests.length === 0) {
+            resModel.success = true;
+            resModel.message = "No documents found";
+            resModel.data = {
+                currentPage: page,
+                totalPages: 0,
+                totalDocuments: 0,
+                documents: []
+            };
+            return res.status(200).json(resModel);
+        }
+
+        // Get unique request IDs for batch queries
+        const requestIds = [...new Set(documentRequests.map(doc => doc.request))];
+
+        // Batch query for all DocumentSubCategory and DocumentRequest data
+        const [subCatLinks, documentRequestsData] = await Promise.all([
+            DocumentSubCategory.find({
+                request: { $in: requestIds }
+            }).populate('category').populate('subCategory').lean(),
+            DocumentRequest.find({
+                _id: { $in: requestIds }
+            }, { linkStatus: 1, _id: 1 }).lean()
+        ]);
+
+        // Create lookup maps
+        const subCatLookup = {};
+        const requestLookup = {};
+
+        subCatLinks.forEach(link => {
+            const key = `${link.request}-${link.category?._id}-${link.subCategory?._id}`;
+            subCatLookup[key] = link;
+        });
+
+        documentRequestsData.forEach(req => {
+            requestLookup[req._id.toString()] = req.linkStatus || "-";
+        });
+
+        // Process documents
+        let allDocs = [];
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const keywordLower = keyword.toLowerCase();
+
+        for (const doc of documentRequests) {
+            const client = clientLookup[doc.clientId.toString()];
+            if (!client) continue;
+
+            const subCatKey = `${doc.request}-${doc.category}-${doc.subCategory}`;
+            const subCatLink = subCatLookup[subCatKey];
+            if (!subCatLink) continue;
+
+            const categoryName = subCatLink?.category?.name || '—';
+            const subCategoryName = subCatLink?.subCategory?.name || 'Unnamed Document';
+
+            // Apply same filters as original
+            if (categoryName.toLowerCase() === "others" && !doc.isUploaded || doc.isCustom) {
+                continue;
+            }
+
+            const docStatus = doc.status?.charAt(0).toUpperCase() + doc.status?.slice(1) || '—';
+            if (status && docStatus.toLowerCase() !== status.toLowerCase()) continue;
+
+            // Apply keyword filter
+            if (keyword && ![
+                doc.title,
+                doc.doctitle,
+                client.name,
+                categoryName,
+                subCategoryName
+            ].some(field => field?.toLowerCase().includes(keywordLower))) {
+                continue;
+            }
+
+            // Calculate link status
+            let linkStatus = requestLookup[doc.request.toString()];
+            const dueDate = new Date(doc.dueDate);
+            const dueDay = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+
+            if (dueDay < today) {
+                linkStatus = "Expired";
+            } else if (dueDay.getTime() === today.getTime()) {
+                linkStatus = "Expire Today";
+            } else {
+                const hoursUntilDue = (dueDate - now) / (1000 * 60 * 60);
+                if (hoursUntilDue <= 24) {
+                    linkStatus = "Expire Soon";
+                }
+            }
+
+            allDocs.push({
+                documentRequiredTitle: doc.title,
+                clientName: client.name,
+                document: subCategoryName,
+                type: categoryName,
+                status: docStatus,
+                dateRequested: doc.createdAt,
+                doctitle: doc.doctitle,
+                isUploaded: doc.isUploaded,
+                linkStatus,
+                dueDate: doc.dueDate,
+                createdAt: doc.createdAt
+            });
+        }
+
+        // Sort documents
         allDocs.sort((a, b) => {
             const dateA = new Date(a.dateRequested);
             const dateB = new Date(b.dateRequested);
             return sortByDate === 'asc' ? dateA - dateB : dateB - dateA;
         });
 
+        // Pagination
         const paginatedDocs = allDocs.slice(skip, skip + limit);
 
         resModel.success = true;
