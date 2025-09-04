@@ -463,7 +463,8 @@ module.exports.staffDashboard = async (req, res) => {
         const startIndex = (page - 1) * limit;
         const endIndex = page * limit;
 
-        const assignedClients = await assignClient.find({ staffId }).populate('clientId');
+        // ✅ Fetch assigned clients with lean() for faster read
+        const assignedClients = await assignClient.find({ staffId }).populate('clientId').lean();
 
         let fullDashboardData = [];
         let summary = {
@@ -481,31 +482,36 @@ module.exports.staffDashboard = async (req, res) => {
 
         const now = new Date();
 
+        // ✅ Preload categories & subcategories into maps
+        const [categories, subCategories] = await Promise.all([
+            Category.find({}).lean(),
+            SubCategory.find({}).lean()
+        ]);
+
+        const categoryMap = new Map(categories.map(c => [String(c._id), c.name]));
+        const subCategoryMap = new Map(subCategories.map(sc => [String(sc._id), sc.name]));
+
         for (const assignment of assignedClients) {
             const client = assignment.clientId;
             if (!client || client.status !== true || client.isDeleted === true) continue;
 
             summary.activeClients += 1;
 
-            const docs = await uploadDocuments.find({ clientId: client._id }).sort({ updatedAt: -1 });
+            // ✅ Fetch docs in one go
+            const docs = await uploadDocuments.find({ clientId: client._id }).sort({ updatedAt: -1 }).lean();
 
-            let validDocs = [];
-            for (const doc of docs) {
-                let include = true;
-
+            // Filter "Others" (not uploaded)
+            const validDocs = docs.filter(doc => {
                 if (doc.category) {
-                    const categoryDoc = await Category.findById(doc.category).lean();
-                    if (categoryDoc && categoryDoc.name === "Others" && !doc.isUploaded) {
-                        include = false;
-                    }
+                    const categoryName = categoryMap.get(String(doc.category));
+                    if (categoryName === "Others" && !doc.isUploaded) return false;
                 }
-
-                if (include) validDocs.push(doc);
-            }
+                return true;
+            });
 
             const totalRequests = validDocs.length;
-            const uploaded = validDocs.filter(doc => doc.isUploaded === true).length;
-            const pending = validDocs.filter(doc => doc.status === 'pending' || doc.status === 'rejected').length;
+            const uploaded = validDocs.filter(doc => doc.isUploaded).length;
+            const pending = validDocs.filter(doc => ['pending', 'rejected'].includes(doc.status)).length;
             const overdueCount = validDocs.filter(
                 doc => doc.dueDate && new Date(doc.dueDate) < now && doc.status === 'pending'
             ).length;
@@ -543,20 +549,12 @@ module.exports.staffDashboard = async (req, res) => {
             // Urgent tasks
             for (const doc of docs) {
                 if ((doc.status !== 'pending' && doc.status !== 'rejected') || !doc.dueDate) continue;
+
                 const dueDate = new Date(doc.dueDate);
                 const diffInDays = Math.floor((dueDate - now) / (1000 * 60 * 60 * 24));
 
-                let categoryName = 'Unnamed Document';
-                if (doc.category) {
-                    const categoryDoc = await Category.findById(doc.category);
-                    if (categoryDoc) categoryName = categoryDoc.name;
-                }
-
-                let subCategoryName = 'Unnamed Sub-Category';
-                if (doc.subCategory) {
-                    const subCategoryDoc = await SubCategory.findById(doc.subCategory);
-                    if (subCategoryDoc) subCategoryName = subCategoryDoc.name;
-                }
+                const categoryName = doc.category ? categoryMap.get(String(doc.category)) || 'Unnamed Document' : 'Unnamed Document';
+                const subCategoryName = doc.subCategory ? subCategoryMap.get(String(doc.subCategory)) || 'Unnamed Sub-Category' : 'Unnamed Sub-Category';
 
                 const taskEntry = {
                     clientName: client.name,
@@ -605,13 +603,13 @@ module.exports.staffDashboard = async (req, res) => {
             });
         }
 
+        // ✅ Run category logs in parallel earlier
         const documentCompletion = await staffService().getCategoryLogs(staffId);
 
         // Filtering
         const filteredClients = fullDashboardData.filter(client => {
             const matchesSearch = search
-                ? client.name.toLowerCase().includes(search) ||
-                client.email.toLowerCase().includes(search)
+                ? client.name.toLowerCase().includes(search) || client.email.toLowerCase().includes(search)
                 : true;
 
             const matchesStatus = clientStatus === 'all'
@@ -647,6 +645,7 @@ module.exports.staffDashboard = async (req, res) => {
         res.status(500).json(resModel);
     }
 };
+
 
 
 /**
