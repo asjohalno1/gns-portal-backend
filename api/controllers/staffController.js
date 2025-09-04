@@ -505,7 +505,7 @@ module.exports.staffDashboard = async (req, res) => {
 
             const totalRequests = validDocs.length;
             const uploaded = validDocs.filter(doc => doc.isUploaded === true).length;
-            const pending = validDocs.filter(doc => doc.status === 'pending').length;
+            const pending = validDocs.filter(doc => doc.status === 'pending' || doc.status === 'rejected').length;
             const overdueCount = validDocs.filter(
                 doc => doc.dueDate && new Date(doc.dueDate) < now && doc.status === 'pending'
             ).length;
@@ -666,7 +666,7 @@ module.exports.getAllClientsByStaff = async (req, res) => {
             status,
             dateFrom,
             dateTo,
-            sortByDate = 'desc',
+            sortByDate = '',
             keyword = ''
         } = req.query;
 
@@ -706,7 +706,9 @@ module.exports.getAllClientsByStaff = async (req, res) => {
                 const categoryName = subCatLink?.category?.name || '—';
                 const subCategoryName = subCatLink?.subCategory?.name || 'Unnamed Document';
 
-                // if (documentType && categoryName.toLowerCase() !== documentType.toLowerCase()) continue;
+                if (categoryName.toLowerCase() === "others" && !doc.isUploaded || doc.isCustom) {
+                    continue;
+                }
 
                 const docStatus = doc.status?.charAt(0).toUpperCase() + doc.status?.slice(1) || '—';
                 if (status && docStatus.toLowerCase() !== status.toLowerCase()) continue;
@@ -725,14 +727,12 @@ module.exports.getAllClientsByStaff = async (req, res) => {
 
                 const findLinkStatus = await DocumentRequest.findOne(
                     { _id: doc.request },
-                    { linkStatus: 1, _id: 0 },
-
+                    { linkStatus: 1, _id: 0 }
                 );
                 let linkStatus = findLinkStatus?.linkStatus || "-";
                 const now = new Date();
                 const dueDate = new Date(doc.dueDate);
 
-                // Normalize both dates to midnight (ignore hours, minutes, seconds, ms)
                 const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
                 const dueDay = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
 
@@ -746,7 +746,6 @@ module.exports.getAllClientsByStaff = async (req, res) => {
                         linkStatus = "Expire Soon";
                     }
                 }
-
 
                 allDocs.push({
                     documentRequiredTitle: doc.title,
@@ -762,6 +761,7 @@ module.exports.getAllClientsByStaff = async (req, res) => {
                     createdAt: doc.createdAt
                 });
             }
+
         }
 
         allDocs.sort((a, b) => {
