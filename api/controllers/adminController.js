@@ -2415,8 +2415,10 @@ module.exports.getUnassignedClients = async (req, res) => {
         const { page = 1, limit = 10, search = '', status = 'all' } = req.query;
         const pageNumber = parseInt(page);
         const pageSize = parseInt(limit);
-        const assignedClients = await assignClient.find({}, { clientId: 1, staffId: 1 }).lean();
+
+        const assignedClients = await assignClient.find({}, { clientId: 1, staffId: 1, createdAt: 1 }).lean();
         const assignedClientIds = assignedClients.map(a => a.clientId.toString());
+
         let query = {
             $or: [
                 {
@@ -2431,7 +2433,6 @@ module.exports.getUnassignedClients = async (req, res) => {
                 }
             ]
         };
-
 
         if (status !== 'all') {
             if (status === '1' || status === 1) {
@@ -2451,36 +2452,47 @@ module.exports.getUnassignedClients = async (req, res) => {
         }
 
         const totalClients = await Client.countDocuments(query);
-        const clients = await Client.find(query)
-            .sort({ createdAt: -1 })
-            .skip((pageNumber - 1) * pageSize)
-            .limit(pageSize)
+        let clients = await Client.find(query)
             .lean();
+
+        // Map staff + assignment createdAt
         const clientStaffMap = {};
+        const assignCreatedAtMap = {};
         assignedClients.forEach(ac => {
             clientStaffMap[ac.clientId.toString()] = ac.staffId?.toString();
+            assignCreatedAtMap[ac.clientId.toString()] = ac.createdAt;
         });
+
         const staffIds = Object.values(clientStaffMap).filter(Boolean);
         const staffUsers = await Users.find({ _id: { $in: staffIds } }, { first_name: 1, last_name: 1 }).lean();
         const staffMap = {};
         staffUsers.forEach(u => {
             staffMap[u._id.toString()] = `${u.first_name || ''} ${u.last_name || ''}`.trim();
         });
-        const clientsWithExtras = clients.map(c => {
+
+        // Attach extras + sortDate
+        let clientsWithExtras = clients.map(c => {
             const staffId = clientStaffMap[c._id.toString()];
             const assignedTo = staffMap[staffId] || null;
 
             return {
                 ...c,
                 fullName: `${c.name || ''} ${c.lastName || ''}`.trim(),
-                assignedTo
+                assignedTo,
+                sortDate: assignCreatedAtMap[c._id.toString()] || c.createdAt
             };
         });
+
+        // 🔑 Only change: sort by assignClient.createdAt (if exists), else client.createdAt
+        clientsWithExtras = clientsWithExtras.sort((a, b) => new Date(b.sortDate) - new Date(a.sortDate));
+
+        // Pagination after sorting
+        const paginatedClients = clientsWithExtras.slice((pageNumber - 1) * pageSize, pageNumber * pageSize);
 
         res.status(200).json({
             success: true,
             data: {
-                clients: clientsWithExtras,
+                clients: paginatedClients,
                 totalClients,
                 currentPage: pageNumber,
                 limit: pageSize,
@@ -2529,11 +2541,6 @@ module.exports.assignStaffToClient = async (req, res) => {
             updatedAt: new Date()
         });
 
-        const updatedClient = await Client.findByIdAndUpdate(
-            clientId,
-            { status: true },
-            { new: true }
-        );
 
         res.status(201).json({
             success: true,
