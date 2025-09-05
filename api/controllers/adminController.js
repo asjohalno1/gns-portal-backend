@@ -3142,11 +3142,19 @@ module.exports.mapClientFolders = async (req, res) => {
         const clientFolderId = await createClientFolder(client.name, clientsRootId, client.email);
         await createClientFolder("Uncategorized", clientFolderId, client.email);
 
+        const updateClient = await Client.findOneAndUpdate({ _id: clientId }, { status: true }, { new: true });
+        if (!updateClient) {
+            return res.status(400).json({
+                success: false,
+                message: "Failed to update client folders"
+            });
+        }
+
         return res.status(200).json({
             success: true,
             message: "Client folders mapped successfully",
             data: {
-                client: updatedClient,
+                client: updateClient,
                 staffId: assignment.staffId,
                 folders: {
                     clientsRootId,
@@ -3196,3 +3204,23 @@ module.exports.moveFileToAnotherFolder = async (req, res) => {
 }
 
 
+
+
+module.exports.getUrgentTasks = async (req, res) => {
+    try {
+        const urgentTasks = await SuperAdminService().getUrgentTasks(req.query);
+        res.status(200).json({
+            success: true,
+            message: "Urgent tasks fetched successfully",
+            data: urgentTasks
+        });
+    } catch (error) {
+        console.error("Error fetching urgent tasks:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
+
+    }
+}

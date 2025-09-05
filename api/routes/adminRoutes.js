@@ -68,6 +68,7 @@ module.exports = function (app, validator) {
   app.get('/api/admin/getAllClientsAdmin', auth, adminCntrl.getAllClientsWithoutPagination);
   app.get('/api/admin/getAssociatedSubCategory', auth, adminCntrl.getAssociatedSubCategory);
   app.get('/api/admin/getAllRequestedDocuments', auth, adminCntrl.getAllRequestedDocuments);
+  app.get('/api/admin/get-urgent-tasks', adminCntrl.getUrgentTasks);
   /**Admin Routes's ends */
 
   /** Email Templates Routes's starts */

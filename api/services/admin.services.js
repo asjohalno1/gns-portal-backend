@@ -272,6 +272,7 @@ const SuperAdminService = () => {
                         clientName: client.name,
                         documentId: doc._id,
                         category: categoryName,
+                        subCategory: doc.subCategory?.name || 'N/A',
                         dueDate: doc.dueDate,
                         status: doc.status,
                         isUploaded: doc.isUploaded,
@@ -519,13 +520,105 @@ const SuperAdminService = () => {
         }
     };
 
+
+    const getUrgentTasks = async (query) => {
+        try {
+            const page = parseInt(query.page) || 1;
+            const limit = parseInt(query.limit) || 10;
+            const skip = (page - 1) * limit;
+
+            const assignedClients = await assignClient.find()
+                .populate({ path: "clientId", match: { isDeleted: false } })
+                .lean();
+
+            const validAssignedClients = assignedClients.filter(ac => ac.clientId !== null);
+
+            let urgentTasks = { overdue: [], today: [], tomorrow: [] };
+            const now = new Date();
+
+            // Collect all tasks
+            await Promise.all(validAssignedClients.map(async (assignment) => {
+                const client = assignment.clientId;
+                if (!client) return;
+
+                const docs = await uploadDocuments.find({ clientId: client._id })
+                    .populate("subCategory")
+                    .lean();
+
+                const filteredDocs = docs.filter(doc => !(doc.subCategory?.name === "Others" && !doc.isUploaded));
+
+                for (const doc of filteredDocs) {
+                    if (doc.status !== 'pending' || !doc.dueDate) continue;
+
+                    const dueDate = new Date(doc.dueDate);
+                    const diffInDays = Math.floor((dueDate - now) / (1000 * 60 * 60 * 24));
+
+                    let categoryName = 'Unnamed Document';
+                    if (doc.category) {
+                        const categoryDoc = await Category.findById(doc.category).lean();
+                        if (categoryDoc) categoryName = categoryDoc.name;
+                    }
+
+                    const taskEntry = {
+                        clientId: client._id,
+                        clientName: client.name,
+                        documentId: doc._id,
+                        category: categoryName,
+                        subCategory: doc.subCategory?.name || 'N/A',
+                        dueDate: doc.dueDate,
+                        status: doc.status,
+                        isUploaded: doc.isUploaded,
+                    };
+
+                    if (diffInDays < 0) {
+                        urgentTasks.overdue.push({ ...taskEntry, daysOverdue: Math.abs(diffInDays) });
+                    } else if (diffInDays === 0) {
+                        urgentTasks.today.push(taskEntry);
+                    } else if (diffInDays === 1) {
+                        urgentTasks.tomorrow.push(taskEntry);
+                    }
+                }
+            }));
+
+            // Sorting each category by due date
+            urgentTasks.overdue.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+            urgentTasks.today.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+            urgentTasks.tomorrow.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+
+            // Apply pagination on each category
+            const paginatedUrgentTasks = {
+                overdue: urgentTasks.overdue.slice(skip, skip + limit),
+                today: urgentTasks.today.slice(skip, skip + limit),
+                tomorrow: urgentTasks.tomorrow.slice(skip, skip + limit),
+            };
+
+            return {
+                urgentTasks: paginatedUrgentTasks,
+                total: {
+                    overdue: urgentTasks.overdue.length,
+                    today: urgentTasks.today.length,
+                    tomorrow: urgentTasks.tomorrow.length,
+                },
+                currentPage: page,
+                limit,
+            };
+
+        } catch (error) {
+            console.log("Error fetching urgent tasks:", error);
+            throw error;
+        }
+    };
+
+
+
     return {
         getAllClients,
         parseClients,
         addBulkClients,
         getAdminDashboard,
         getAllStaff,
-        getDocumentManagement
+        getDocumentManagement,
+        getUrgentTasks
     };
 };
 
