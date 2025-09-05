@@ -866,6 +866,110 @@ module.exports.getAllClientsByStaff = async (req, res) => {
     }
 };
 
+
+/** Get All Secure link documnets ! 
+ * @api {get} /api/staff/getAllSecureLink Get All Secure Link
+ * @apiName Get All Secure Link
+ * @apiGroup Staff
+ * @apiHeader {String} Authorization Bearer token
+ * @apiSampleRequest http://localhost:8075/api/staff/get-secure-link
+*/
+
+module.exports.getAllSecureLink = async (req, res) => {
+    try {
+        const staffId = req.userInfo?.id;
+
+        const { page = 1, limit = 10, dateFrom, status, client, sortByDate } = req.query;
+
+        const filter = { createdBy: staffId };
+        if (dateFrom) {
+            filter.createdAt = { $gte: new Date(dateFrom) };
+        }
+        if (status) {
+            filter.linkStatus = status;
+        }
+
+
+        // Count total documents (before pagination)
+        const totalDocuments = await DocumentRequest.countDocuments(filter);
+
+        // Pagination
+        const currentPage = parseInt(page, 10);
+        const perPage = parseInt(limit, 10);
+        const totalPages = Math.ceil(totalDocuments / perPage);
+
+        // Fetch documents
+        let documents = await DocumentRequest.find(filter)
+            .populate("clientId")
+            .populate("category")
+            .populate("subCategory")
+            .sort({ createdAt: -1 })
+            .skip((currentPage - 1) * perPage)
+            .limit(perPage);
+
+        // Client full name filter (applied after population)
+        if (client) {
+            const regex = new RegExp(client, "i");
+            documents = documents.filter((doc) => {
+                if (!doc.clientId) return false;
+                const fullName = `${doc.clientId.name} ${doc.clientId.lastName}`;
+                return regex.test(fullName);
+            });
+        }
+
+        if (sortByDate) {
+            documents.sort((a, b) => {
+                const dateA = new Date(a.createdAt);
+                const dateB = new Date(b.createdAt);
+                return sortByDate === 'asc' ? dateA - dateB : dateB - dateA;
+            });
+        }
+        // Map documents with uploadedDoc
+        const results = await Promise.all(
+            documents.map(async (doc) => {
+                const uploadedDoc = await uploadDocument.findOne({
+                    request: doc._id,
+                    clientId: doc.clientId?._id,
+                });
+
+                return {
+                    id: doc._id,
+                    clientName: doc.clientId
+                        ? `${doc.clientId.name} ${doc.clientId.lastName}`
+                        : "Unknown",
+                    title: doc.doctitle,
+                    created: doc.createdAt,
+                    linkStatus: doc.linkStatus,
+                    dueDate: doc.dueDate,
+                    hasUploadedDoc: !!uploadedDoc,
+                };
+            })
+        );
+
+        // Response
+        res.status(200).json({
+            success: true,
+            message: "Secure link documents fetched successfully",
+            data: {
+                documents: results,
+                currentPage,
+                totalPages,
+                totalDocuments,
+            },
+        });
+    } catch (error) {
+        console.error("Error in getAllSecureLink:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null,
+        });
+    }
+};
+
+
+
+
 /**
  * @api {get} /api/staff/getAllTracking Get All Staff Tracking
  * @apiName Get All Staff Tracking

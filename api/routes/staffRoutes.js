@@ -25,6 +25,7 @@ module.exports = function (app, validator) {
    app.get('/api/staff/getAllUploadedDocuments', auth, staffCntrl.getAllUploadedDocuments)
    app.get('/api/document/title', auth, staffCntrl.getAllDocumentTitle)
    app.get('/api/staff/getAllTracking', auth, staffCntrl.getAllTrackingByStaff)
+   app.get('/api/staff/get-secure-link', auth, staffCntrl.getAllSecureLink)
    app.post('/api/staff/addFolder', auth, validator.body(staffModel.addFolder), staffCntrl.addFolder)
    app.get('/api/staff/getAllFolders', auth, staffCntrl.getAllFolder)
    app.post('/api/staff/sendReminder', auth, checkPermission(PERMISSIONS.SEND_REMINDER), staffCntrl.sendReminder)
