@@ -175,19 +175,24 @@ const SuperAdminService = () => {
             const statusFilter = query.status || 'all';
             const skip = (page - 1) * limit;
 
-            const assignedClients = await assignClient.find()
-                .populate({
-                    path: "clientId",
-                    match: { isDeleted: false },
-                });
+            // Run independent queries in parallel
+            const [assignedClients, userRes, recentLogs] = await Promise.all([
+                assignClient.find()
+                    .populate({ path: "clientId", match: { isDeleted: false } })
+                    .lean(),
+                userModel.find({ role_id: 2, isDeleted: false }).lean(),
+                logModel.find({})
+                    .sort({ createdAt: -1 })
+                    .limit(5)
+                    .populate('clientId')
+                    .lean()
+            ]);
 
             const validAssignedClients = assignedClients.filter(ac => ac.clientId !== null);
-            const userRes = await userModel.find({ role_id: 2, isDeleted: false });
 
-            let fullDashboardData = [];
             let summary = {
-                totalClients: validAssignedClients?.length,
-                totalStaff: userRes?.length,
+                totalClients: validAssignedClients.length,
+                totalStaff: userRes.length,
                 activeSecureLink: 0,
                 completedDocumentsRequest: 0,
                 overdue: 0,
@@ -195,19 +200,23 @@ const SuperAdminService = () => {
                 activeAssigments: 0
             };
 
-            let urgentTasks = {
-                overdue: [],
-                today: [],
-                tomorrow: []
-            };
+            let urgentTasks = { overdue: [], today: [], tomorrow: [] };
+            let fullDashboardData = [];
 
             const now = new Date();
+            const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
 
-            for (const assignment of validAssignedClients) {
+            // Process each client in parallel
+            await Promise.all(validAssignedClients.map(async (assignment) => {
                 const client = assignment.clientId;
-                if (!client) continue;
+                if (!client) return;
 
-                const docs = await uploadDocuments.find({ clientId: client._id }).sort({ updatedAt: -1 }).populate("subCategory");
+                const docs = await uploadDocuments.find({ clientId: client._id })
+                    .sort({ updatedAt: -1 })
+                    .populate("subCategory")
+                    .lean();
+
                 const filteredDocs = docs.filter(doc => !(doc.subCategory?.name === "Others" && !doc.isUploaded));
 
                 const totalRequests = filteredDocs.length;
@@ -220,9 +229,6 @@ const SuperAdminService = () => {
                 summary.activeSecureLink += notExpiredLinks;
                 summary.activeAssigments += notExpiredLinks;
                 summary.overdue += overdue;
-
-                const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
 
                 summary.completedToday += filteredDocs.filter(doc =>
                     doc.status === 'accepted' &&
@@ -249,6 +255,7 @@ const SuperAdminService = () => {
                     else taskDeadline = `${daysLeft} Days`;
                 }
 
+                // Urgent tasks loop (bulk categories later if needed)
                 for (const doc of filteredDocs) {
                     if (doc.status !== 'pending' || !doc.dueDate) continue;
                     const dueDate = new Date(doc.dueDate);
@@ -256,7 +263,7 @@ const SuperAdminService = () => {
 
                     let categoryName = 'Unnamed Document';
                     if (doc.category) {
-                        const categoryDoc = await Category.findById(doc.category);
+                        const categoryDoc = await Category.findById(doc.category).lean();
                         if (categoryDoc) categoryName = categoryDoc.name;
                     }
 
@@ -277,13 +284,13 @@ const SuperAdminService = () => {
 
                 let categoryName = '-';
                 if (filteredDocs[0]?.category) {
-                    const categoryDoc = await Category.findById(filteredDocs[0].category);
+                    const categoryDoc = await Category.findById(filteredDocs[0].category).lean();
                     if (categoryDoc) categoryName = categoryDoc.name;
                 }
 
-                const requestById = await requestDocument
-                    .find({ _id: filteredDocs[0]?.request })
-                    .select('_id createdAt');
+                const requestById = filteredDocs[0]?.request
+                    ? await requestDocument.find({ _id: filteredDocs[0].request }).select('_id createdAt').lean()
+                    : [];
 
                 let process = 0;
                 if (totalRequests > 0) {
@@ -291,19 +298,12 @@ const SuperAdminService = () => {
                 }
 
                 let processStatus = "Not Started";
-                if (process === 0 && !totalRequests) {
-                    processStatus = "Unassigned";
-                } else if (process > 0 && process <= 25) {
-                    processStatus = "Pending";
-                } else if (process > 25 && process <= 50) {
-                    processStatus = "Under Review";
-                } else if (process > 50 && process <= 75) {
-                    processStatus = "In Progress";
-                } else if (process > 75 && process < 100) {
-                    processStatus = "Finalizing";
-                } else if (process === 100) {
-                    processStatus = "Completed";
-                }
+                if (process === 0 && !totalRequests) processStatus = "Unassigned";
+                else if (process > 0 && process <= 25) processStatus = "Pending";
+                else if (process > 25 && process <= 50) processStatus = "Under Review";
+                else if (process > 50 && process <= 75) processStatus = "In Progress";
+                else if (process > 75 && process < 100) processStatus = "Finalizing";
+                else if (process === 100) processStatus = "Completed";
 
                 fullDashboardData.push({
                     title: categoryName,
@@ -321,7 +321,7 @@ const SuperAdminService = () => {
                     process,
                     processStatus
                 });
-            }
+            }));
 
             // 🔍 Filter by search and status
             let filteredClients = fullDashboardData.filter(client => {
@@ -340,11 +340,6 @@ const SuperAdminService = () => {
             // ✨ Apply pagination
             const paginatedClients = filteredClients.slice(skip, skip + limit);
 
-            const recentLogs = await logModel.find({})
-                .sort({ createdAt: -1 })
-                .limit(5)
-                .populate('clientId');
-
             const recentActivity = recentLogs.map(log => ({
                 title: log.title,
                 message: log.clientId?.name
@@ -355,7 +350,7 @@ const SuperAdminService = () => {
             return {
                 recentActivity,
                 summary,
-                urgentTasks, // ✅ return ke andar bhi wapas add
+                urgentTasks,
                 clients: paginatedClients,
                 totalPages: Math.ceil(filteredClients.length / limit),
                 currentPage: page,
@@ -366,6 +361,8 @@ const SuperAdminService = () => {
             throw error;
         }
     };
+
+
 
 
     const getAllStaff = async () => {
