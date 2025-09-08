@@ -9,8 +9,8 @@ const transporter = nodemailer.createTransport({
   port: 587,
   secure: false,
   auth: {
-    user: "shaktisainisd@gmail.com",
-    pass: "pxrf kfwe yiyo jxjb", // Your Gmail App Password
+    user: "info@gns-cpas.com",
+    pass: "lmyf ewmj epqa spml", // Your Gmail App Password
   },
 });
 
@@ -76,7 +76,7 @@ const sendEmail = async (email, subject, link, name, doctitle, deadline, docList
 
     // send email
     const info = await transporter.sendMail({
-      from: "shaktisainisd@gmail.com",
+      from: "info@gns-cpas.com",
       to: email,
       subject: subject,
       html: htmlContent,
@@ -128,7 +128,7 @@ const sendEmailRemainder = async (email, subject, link, name = "User", deadline,
       .trim();
 
     const info = await transporter.sendMail({
-      from: 'shaktisainisd@gmail.com',
+      from: 'info@gns-cpas.com',
       to: email,
       subject: subject,
       html: htmlContent,
@@ -154,7 +154,7 @@ const sendStaffAddedEmail = async (email, name, password, loginLink) => {
     });
 
     const info = await transporter.sendMail({
-      from: 'shaktisainisd@gmail.com',
+      from: 'info@gns-cpas.com',
       to: email,
       subject: subject,
       html: htmlContent,
