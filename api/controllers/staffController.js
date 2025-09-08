@@ -2231,7 +2231,8 @@ exports.addGoogleMaping = async (req, res) => {
         if (standardFolder) {
             // const staticRoot = await createClientFolder(getStaff?.first_name, "", clientRes?.email);
             let sharedId = await getSharedFolderDriveId();
-            const clientsRootId = await createClientFolder("Clients", null, clientRes?.email, sharedId);
+            const clientMainRootid = await createClientFolder("Client_Portal_Testing_SD", null, clientRes?.email, sharedId);
+            const clientsRootId = await createClientFolder("Clients", clientMainRootid, clientRes?.email);
             const staticRootId = await createClientFolder(clientRes?.name, clientsRootId, clientRes?.email);
             let folder = ["Tax Returns", "Bookkeeping"]
             for (const folderName of folder) {
@@ -2241,7 +2242,9 @@ exports.addGoogleMaping = async (req, res) => {
         if (additionalSubfolders.length > 0) {
             // const staticRoot = await createClientFolder(getStaff?.first_name, "", clientRes?.email);
             let sharedId = await getSharedFolderDriveId();
-            const clientsRootId = await createClientFolder("Clients", null, clientRes?.email, sharedId);
+            const clientMainRootid = await createClientFolder("Client_Portal_Testing_SD", null, clientRes?.email, sharedId);
+
+            const clientsRootId = await createClientFolder("Clients", clientMainRootid, clientRes?.email);
             const staticRootId = await createClientFolder(clientRes?.name, clientsRootId, clientRes?.email);
             for (const folderName of additionalSubfolders) {
                 await createClientFolder(folderName, staticRootId, clientRes?.email);

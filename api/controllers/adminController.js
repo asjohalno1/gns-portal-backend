@@ -3067,7 +3067,8 @@ exports.addGoogleMappingByAdmin = async (req, res) => {
         // Create additional subfolders
         if (additionalSubfolders?.length > 0) {
             let sharedId = await getSharedFolderDriveId();
-            const clientsRootId = await createClientFolder("Clients", null, clientRes.email, sharedId);
+            const clientMainRootid = await createClientFolder("Client_Portal_Testing_SD", null, clientRes.email, sharedId);
+            const clientsRootId = await createClientFolder("Clients", clientMainRootid, clientRes.email);
             const staticRootId = await createClientFolder(clientRes.name, clientsRootId, clientRes.email);
             for (const folderName of additionalSubfolders) {
                 await createClientFolder(folderName, staticRootId, clientRes.email);
