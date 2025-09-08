@@ -248,7 +248,8 @@ const uploadFileToFolder = async (clientName, files, category, email, staffName)
         const sharedDriveId = await getSharedDriveId(drive);
 
         // Create folder hierarchy
-        const clientsRootId = await createClientFolder("Clients", null, email, null, sharedDriveId);
+        const clientMainRootid = await createClientFolder("Client_Portal_Testing_SD", null, email, sharedDriveId);
+        const clientsRootId = await createClientFolder("Clients", clientMainRootid, email);
         const clientFolderId = await createClientFolder(clientName, clientsRootId, email);
         const uncategorizedFolderId = await createClientFolder("Uncategorized", clientFolderId, email);
 

@@ -340,7 +340,7 @@ module.exports.uploadDocument = async (req, res) => {
         let clientRes = await clientModel.findOne({ _id: req?.userInfo?.clientId });
         let subCategory = await subCategoryModel.findOne({ _id: subCategoryId });
         let userRes = await User.findOne({ _id: staffId });
-        // await uploadFileToFolder(clientRes?.name, files, subCategory?.name, clientRes?.email, userRes?.first_name);
+        await uploadFileToFolder(clientRes?.name, files, subCategory?.name, clientRes?.email, userRes?.first_name);
         const uploadInfo = {
             request: id,
             clientEmail: req?.userInfo?.email.toLowerCase(),
