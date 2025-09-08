@@ -144,7 +144,7 @@ async function initializeDrive() {
 }
 
 // Get or create shared drive (you can modify this to use a specific shared drive ID)
-async function getSharedDriveId(driveInstance, sharedDriveName = "CPA Projects", list) {
+async function getSharedDriveId(driveInstance, sharedDriveName = "Client_Portal_Testing_SD", list) {
     try {
         let response
         if (list) {
@@ -208,15 +208,21 @@ const createClientFolder = async (name, parentId = null, Email, sharedDriveId = 
         });
 
         // ✅ Share folder with the given user
-        await drive.permissions.create({
-            fileId: folder.data.id,
-            requestBody: {
-                role: 'writer',
-                type: 'user',
-                emailAddress: Email,
-            },
-            supportsAllDrives: true
-        });
+        try {
+            if (Email) {
+                await drive.permissions.create({
+                    fileId: folder.data.id,
+                    requestBody: {
+                        role: 'writer',
+                        type: 'user',
+                        emailAddress: Email,
+                    },
+                    supportsAllDrives: true
+                });
+            }
+        } catch (shareError) {
+            console.warn(`⚠️ Sharing failed for ${Email}:`, shareError.message);
+        }
 
         // ✅ Save folderId if it’s root client folder
         // if (!parentId && _id) {
@@ -494,6 +500,68 @@ const deleteAllFolders = async () => {
     }
 };
 
+const deleteSpecificFolder = async (folderId) => {
+    try {
+        await initializeDrive();
+
+        // ✅ Recursive delete helper
+        const deleteFolderRecursively = async (folderId) => {
+            try {
+                // 1. Delete all files inside this folder
+                const filesRes = await drive.files.list({
+                    q: `'${folderId}' in parents and trashed = false and mimeType != 'application/vnd.google-apps.folder'`,
+                    fields: 'files(id, name)',
+                    includeItemsFromAllDrives: true,
+                    supportsAllDrives: true
+                });
+
+                const files = filesRes.data?.files || [];
+                for (const file of files) {
+                    console.log(`🗑️ Deleting file: ${file.name} (${file.id})`);
+                    await drive.files.delete({
+                        fileId: file.id,
+                        supportsAllDrives: true
+                    });
+                }
+
+                // 2. Get all subfolders
+                const subFoldersRes = await drive.files.list({
+                    q: `'${folderId}' in parents and trashed = false and mimeType = 'application/vnd.google-apps.folder'`,
+                    fields: 'files(id, name)',
+                    includeItemsFromAllDrives: true,
+                    supportsAllDrives: true
+                });
+
+                const subFolders = subFoldersRes.data?.files || [];
+                for (const subFolder of subFolders) {
+                    await deleteFolderRecursively(subFolder.id);
+                }
+
+                // 3. Finally delete the folder itself
+                console.log(`🧹 Deleting folder: ${folderId}`);
+                await drive.files.delete({
+                    fileId: folderId,
+                    supportsAllDrives: true
+                });
+            } catch (err) {
+                console.error(`❌ Error deleting folder ${folderId}:`, err.message);
+            }
+        };
+
+        // ✅ Only delete the specific folder
+        console.log(`🧹 Deleting specific folder: ${folderId}`);
+        await deleteFolderRecursively(folderId);
+
+        console.log('✅ Folder deleted.');
+    } catch (error) {
+        console.error('❌ Error deleting folder:', error.message);
+    }
+};
+
+// Usage
+
+
+
 
 const deleteFolderRecursively = async (folderId) => {
     const listRes = await drive.files.list({
@@ -693,7 +761,8 @@ const getSharedFolderDriveId = async () => {
         return sharedDriveId
 
     } catch (error) {
-
+        console.error("❌ Error getting shared drive ID:", error.message);
+        throw error;
     }
 }
 
@@ -727,5 +796,6 @@ module.exports = {
     listFilesInFolder,
     getnewFolderStructure,
     getSharedFolderDriveId,
-    moveFileToAnotherFolder
+    moveFileToAnotherFolder,
+    deleteSpecificFolder
 };

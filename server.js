@@ -66,8 +66,9 @@ app.get("/dist/client/token-handler/*", (req, res) => {
 });
 
 // ✅ Optional: Google Drive cleanup utility
-const { deleteAllFolders } = require('./api/services/googleDriveService.js');
-// deleteAllFolders();
+const { deleteAllFolders, deleteSpecificFolder } = require('./api/services/googleDriveService.js');
+//deleteAllFolders();
+//deleteSpecificFolder("1NAZnyLcQJlkP3iOdtn0XrqABG8jqLwFj")
 const twilioServices = require('./api/services/twilio.services');
 // twilioServices.sendSmsLink('+919027921494', 'https://example.com/upload/secure-token');
 

@@ -300,7 +300,8 @@ module.exports.addClient = async (req, res) => {
         // const getStaff = await Users.findOne({ _id: staffId });
         // const staticRoot = await createClientFolder(getStaff?.first_name, null, email, staffId);
         let sharedId = await getSharedFolderDriveId();
-        const clientsRootId = await createClientFolder("Clients", null, email, sharedId);
+        const clientMainrootID = await getnewFolderStructure("Client_Portal_Testing_SD", null, email, sharedId);
+        const clientsRootId = await createClientFolder("Clients", clientMainrootID, email);
         const clientFolderId = await createClientFolder(name, clientsRootId, email);
         await createClientFolder("Uncategorized", clientFolderId, email);
 
@@ -3054,7 +3055,8 @@ exports.addGoogleMappingByAdmin = async (req, res) => {
         // Create standard folders
         if (standardFolder) {
             let sharedId = await getSharedFolderDriveId();
-            const clientsRootId = await createClientFolder("Clients", null, clientRes.email, sharedId);
+            const clientMainRootid = await createClientFolder("Client_Portal_Testing_SD", null, clientRes.email, sharedId);
+            const clientsRootId = await createClientFolder("Clients", clientMainRootid, clientRes.email);
             const staticRootId = await createClientFolder(clientRes.name, clientsRootId, clientRes.email);
             const folderList = ["Tax Returns", "Bookkeeping"];
             for (const folderName of folderList) {
@@ -3138,7 +3140,8 @@ module.exports.mapClientFolders = async (req, res) => {
         }
 
         let sharedId = await getSharedFolderDriveId();
-        const clientsRootId = await createClientFolder("Clients", null, client.email, sharedId);
+        const clientMainRootid = await createClientFolder("Client_Portal_Testing_SD", null, client.email, sharedId);
+        const clientsRootId = await createClientFolder("Clients", clientMainRootid, client.email);
         const clientFolderId = await createClientFolder(client.name, clientsRootId, client.email);
         await createClientFolder("Uncategorized", clientFolderId, client.email);
 
