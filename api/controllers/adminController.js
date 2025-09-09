@@ -2415,8 +2415,10 @@ module.exports.getUnassignedClients = async (req, res) => {
         const { page = 1, limit = 10, search = '' } = req.query;
         const pageNumber = parseInt(page);
         const pageSize = parseInt(limit);
+
         const assignedClients = await assignClient.find({}, { clientId: 1, staffId: 1, createdAt: 1 }).lean();
         const assignedClientIds = assignedClients.map(a => a.clientId.toString());
+
         let query = {
             $and: [
                 { isDeleted: false },
@@ -2433,22 +2435,19 @@ module.exports.getUnassignedClients = async (req, res) => {
                 }
             ]
         };
+
         if (search) {
             const searchTerms = search.split(' ').filter(term => term.trim().length > 0);
-            const searchConditions = [];
-
-            searchTerms.forEach(term => {
-                searchConditions.push(
+            const searchConditions = searchTerms.map(term => ({
+                $or: [
                     { name: { $regex: term, $options: 'i' } },
                     { lastName: { $regex: term, $options: 'i' } },
                     { email: { $regex: term, $options: 'i' } },
                     { phoneNumber: { $regex: term, $options: 'i' } }
-                );
-            });
-
-            query.$and.push({ $or: searchConditions });
+                ]
+            }));
+            query.$and.push(...searchConditions);
         }
-
         const totalClients = await Client.countDocuments(query);
         let clients = await Client.find(query).lean();
         const clientStaffMap = {};
