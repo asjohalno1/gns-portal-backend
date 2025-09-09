@@ -34,8 +34,13 @@ module.exports.addClient = joi.object({
   address: joi.string().required(),
   company: joi.string().required(),
   notes: joi.string().allow('').optional(),
-  staffId: joi.string().required(),
-  status: joi.boolean(),
+  staffId: joi.string().required().messages({
+    'string.empty': 'Staff is required',
+    'any.required': 'Staff is required'
+  }),
+  status: joi.boolean().messages({
+    'boolean.base': 'Please select a valid status'
+  }),
 })
 /**Client Model Ends */
 
