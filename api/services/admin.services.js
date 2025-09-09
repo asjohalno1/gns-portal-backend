@@ -30,11 +30,32 @@ const SuperAdminService = () => {
             const page = parseInt(pageNumber);
             const skip = (page - 1) * limit;
             const filter = { isDeleted: false, status: true };
+
             if (search) {
-                filter.$or = [
-                    { name: { $regex: search, $options: 'i' } },
-                    { email: { $regex: search, $options: 'i' } }
-                ];
+                // Split search terms and create regex patterns for each term
+                const searchTerms = search.split(' ').filter(term => term.trim().length > 0);
+
+                // Create an array of regex conditions for each search term
+                const searchConditions = searchTerms.map(term => ({
+                    $or: [
+                        { name: { $regex: term, $options: 'i' } },
+                        { lastName: { $regex: term, $options: 'i' } },
+                        { email: { $regex: term, $options: 'i' } },
+                        // Add full name search by combining first and last name
+                        {
+                            $expr: {
+                                $regexMatch: {
+                                    input: { $concat: ["$name", " ", "$lastName"] },
+                                    regex: term,
+                                    options: "i"
+                                }
+                            }
+                        }
+                    ]
+                }));
+
+                // Use $and to ensure ALL search terms match
+                filter.$and = searchConditions;
             }
 
             // Handle status filter
@@ -87,7 +108,6 @@ const SuperAdminService = () => {
             throw new Error(error.message);
         }
     };
-
     function parseCSV(filePath) {
         return new Promise((resolve, reject) => {
             const results = [];
@@ -310,6 +330,7 @@ const SuperAdminService = () => {
                     title: categoryName,
                     name: client.name,
                     email: client.email,
+                    clientFullName: `${client.name} ${client.lastName || ''}`,
                     documentRequest: totalRequests
                         ? `Document remaining (${completed}/${totalRequests})`
                         : 'Not Assign Any Document',
@@ -324,11 +345,19 @@ const SuperAdminService = () => {
                 });
             }));
 
-            // 🔍 Filter by search and status
             let filteredClients = fullDashboardData.filter(client => {
                 const matchesSearch = search
                     ? client.name.toLowerCase().includes(search) ||
-                    client.email.toLowerCase().includes(search) || client.title.toLowerCase().includes(search)
+                    client.email.toLowerCase().includes(search) ||
+                    client.lastName?.toLowerCase().includes(search) ||
+                    // Add full name search
+                    client.clientFullName.toLowerCase().includes(search) ||
+                    // Add partial name matching (split search terms)
+                    search.split(' ').every(term =>
+                        client.name.toLowerCase().includes(term) ||
+                        client.lastName?.toLowerCase().includes(term) ||
+                        client.clientFullName.toLowerCase().includes(term)
+                    )
                     : true;
 
                 const matchesStatus = statusFilter !== 'all'
@@ -337,7 +366,6 @@ const SuperAdminService = () => {
 
                 return matchesSearch && matchesStatus;
             });
-
             // ✨ Apply pagination
             const paginatedClients = filteredClients.slice(skip, skip + limit);
 

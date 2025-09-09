@@ -2410,53 +2410,47 @@ module.exports.updateStaff = async (req, res) => {
     }
 };
 
-
 module.exports.getUnassignedClients = async (req, res) => {
     try {
-        const { page = 1, limit = 10, search = '', status = 'all' } = req.query;
+        const { page = 1, limit = 10, search = '' } = req.query;
         const pageNumber = parseInt(page);
         const pageSize = parseInt(limit);
-
         const assignedClients = await assignClient.find({}, { clientId: 1, staffId: 1, createdAt: 1 }).lean();
         const assignedClientIds = assignedClients.map(a => a.clientId.toString());
-
         let query = {
-            $or: [
+            $and: [
+                { isDeleted: false },
                 {
-                    _id: { $nin: assignedClientIds },
-                    status: false,
-                    isDeleted: false
-                },
-                {
-                    _id: { $in: assignedClientIds },
-                    status: false,
-                    isDeleted: false
+                    $or: [
+                        { _id: { $nin: assignedClientIds } }, // unassigned
+                        {
+                            $and: [
+                                { _id: { $in: assignedClientIds } },
+                                { status: false }              // assigned but status=false
+                            ]
+                        }
+                    ]
                 }
             ]
         };
-
-        if (status !== 'all') {
-            if (status === '1' || status === 1) {
-                query.status = true;
-            } else if (status === '0' || status === 0) {
-                query.status = false;
-            }
-        }
-
         if (search) {
-            query.$or = [
-                { first_name: { $regex: search, $options: 'i' } },
-                { last_name: { $regex: search, $options: 'i' } },
-                { email: { $regex: search, $options: 'i' } },
-                { phoneNumber: { $regex: search, $options: 'i' } }
-            ];
+            const searchTerms = search.split(' ').filter(term => term.trim().length > 0);
+            const searchConditions = [];
+
+            searchTerms.forEach(term => {
+                searchConditions.push(
+                    { name: { $regex: term, $options: 'i' } },
+                    { lastName: { $regex: term, $options: 'i' } },
+                    { email: { $regex: term, $options: 'i' } },
+                    { phoneNumber: { $regex: term, $options: 'i' } }
+                );
+            });
+
+            query.$and.push({ $or: searchConditions });
         }
 
         const totalClients = await Client.countDocuments(query);
-        let clients = await Client.find(query)
-            .lean();
-
-        // Map staff + assignment createdAt
+        let clients = await Client.find(query).lean();
         const clientStaffMap = {};
         const assignCreatedAtMap = {};
         assignedClients.forEach(ac => {
@@ -2470,8 +2464,6 @@ module.exports.getUnassignedClients = async (req, res) => {
         staffUsers.forEach(u => {
             staffMap[u._id.toString()] = `${u.first_name || ''} ${u.last_name || ''}`.trim();
         });
-
-        // Attach extras + sortDate
         let clientsWithExtras = clients.map(c => {
             const staffId = clientStaffMap[c._id.toString()];
             const assignedTo = staffMap[staffId] || null;
@@ -2483,12 +2475,8 @@ module.exports.getUnassignedClients = async (req, res) => {
                 sortDate: assignCreatedAtMap[c._id.toString()] || c.createdAt
             };
         });
-
-        // 🔑 Only change: sort by assignClient.createdAt (if exists), else client.createdAt
         clientsWithExtras = clientsWithExtras.sort((a, b) => new Date(b.sortDate) - new Date(a.sortDate));
-
-        // Pagination after sorting
-        const paginatedClients = clientsWithExtras.slice((pageNumber - 1) * pageSize, pageNumber * pageSize);
+        const paginatedClients = clientsWithExtras.slice((pageNumber - 1) * pageNumber, pageNumber * pageSize);
 
         res.status(200).json({
             success: true,
@@ -2515,17 +2503,12 @@ module.exports.getUnassignedClients = async (req, res) => {
 module.exports.assignStaffToClient = async (req, res) => {
     try {
         const { staffId, clientId } = req.body.data || {};
-
-
-        // Validate inputs
         if (!staffId || !clientId) {
             return res.status(400).json({
                 success: false,
                 message: "staffId and clientId are required"
             });
         }
-
-        // Check if this client is already assigned
         const existingAssignment = await assignClient.findOne({ clientId });
         if (existingAssignment) {
             return res.status(400).json({
@@ -2534,7 +2517,6 @@ module.exports.assignStaffToClient = async (req, res) => {
             });
         }
 
-        // Create new assignment
         const assignment = await assignClient.create({
             staffId,
             clientId,
@@ -2570,11 +2552,17 @@ module.exports.getStaffPerformanceMetrics = async (req, res) => {
         const staffQuery = { role_id: "2", isDeleted: false };
 
         if (search) {
-            staffQuery.$or = [
-                { first_name: { $regex: search, $options: 'i' } },
-                { last_name: { $regex: search, $options: 'i' } },
-                { email: { $regex: search, $options: 'i' } }
-            ];
+            const searchTerms = search.split(' ').filter(term => term.trim().length > 0);
+
+            // Create search conditions for each term
+            const searchConditions = searchTerms.map(term => ({
+                $or: [
+                    { first_name: { $regex: term, $options: 'i' } },
+                    { last_name: { $regex: term, $options: 'i' } },
+                    { email: { $regex: term, $options: 'i' } }
+                ]
+            }));
+            staffQuery.$and = searchConditions;
         }
         const allStaffUsers = await Users.find(staffQuery).lean();
         const totalStaff = allStaffUsers.length;
