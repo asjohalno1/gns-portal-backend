@@ -110,7 +110,7 @@ module.exports = function (app, validator) {
   /** Admin Document Routes's starts */
 
   app.get('/api/admin/documents', auth, adminCntrl.getAllDocumentListing);
-
+  app.get('/api/admin/getalldocuments', auth, adminCntrl.getAllDocumentStatusAdmin);
 
   /** Admin Document Routes's ends */
 
@@ -121,6 +121,7 @@ module.exports = function (app, validator) {
   app.get('/api/admin/get/adminDocument', adminCntrl.getAdminDocu);
   app.post('/api/admin/client-mapping', auth, adminCntrl.mapClientFolders);
   app.post('/api/admin/move-to-folder', auth, adminCntrl.moveFileToAnotherFolder);
+  app.post('/api/admin/assignedandmap', auth, adminCntrl.assignAndMapClient);
 }
 
 

@@ -1915,31 +1915,76 @@ module.exports.getAllLogs = async (req, res) => {
         const parsedPage = parseInt(page);
         const parsedLimit = parseInt(limit);
 
-        const query = {};
+        let query = {};
+        let userIds = [];
 
+        // If there's a search term, find matching users first
         if (search) {
+            const searchRegex = { $regex: search, $options: "i" };
+
+            // Find users whose names or emails match the search term
+            const matchingUsers = await Users.find({
+                $or: [
+                    { first_name: searchRegex },
+                    { last_name: searchRegex },
+                    { email: searchRegex },
+                    // Search for full name by combining first and last name
+                    {
+                        $expr: {
+                            $regexMatch: {
+                                input: { $concat: ["$first_name", " ", "$last_name"] },
+                                regex: search,
+                                options: "i"
+                            }
+                        }
+                    }
+                ]
+            }).select('_id');
+
+            userIds = matchingUsers.map(user => user._id);
+
+            // Find clients that match the search term
+            const matchingClients = await Client.find({
+                $or: [
+                    { name: searchRegex },
+                    { email: searchRegex }
+                ]
+            }).select('_id');
+
+            const clientIds = matchingClients.map(client => client._id);
+
+            // Build the main query with search conditions
             query.$or = [
-                { title: { $regex: search, $options: "i" } },
-                { description: { $regex: search, $options: "i" } },
-                { name: { $regex: search, $options: "i" } },
-                { role: { $regex: search, $options: "i" } },
-                { email: { $regex: search, $options: "i" } }
+                { title: searchRegex },
+                { description: searchRegex },
+                { userId: { $in: userIds } },
+                { clientId: { $in: clientIds } }
             ];
         }
 
+        // Apply status filter
         if (status && status !== "all") {
+            let statusQuery = {};
+
             if (status === "staff") {
                 const staffUsers = await Users.find({ role_id: "2" }).select('_id');
-                query.userId = { $in: staffUsers.map(u => u._id) };
+                statusQuery.userId = { $in: staffUsers.map(u => u._id) };
             } else if (status === "admin") {
                 const adminUsers = await Users.find({ role_id: "1" }).select('_id');
-                query.userId = { $in: adminUsers.map(u => u._id) };
+                statusQuery.userId = { $in: adminUsers.map(u => u._id) };
             } else if (status === "client") {
                 const clientRoleUsers = await Users.find({ role_id: "3" }).select('_id');
-                query.$or = [
+                statusQuery.$or = [
                     { clientId: { $exists: true, $ne: null } },
                     { userId: { $in: clientRoleUsers.map(u => u._id) } }
                 ];
+            }
+
+            // Combine search query with status query
+            if (search && Object.keys(statusQuery).length > 0) {
+                query = { $and: [query, statusQuery] };
+            } else if (Object.keys(statusQuery).length > 0) {
+                query = statusQuery;
             }
         }
 
@@ -2567,7 +2612,6 @@ module.exports.getStaffPerformanceMetrics = async (req, res) => {
                 $or: [
                     { first_name: { $regex: term, $options: 'i' } },
                     { last_name: { $regex: term, $options: 'i' } },
-                    { email: { $regex: term, $options: 'i' } }
                 ]
             }));
             staffQuery.$and = searchConditions;
@@ -3224,3 +3268,210 @@ module.exports.getUrgentTasks = async (req, res) => {
 
     }
 }
+
+
+
+/*@api Post /api/admin/assignandMap 
+
+*/
+
+module.exports.assignAndMapClient = async (req, res) => {
+    try {
+        const { staffId, clientId } = req.body;
+        if (!staffId || !clientId) {
+            return res.status(400).json({
+                success: false,
+                message: "staffId and clientId are required"
+            });
+        }
+        const client = await Client.findById(clientId).lean();
+        if (!client) {
+            return res.status(404).json({
+                success: false,
+                message: "Client not found"
+            });
+        }
+
+        const staff = await Users.findById(staffId).lean();
+        if (!staff) {
+            return res.status(404).json({
+                success: false,
+                message: "Staff member not found"
+            });
+        }
+        const existingAssignment = await assignClient.findOne({ clientId });
+        if (existingAssignment) {
+            return res.status(400).json({
+                success: false,
+                message: "Client is already assigned to a staff member"
+            });
+        }
+        const assignment = await assignClient.create({
+            staffId,
+            clientId,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        });
+
+        let sharedId = await getSharedFolderDriveId();
+        const clientMainRootid = await createClientFolder("Client_Portal_Testing_SD", null, client.email, sharedId);
+        const clientsRootId = await createClientFolder("Clients", clientMainRootid, client.email);
+        const clientFolderId = await createClientFolder(client.name, clientsRootId, client.email);
+        await createClientFolder("Uncategorized", clientFolderId, client.email);
+
+        const updateClient = await Client.findOneAndUpdate(
+            { _id: clientId },
+            { status: true, updatedAt: new Date() },
+            { new: true }
+        );
+
+        if (!updateClient) {
+            return res.status(400).json({
+                success: false,
+                message: "Failed to update client status"
+            });
+        }
+        res.status(201).json({
+            success: true,
+            message: "Staff assigned to client and folders mapped successfully",
+            data: {
+                assignment,
+                client: updateClient,
+                staffId: assignment.staffId,
+                folders: {
+                    clientsRootId,
+                    clientFolderId
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error("Error in assignAndMapClient:", error);
+        res.status(500).json({
+            success: false,
+            message: "Server Error",
+            error: error.message
+        });
+    }
+};
+
+
+
+module.exports.getAllDocumentStatusAdmin = async (req, res) => {
+    try {
+        const { page = 1, limit = 10, dateFrom, status, client, search, sortByDate } = req.query;
+
+        const filter = {};
+
+        // Date filter
+        if (dateFrom) {
+            filter.createdAt = { $gte: new Date(dateFrom) };
+        }
+
+        // Status filter (ignore if status=all)
+        if (status && status !== "all") {
+            filter.linkStatus = status;
+        }
+
+        // Build search regex
+        let searchRegex;
+        if (search && search.trim() !== "") {
+            searchRegex = new RegExp(search, "i");
+        }
+
+        // Fetch documents first (filtered & populated)
+        let documents = await DocumentRequest.find(filter)
+            .populate("clientId")
+            .populate("category")
+            .populate("subCategory")
+            .sort({ createdAt: -1 }); // default sort newest first
+
+        // Search & client filter applied after population (in-memory)
+        if (client) {
+            const clientRegex = new RegExp(client, "i");
+            documents = documents.filter((doc) => {
+                if (!doc.clientId) return false;
+                const fullName = `${doc.clientId.name} ${doc.clientId.lastName}`;
+                return clientRegex.test(fullName);
+            });
+        }
+
+        if (searchRegex) {
+            documents = documents.filter((doc) => {
+                const fullName = doc.clientId
+                    ? `${doc.clientId.name} ${doc.clientId.lastName}`
+                    : "";
+                return (
+                    searchRegex.test(doc.doctitle) ||
+                    searchRegex.test(fullName) ||
+                    searchRegex.test(doc.linkStatus)
+                );
+            });
+        }
+
+        // Sort by date if requested
+        if (sortByDate) {
+            documents.sort((a, b) => {
+                const dateA = new Date(a.createdAt);
+                const dateB = new Date(b.createdAt);
+                return sortByDate === "asc" ? dateA - dateB : dateB - dateA;
+            });
+        }
+
+        // Pagination AFTER filtering/search
+        const totalDocuments = documents.length;
+        const currentPage = parseInt(page, 10);
+        const perPage = parseInt(limit, 10);
+        const totalPages = Math.ceil(totalDocuments / perPage);
+
+        documents = documents.slice((currentPage - 1) * perPage, currentPage * perPage);
+
+        // Map documents with uploadedDoc
+        const results = await Promise.all(
+            documents.map(async (doc) => {
+                const uploadedDoc = await uploadDocument.findOne({
+                    request: doc._id,
+                    clientId: doc.clientId?._id,
+                });
+
+                // Check expiration dynamically
+                let linkStatus = doc.linkStatus;
+                if (doc.dueDate && new Date() > new Date(doc.dueDate)) {
+                    linkStatus = "Expired";
+                }
+
+                return {
+                    id: doc._id,
+                    clientName: doc.clientId
+                        ? `${doc.clientId.name} ${doc.clientId.lastName}`
+                        : "Unknown",
+                    title: doc.doctitle,
+                    createdAt: doc.createdAt,
+                    linkStatus,
+                    dueDate: doc.dueDate,
+                    hasUploadedDoc: !!uploadedDoc,
+                };
+            })
+        );
+
+        res.status(200).json({
+            success: true,
+            message: "All documents fetched successfully (Admin)",
+            data: {
+                documents: results,
+                currentPage,
+                totalPages,
+                totalDocuments,
+            },
+        });
+
+    } catch (error) {
+        console.error("Error in getAllDocumentStatusAdmin:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null,
+        });
+    }
+};
+

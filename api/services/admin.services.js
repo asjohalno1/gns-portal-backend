@@ -32,16 +32,12 @@ const SuperAdminService = () => {
             const filter = { isDeleted: false, status: true };
 
             if (search) {
-                // Split search terms and create regex patterns for each term
                 const searchTerms = search.split(' ').filter(term => term.trim().length > 0);
-
-                // Create an array of regex conditions for each search term
                 const searchConditions = searchTerms.map(term => ({
                     $or: [
                         { name: { $regex: term, $options: 'i' } },
                         { lastName: { $regex: term, $options: 'i' } },
                         { email: { $regex: term, $options: 'i' } },
-                        // Add full name search by combining first and last name
                         {
                             $expr: {
                                 $regexMatch: {
@@ -53,12 +49,8 @@ const SuperAdminService = () => {
                         }
                     ]
                 }));
-
-                // Use $and to ensure ALL search terms match
                 filter.$and = searchConditions;
             }
-
-            // Handle status filter
             if (status && status.toLowerCase() !== 'all') {
                 filter.status = status.toLowerCase() === 'true';
             }
@@ -66,11 +58,11 @@ const SuperAdminService = () => {
             const clients = await Client.find(filter)
                 .skip(skip)
                 .limit(limit)
-                .sort({ createdAt: -1 })
+                .sort({ updatedAt: -1 })
                 .select('_id name lastName email phoneNumber city state status createdAt updatedAt');
 
             const clientIds = clients.map(c => c._id);
-            const assignments = await assignClient.find({ clientId: { $in: clientIds } }).populate('staffId');
+            const assignments = await assignClient.find({ clientId: { $in: clientIds } }).populate('staffId').sort({ updatedAt: -1 });
 
             const assignmentMap = {};
             for (const assignment of assignments) {
@@ -93,7 +85,7 @@ const SuperAdminService = () => {
                 };
             });
 
-            const totalClients = await Client.countDocuments(filter);
+            const totalClients = await Client.countDocuments(filter).sort({ updatedAt: -1 });
             const totalPages = Math.ceil(totalClients / limit);
 
             return {
