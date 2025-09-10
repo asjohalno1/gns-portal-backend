@@ -300,7 +300,8 @@ module.exports.addClient = async (req, res) => {
         // const getStaff = await Users.findOne({ _id: staffId });
         // const staticRoot = await createClientFolder(getStaff?.first_name, null, email, staffId);
         let sharedId = await getSharedFolderDriveId();
-        const clientMainrootID = await getnewFolderStructure("Client_Portal_Testing_SD", null, email, sharedId);
+        let clientMainrootID = await getnewFolderStructure("Client_Portal_Testing_SD", null, email, sharedId);
+        clientMainrootID = clientMainrootID.length > 0 ? clientMainrootID[1]?.id  : clientMainrootID;
         const clientsRootId = await createClientFolder("Clients", clientMainrootID, email);
         const clientFolderId = await createClientFolder(name, clientsRootId, email);
         await createClientFolder("Uncategorized", clientFolderId, email);
