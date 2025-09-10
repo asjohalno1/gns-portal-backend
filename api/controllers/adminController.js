@@ -301,7 +301,7 @@ module.exports.addClient = async (req, res) => {
         // const staticRoot = await createClientFolder(getStaff?.first_name, null, email, staffId);
         let sharedId = await getSharedFolderDriveId();
         let clientMainrootID = await getnewFolderStructure("Client_Portal_Testing_SD", null, email, sharedId);
-        clientMainrootID = clientMainrootID.length > 0 ? clientMainrootID[1]?.id  : clientMainrootID;
+        clientMainrootID =  clientMainrootID[0]?.id;
         const clientsRootId = await createClientFolder("Clients", clientMainrootID, email);
         const clientFolderId = await createClientFolder(name, clientsRootId, email);
         await createClientFolder("Uncategorized", clientFolderId, email);
