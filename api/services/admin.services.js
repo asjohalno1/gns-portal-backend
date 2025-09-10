@@ -209,9 +209,9 @@ const SuperAdminService = () => {
             ]);
 
             const validAssignedClients = assignedClients.filter(ac => ac.clientId !== null);
-
+            let totalClients = await Client.countDocuments({ isDeleted: false, status: true });
             let summary = {
-                totalClients: validAssignedClients.length,
+                totalClients: totalClients,
                 totalStaff: userRes.length,
                 activeSecureLink: 0,
                 completedDocumentsRequest: 0,
@@ -375,7 +375,7 @@ const SuperAdminService = () => {
                     ? `${log.clientId.name} - ${log.description}`
                     : log.description
             }));
-          let totalClients = await Client.countDocuments({ isDeleted: false, status: true });
+
             return {
                 recentActivity,
                 summary,
@@ -383,7 +383,7 @@ const SuperAdminService = () => {
                 clients: paginatedClients,
                 totalPages: Math.ceil(filteredClients.length / limit),
                 currentPage: page,
-                totalClients: totalClients
+                totalClients: filteredClients.length
             };
         } catch (error) {
             console.log("Error", error);
