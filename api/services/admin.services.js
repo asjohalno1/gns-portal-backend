@@ -201,9 +201,9 @@ const SuperAdminService = () => {
             ]);
 
             const validAssignedClients = assignedClients.filter(ac => ac.clientId !== null);
-
+            let totalClients = await Client.countDocuments({ isDeleted: false, status: true });
             let summary = {
-                totalClients: validAssignedClients.length,
+                totalClients: totalClients,
                 totalStaff: userRes.length,
                 activeSecureLink: 0,
                 completedDocumentsRequest: 0,
@@ -235,7 +235,7 @@ const SuperAdminService = () => {
                 const completed = filteredDocs.filter(doc => doc.status === 'approved').length;
                 const pending = filteredDocs.filter(doc => doc.status === 'pending').length;
                 const overdue = filteredDocs.filter(doc => doc.dueDate && new Date(doc.dueDate) < now && doc.status === 'pending').length;
-                const notExpiredLinks = filteredDocs.filter(doc => doc.linkExpire && new Date(doc.linkExpire) > now && doc.status === 'pending').length;
+                const notExpiredLinks = filteredDocs.filter(doc => doc.dueDate && new Date(doc.dueDate) > now ).length;
 
                 summary.completedDocumentsRequest += completed;
                 summary.activeSecureLink += notExpiredLinks;
