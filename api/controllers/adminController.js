@@ -3285,6 +3285,7 @@ module.exports.assignAndMapClient = async (req, res) => {
                 message: "staffId and clientId are required"
             });
         }
+
         const client = await Client.findById(clientId).lean();
         if (!client) {
             return res.status(404).json({
@@ -3300,26 +3301,35 @@ module.exports.assignAndMapClient = async (req, res) => {
                 message: "Staff member not found"
             });
         }
-        const existingAssignment = await assignClient.findOne({ clientId });
-        if (existingAssignment) {
-            return res.status(400).json({
-                success: false,
-                message: "Client is already assigned to a staff member"
+
+        // 🔹 Check if assignment already exists
+        let assignment = await assignClient.findOne({ clientId });
+
+        if (assignment) {
+            // 🔹 Update existing assignment (re-map to new staff)
+            assignment = await assignClient.findOneAndUpdate(
+                { clientId },
+                { $set: { staffId, updatedAt: new Date() } },
+                { new: true }
+            );
+        } else {
+            // 🔹 Create new assignment
+            assignment = await assignClient.create({
+                staffId,
+                clientId,
+                createdAt: new Date(),
+                updatedAt: new Date()
             });
         }
-        const assignment = await assignClient.create({
-            staffId,
-            clientId,
-            createdAt: new Date(),
-            updatedAt: new Date()
-        });
 
+        // 🔹 Create / Map folders (only if needed)
         let sharedId = await getSharedFolderDriveId();
         const clientMainRootid = await createClientFolder("Client_Portal_Testing_SD", null, client.email, sharedId);
         const clientsRootId = await createClientFolder("Clients", clientMainRootid, client.email);
         const clientFolderId = await createClientFolder(client.name, clientsRootId, client.email);
         await createClientFolder("Uncategorized", clientFolderId, client.email);
 
+        // 🔹 Update client status
         const updateClient = await Client.findOneAndUpdate(
             { _id: clientId },
             { status: true, updatedAt: new Date() },
@@ -3332,9 +3342,12 @@ module.exports.assignAndMapClient = async (req, res) => {
                 message: "Failed to update client status"
             });
         }
+
         res.status(201).json({
             success: true,
-            message: "Staff assigned to client and folders mapped successfully",
+            message: assignment.createdAt === assignment.updatedAt
+                ? "Staff assigned to client and folders mapped successfully"
+                : "Client reassigned to a new staff and folders mapped successfully",
             data: {
                 assignment,
                 client: updateClient,
@@ -3355,6 +3368,7 @@ module.exports.assignAndMapClient = async (req, res) => {
         });
     }
 };
+
 
 
 
