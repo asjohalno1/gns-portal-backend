@@ -301,7 +301,7 @@ module.exports.addClient = async (req, res) => {
         // const staticRoot = await createClientFolder(getStaff?.first_name, null, email, staffId);
         let sharedId = await getSharedFolderDriveId();
         let clientMainrootID = await getnewFolderStructure("Client_Portal_Testing_SD", null, email, sharedId);
-        clientMainrootID =  clientMainrootID[0]?.id;
+        clientMainrootID = clientMainrootID[0]?.id;
         const clientsRootId = await createClientFolder("Clients", clientMainrootID, email);
         const clientFolderId = await createClientFolder(name, clientsRootId, email);
         await createClientFolder("Uncategorized", clientFolderId, email);
@@ -3369,25 +3369,19 @@ module.exports.getAllDocumentStatusAdmin = async (req, res) => {
             filter.createdAt = { $gte: new Date(dateFrom) };
         }
 
-        // Status filter (ignore if status=all)
         if (status && status !== "all") {
             filter.linkStatus = status;
         }
 
-        // Build search regex
         let searchRegex;
         if (search && search.trim() !== "") {
             searchRegex = new RegExp(search, "i");
         }
-
-        // Fetch documents first (filtered & populated)
         let documents = await DocumentRequest.find(filter)
             .populate("clientId")
             .populate("category")
             .populate("subCategory")
-            .sort({ createdAt: -1 }); // default sort newest first
-
-        // Search & client filter applied after population (in-memory)
+            .sort({ createdAt: -1 });
         if (client) {
             const clientRegex = new RegExp(client, "i");
             documents = documents.filter((doc) => {
