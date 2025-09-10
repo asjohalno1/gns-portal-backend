@@ -2448,8 +2448,10 @@ module.exports.getUnassignedClients = async (req, res) => {
             }));
             query.$and.push(...searchConditions);
         }
+
         const totalClients = await Client.countDocuments(query);
         let clients = await Client.find(query).lean();
+
         const clientStaffMap = {};
         const assignCreatedAtMap = {};
         assignedClients.forEach(ac => {
@@ -2463,6 +2465,7 @@ module.exports.getUnassignedClients = async (req, res) => {
         staffUsers.forEach(u => {
             staffMap[u._id.toString()] = `${u.first_name || ''} ${u.last_name || ''}`.trim();
         });
+
         let clientsWithExtras = clients.map(c => {
             const staffId = clientStaffMap[c._id.toString()];
             const assignedTo = staffMap[staffId] || null;
@@ -2474,8 +2477,14 @@ module.exports.getUnassignedClients = async (req, res) => {
                 sortDate: assignCreatedAtMap[c._id.toString()] || c.createdAt
             };
         });
+
         clientsWithExtras = clientsWithExtras.sort((a, b) => new Date(b.sortDate) - new Date(a.sortDate));
-        const paginatedClients = clientsWithExtras.slice((pageNumber - 1) * pageNumber, pageNumber * pageSize);
+
+        // FIXED: Correct pagination calculation
+        const paginatedClients = clientsWithExtras.slice(
+            (pageNumber - 1) * pageSize,
+            pageNumber * pageSize
+        );
 
         res.status(200).json({
             success: true,
