@@ -295,7 +295,7 @@ const uploadFileToFolder = async (clientName, files, category, email, staffName)
                 supportsAllDrives: true
             });
 
-            fs.unlinkSync(file.path); // cleanup temp file
+            // fs.unlinkSync(file.path); // cleanup temp file
             uploadedFiles.push(uploaded.data);
         }
 
