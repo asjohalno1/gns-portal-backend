@@ -499,7 +499,6 @@ module.exports.staffDashboard = async (req, res) => {
 
             // ✅ Fetch docs in one go
             const docs = await uploadDocuments.find({ clientId: client._id }).sort({ updatedAt: -1 }).lean();
-
             // Filter "Others" (not uploaded)
             const validDocs = docs.filter(doc => {
                 if (doc.category) {
@@ -508,17 +507,19 @@ module.exports.staffDashboard = async (req, res) => {
                 }
                 return true;
             });
-
+            
             const totalRequests = validDocs.length;
             const uploaded = validDocs.filter(doc => doc.isUploaded).length;
             const pending = validDocs.filter(doc => ['pending', 'rejected'].includes(doc.status)).length;
             const overdueCount = validDocs.filter(
                 doc => doc.dueDate && new Date(doc.dueDate) < now && doc.status === 'pending'
             ).length;
-
-            summary.documentsProcessed += totalRequests;
-            summary.pendingRequests += pending;
-            summary.overdue += overdueCount;
+            const docReq = await DocumentRequest.find({ createdBy: staffId })
+            let pendingReq = docReq.filter(doc => ['pending', 'rejected'].includes(doc.status)).length;
+            let overdueCounts = docReq.filter(doc => doc.dueDate && new Date(doc.dueDate) < now && doc.status === 'pending').length;
+            summary.documentsProcessed = docReq.length;
+            summary.pendingRequests = pendingReq;
+            summary.overdue = overdueCounts;
 
             let statusUpdate = '-';
             if (overdueCount > 0) statusUpdate = 'Overdue';
