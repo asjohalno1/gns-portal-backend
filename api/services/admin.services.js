@@ -232,12 +232,12 @@ const SuperAdminService = () => {
                 const filteredDocs = docs.filter(doc => !(doc.subCategory?.name === "Others" && !doc.isUploaded));
 
                 const totalRequests = filteredDocs.length;
-                const completed = filteredDocs.filter(doc => doc.status === 'approved').length;
+                const completed = await DocumentRequest.find({ clientId: client._id});
                 const pending = filteredDocs.filter(doc => doc.status === 'pending').length;
                 const overdue = filteredDocs.filter(doc => doc.dueDate && new Date(doc.dueDate) < now && doc.status === 'pending').length;
-                const notExpiredLinks = filteredDocs.filter(doc => doc.dueDate && new Date(doc.dueDate) > now ).length;
+                const notExpiredLinks = completed.filter(doc => doc.dueDate && new Date(doc.dueDate) > now ).length;
 
-                summary.completedDocumentsRequest += completed;
+                summary.completedDocumentsRequest += completed.length;
                 summary.activeSecureLink += notExpiredLinks;
                 summary.activeAssigments += notExpiredLinks;
                 summary.overdue += overdue;
