@@ -2329,7 +2329,7 @@ module.exports.updateStaff = async (req, res) => {
             if (existingUser?.profile) {
                 const oldFilePath = path.join(__dirname, '..', existingUser.profile);
                 if (fs.existsSync(oldFilePath)) {
-                    fs.unlinkSync(oldFilePath);
+                    // fs.unlinkSync(oldFilePath);
                 }
             }
         }

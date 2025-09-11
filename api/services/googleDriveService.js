@@ -296,7 +296,7 @@ const uploadFileToFolder = async (clientName, files, category, email, staffName)
             });
 
             // fs.unlinkSync(file.path); // cleanup temp file
-            // uploadedFiles.push(uploaded.data);
+            uploadedFiles.push(uploaded.data);
         }
 
         return uploadedFiles;
