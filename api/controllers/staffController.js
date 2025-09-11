@@ -728,7 +728,11 @@ module.exports.getAllClientsByStaff = async (req, res) => {
         if (dateFrom || dateTo) {
             docQuery.createdAt = {};
             if (dateFrom) docQuery.createdAt.$gte = new Date(dateFrom);
-            if (dateTo) docQuery.createdAt.$lte = new Date(dateTo);
+            if (dateTo) {
+                let toDate = new Date(dateTo);
+                toDate.setDate(toDate.getDate() + 1); // add 1 day
+                docQuery.createdAt.$lt = toDate;
+            }
         }
 
         // Get all documents for filtered clients
