@@ -507,7 +507,7 @@ module.exports.staffDashboard = async (req, res) => {
                 }
                 return true;
             });
-            
+
             const totalRequests = validDocs.length;
             const uploaded = validDocs.filter(doc => doc.isUploaded).length;
             const pending = validDocs.filter(doc => ['pending', 'rejected'].includes(doc.status)).length;
@@ -579,11 +579,11 @@ module.exports.staffDashboard = async (req, res) => {
             } else if (process > 0 && process <= 25) {
                 processStatus = 'Pending';
             } else if (process > 25 && process <= 50) {
-                processStatus = 'Under Review';
+                processStatus = 'In Progress';
             } else if (process > 50 && process <= 75) {
                 processStatus = 'In Progress';
             } else if (process > 75 && process < 100) {
-                processStatus = 'Finalizing';
+                processStatus = 'In Progress';
             } else if (process === 100) {
                 processStatus = 'Completed';
             }
@@ -613,9 +613,11 @@ module.exports.staffDashboard = async (req, res) => {
                 ? client.name.toLowerCase().includes(search) || client.email.toLowerCase().includes(search)
                 : true;
 
+
             const matchesStatus = clientStatus === 'all'
                 ? true
-                : client.statusUpdate.toLowerCase() === clientStatus.toLowerCase();
+                : client.processStatus.toLowerCase() === clientStatus.toLowerCase();
+
 
             return matchesSearch && matchesStatus;
         });
