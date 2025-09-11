@@ -474,11 +474,7 @@ module.exports.staffDashboard = async (req, res) => {
             documentsProcessed: 0
         };
 
-        let urgentTasks = {
-            overdue: [],
-            today: [],
-            tomorrow: []
-        };
+
 
         const now = new Date();
 
@@ -547,29 +543,6 @@ module.exports.staffDashboard = async (req, res) => {
                 }
             }
 
-            // Urgent tasks
-            for (const doc of docs) {
-                if ((doc.status !== 'pending' && doc.status !== 'rejected') || !doc.dueDate) continue;
-
-                const dueDate = new Date(doc.dueDate);
-                const diffInDays = Math.floor((dueDate - now) / (1000 * 60 * 60 * 24));
-
-                const categoryName = doc.category ? categoryMap.get(String(doc.category)) || 'Unnamed Document' : 'Unnamed Document';
-                const subCategoryName = doc.subCategory ? subCategoryMap.get(String(doc.subCategory)) || 'Unnamed Sub-Category' : 'Unnamed Sub-Category';
-
-                const taskEntry = {
-                    clientName: client.name,
-                    category: categoryName,
-                    documentType: subCategoryName,
-                    isUploaded: doc.isUploaded,
-                    status: doc.status,
-                    ...(doc.status === 'rejected' && { comments: doc.comments })
-                };
-
-                if (diffInDays < 0) urgentTasks.overdue.push({ ...taskEntry, daysOverdue: Math.abs(diffInDays) });
-                else if (diffInDays === 0) urgentTasks.today.push(taskEntry);
-                else if (diffInDays === 1) urgentTasks.tomorrow.push(taskEntry);
-            }
 
             // Process & Process Status
             const process = totalRequests ? Math.round((uploaded / totalRequests) * 100) : 0;
@@ -629,7 +602,6 @@ module.exports.staffDashboard = async (req, res) => {
         resModel.data = {
             documentCompletion,
             summary,
-            urgentTasks,
             clients: paginatedClients,
             pagination: {
                 total: filteredClients.length,
@@ -2485,3 +2457,67 @@ module.exports.getAllRemindersClients = async (req, res) => {
     }
 };
 
+
+
+// ✅ NEW API - Get Urgent Tasks
+module.exports.getUrgentTasks = async (req, res) => {
+    try {
+        const staffId = req.userInfo?.id;
+        const now = new Date();
+
+        let urgentTasks = {
+            overdue: [],
+            today: [],
+            tomorrow: []
+        };
+        const [categories, subCategories] = await Promise.all([
+            Category.find({}).lean(),
+            SubCategory.find({}).lean()
+        ]);
+        const categoryMap = new Map(categories.map(c => [String(c._id), c.name]));
+        const subCategoryMap = new Map(subCategories.map(sc => [String(sc._id), sc.name]));
+        const assignedClients = await assignClient.find({ staffId }).populate('clientId').lean();
+        for (const assignment of assignedClients) {
+            const client = assignment.clientId;
+            if (!client || client.status !== true || client.isDeleted === true) continue;
+            const docs = await uploadDocuments.find({ clientId: client._id }).sort({ updatedAt: -1 }).lean();
+
+            for (const doc of docs) {
+                if ((doc.status !== 'pending' && doc.status !== 'rejected') || !doc.dueDate) continue;
+
+                const dueDate = new Date(doc.dueDate);
+                const diffInDays = Math.floor((dueDate - now) / (1000 * 60 * 60 * 24));
+
+                const categoryName = doc.category ? categoryMap.get(String(doc.category)) || 'Unnamed Document' : 'Unnamed Document';
+                const subCategoryName = doc.subCategory ? subCategoryMap.get(String(doc.subCategory)) || 'Unnamed Sub-Category' : 'Unnamed Sub-Category';
+
+                const taskEntry = {
+                    clientName: client.name,
+                    category: categoryName,
+                    documentType: subCategoryName,
+                    isUploaded: doc.isUploaded,
+                    status: doc.status,
+                    ...(doc.status === 'rejected' && { comments: doc.comments })
+                };
+
+                if (diffInDays < 0) urgentTasks.overdue.push({ ...taskEntry, daysOverdue: Math.abs(diffInDays) });
+                else if (diffInDays === 0) urgentTasks.today.push(taskEntry);
+                else if (diffInDays === 1) urgentTasks.tomorrow.push(taskEntry);
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Urgent tasks fetched successfully",
+            data: urgentTasks
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null
+        });
+    }
+};

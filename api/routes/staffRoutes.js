@@ -19,6 +19,7 @@ module.exports = function (app, validator) {
    app.patch('/api/staff/update', auth, uploadProfile.single('profile'), staffCntrl.updateStaff)
    app.post('/api/staff/requestDocument', auth, checkPermission(PERMISSIONS.GENERATE_DOC_REQUEST), validator.body(staffModel.addDocumentRequest), staffCntrl.documentRequest)
    app.get('/api/staff/dashboard', auth, staffCntrl.staffDashboard)
+   app.get('/api/staff/getAllUrgentTasks', auth, staffCntrl.getUrgentTasks)
    app.get('/api/staff/getAllClients', auth, staffCntrl.getAllClientsByStaff)
    app.get('/api/staff/getActiveClients', auth, staffCntrl.getAllActiveClients)
    app.get('/api/staff/getAllReminderClients', auth, staffCntrl.getAllRemindersClients)
