@@ -237,8 +237,9 @@ const SuperAdminService = () => {
                 const overdue = filteredDocs.filter(doc => doc.dueDate && new Date(doc.dueDate) < now && doc.status === 'pending').length;
                 const notExpiredLinks = filteredDocs.filter(doc => doc.dueDate && new Date(doc.dueDate) > now ).length;
                 const completedReq = await DocumentRequest.find({ clientId: client._id});
+                const activeLInk = completedReq.filter(doc => doc.dueDate && new Date(doc.dueDate) > now ).length;
                 summary.completedDocumentsRequest += completedReq.length;
-                summary.activeSecureLink += notExpiredLinks;
+                summary.activeSecureLink += activeLInk;
                 summary.activeAssigments += notExpiredLinks;
                 summary.overdue += overdue;
 
