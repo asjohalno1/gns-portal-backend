@@ -235,9 +235,9 @@ const SuperAdminService = () => {
                 const completed = filteredDocs.filter(doc => doc.status === 'approved').length;
                 const pending = filteredDocs.filter(doc => doc.status === 'pending').length;
                 const overdue = filteredDocs.filter(doc => doc.dueDate && new Date(doc.dueDate) < now && doc.status === 'pending').length;
-                const notExpiredLinks = filteredDocs.filter(doc => doc.dueDate && new Date(doc.dueDate) > now ).length;
-                const completedReq = await DocumentRequest.find({ clientId: client._id});
-                const activeLInk = completedReq.filter(doc => doc.dueDate && new Date(doc.dueDate) > now ).length;
+                const notExpiredLinks = filteredDocs.filter(doc => doc.dueDate && new Date(doc.dueDate) > now).length;
+                const completedReq = await DocumentRequest.find({ clientId: client._id });
+                const activeLInk = completedReq.filter(doc => doc.dueDate && new Date(doc.dueDate) > now).length;
                 summary.completedDocumentsRequest += completedReq.length;
                 summary.activeSecureLink += activeLInk;
                 summary.activeAssigments += notExpiredLinks;
@@ -353,9 +353,10 @@ const SuperAdminService = () => {
                     )
                     : true;
 
-                const matchesStatus = statusFilter !== 'all'
-                    ? client.status === statusFilter
-                    : true;
+                const matchesStatus =
+                    statusFilter === "all" ||
+                    client.status === statusFilter ||
+                    client.processStatus === statusFilter;
 
                 return matchesSearch && matchesStatus;
             });
