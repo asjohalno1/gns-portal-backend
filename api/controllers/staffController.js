@@ -1415,35 +1415,55 @@ module.exports.updateReminderTemplate = async (req, res) => {
 module.exports.getReminderDashboard = async (req, res) => {
     try {
         const staffId = req.userInfo.id;
+        const role =  await Users.findOne({ _id: staffId })
+        const isSuperAdmin = role?.role_id == 1;
+
+        // Staff filter condition (all staff if role=1, else specific staff)
+        const staffFilter = isSuperAdmin ? {} : { staffId };
+
+        // 1. Notified clients today
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const notifiedClientIds = await Remainder.find({
-            staffId,
+            ...staffFilter,
             createdAt: { $gte: today },
         }).distinct("clientId");
         const clientNotifiedToday = notifiedClientIds.length;
+
+        // 2. Active reminders
         const activeReminders = await Remainder.countDocuments({
-            staffId,
+            ...staffFilter,
             active: true,
         });
-        const templatesCreatedTotal = await RemainderTemplate.countDocuments({
-            staffId,
-        });
+
+        // 3. Templates created total
+        const templatesCreatedTotal = await RemainderTemplate.countDocuments(staffFilter);
+
+        // 4. Pending uploads
         const pendingUploads = await DocumentRequest.countDocuments({
-            createdBy: staffId,
+            ...(isSuperAdmin ? {} : { createdBy: staffId }),
             status: "pending",
         });
-        const defaultRemainder = await DefaultSettingRemainder.findOne({
-            staffId,
-            active: true,
-        })
-        const remindersRaw = await Remainder.find({ staffId }).sort({ createdAt: -1 });
+
+        // 5. Default Remainder (only for specific staff)
+        const defaultRemainder = isSuperAdmin
+            ? null
+            : await DefaultSettingRemainder.findOne({
+                staffId,
+                active: true,
+            });
+
+        // 6. Reminders list
+        const remindersRaw = await Remainder.find(staffFilter).sort({ createdAt: -1 });
+
         const allClientIds = [...new Set(remindersRaw.flatMap(r => r.clientId))];
         const clients = await Client.find({ _id: { $in: allClientIds } });
+
         const clientMap = {};
         clients.forEach(c => {
             clientMap[c._id.toString()] = c.name;
         });
+
         const reminders = [];
         for (const rem of remindersRaw) {
             for (const clientId of rem.clientId) {
@@ -1458,7 +1478,6 @@ module.exports.getReminderDashboard = async (req, res) => {
             }
         }
 
-
         resModel.success = true;
         resModel.message = "Data Found successfully.";
         resModel.data = {
@@ -1467,9 +1486,10 @@ module.exports.getReminderDashboard = async (req, res) => {
             templatesCreatedTotal,
             pendingUploads,
             reminders,
-            defaultRemainder
+            defaultRemainder,
         };
         res.status(200).json(resModel);
+
     } catch (error) {
         resModel.success = false;
         resModel.message = "Internal Server Error";
