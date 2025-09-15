@@ -10,13 +10,11 @@ module.exports = {
   },
   async linkToken(payload, expiresIn) {
     let url = process.env.LINK_URL;
-    const expiresInHours = expiresIn * 24;
+    const expiresInHours = expiresIn;
     const token = jwt.sign(payload, secret_key, { expiresIn: `${expiresInHours}h` });
     const finalUrl = `${url}?token=${token}`
     return finalUrl;
   },
-
-
 }
 
 
