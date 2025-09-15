@@ -1695,7 +1695,7 @@ module.exports.getAllScheduledList = async (req, res) => {
                 select: "doctitle",
                 model: "DocumentRequest",
             })
-            .select("clientId documentId notifyMethod scheduleTime status")
+            .select("clientId documentId notifyMethod scheduleTime status frequency days")
             .sort({ createdAt: -1 });
 
         const formattedData = reminders.map((reminder) => ({
@@ -1707,6 +1707,8 @@ module.exports.getAllScheduledList = async (req, res) => {
             notifyMethod: reminder.notifyMethod,
             scheduleTime: reminder.scheduleTime,
             status: reminder.status,
+            frequency: reminder.frequency,
+            days: reminder.days
         }));
 
         return res.status(200).json({
