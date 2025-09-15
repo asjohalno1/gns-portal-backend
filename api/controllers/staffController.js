@@ -2129,7 +2129,8 @@ module.exports.updateDocumentRequestStatus = async (req, res) => {
             if (data.status === "rejected") {
                 updateFields.isUploaded = false;
             }
-            updateFields.status = data.status;
+            updateFields.status = data?.status;
+            updateFields.isUploaded = data?.isUploaded;
         }
 
         if (data.feedback !== undefined && data.feedback !== null) {
