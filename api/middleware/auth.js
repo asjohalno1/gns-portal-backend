@@ -1,8 +1,8 @@
 const jwtService = require('../services/jwt.services');
 module.exports = async (req, res, next) => {
-    var accesstoken = req.headers.authorization;
+    let accesstoken = req.headers.authorization;
     if (accesstoken) {
-        verifyToken = accesstoken.split(' ')
+      var verifyToken = accesstoken.split(' ')
         if (verifyToken.length == 2) {
             if (verifyToken[0] == "Bearer") {
                 await jwtService.verifyJwtToken(verifyToken[1], async function (err, decoded) {

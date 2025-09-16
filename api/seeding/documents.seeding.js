@@ -13,7 +13,7 @@ module.exports.seedDocuments = async () => {
     }
 
     // Create 'Others' category
-    const category = await DocumentCategory.create({
+    await DocumentCategory.create({
         _id: OTHERS_CATEGORY_ID,
         name: "Others",
         active: true,
@@ -21,7 +21,7 @@ module.exports.seedDocuments = async () => {
         protected: true,
     });
 
-    const subcategory = await DocumentSubCategory.create({
+    await DocumentSubCategory.create({
         _id: OTHERS_SUBCATEGORY_ID,
         categoryId: OTHERS_CATEGORY_ID,
         name: "Others",

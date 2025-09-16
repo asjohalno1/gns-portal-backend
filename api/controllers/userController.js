@@ -335,7 +335,7 @@ module.exports.uploadDocument = async (req, res) => {
     const id = req?.body?.requestId;
     const staffId = req?.userInfo?.userId
     try {
-        const { categoryId, subCategoryId, notes } = req.body;
+        const { subCategoryId, notes } = req.body;
         let files = req.files;
         let clientRes = await clientModel.findOne({ _id: req?.userInfo?.clientId });
         let subCategory = await subCategoryModel.findOne({ _id: subCategoryId });
@@ -542,9 +542,7 @@ module.exports.getClientDashboard = async (req, res) => {
 module.exports.getClientDocuments = async (req, res) => {
     try {
         const id = req?.query?.requestId;
-
-
-        const updateLinkStatus = await DocumentRequest.findOneAndUpdate({ _id: id }, { $set: { linkStatus: "Used" } });
+        await DocumentRequest.findOneAndUpdate({ _id: id }, { $set: { linkStatus: "Used" } });
 
         const documents = await uploadDocuments.find({ request: id })
             .populate('category', 'name') // Populate category name
@@ -594,8 +592,6 @@ module.exports.getClientDocuments = async (req, res) => {
 
         documents.forEach(doc => {
             const catId = doc.category?._id?.toString();
-            const subCat = subCatMap[catId] || { _id: null, name: 'N/A' };
-
             const docData = {
                 documentTitle: doc.doctitle,
                 documentName: doc.fileName,

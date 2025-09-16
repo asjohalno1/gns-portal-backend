@@ -29,6 +29,11 @@ const mongoose = require('mongoose');
 const { createClientFolder, getSharedFolderDriveId } = require('../services/googleDriveService.js');
 const googleMaping = require('../models/googleMapping');
 const path = require('path');
+const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 const fs = require('fs');
 const bcryptServices = require('../services/bcrypt.services.js');
@@ -174,13 +179,12 @@ module.exports.documentRequest = async (req, res) => {
         if (!subcategoryPriorities[othersSubCategory._id.toString()]) {
             subcategoryPriorities[othersSubCategory._id.toString()] = 'low';
         }
-
         const getRemainingWholeHours = (dueDateStr) => {
-            const now = new Date();
-            const yesterday = new Date(now);
-            yesterday.setDate(now.getDate() - 1);
-            const dueDate = new Date(dueDateStr);
-            const diffInMs = dueDate - yesterday;
+            // Current PST time
+            const now = dayjs().tz("America/Los_Angeles");
+            const yesterday = now.subtract(1, "day");
+            const dueDate = dayjs.tz(dueDateStr, "America/Los_Angeles");
+            const diffInMs = dueDate.diff(yesterday);
             if (diffInMs <= 0) return "Deadline has passed.";
             return Math.floor(diffInMs / (1000 * 60 * 60));
         };
@@ -482,8 +486,6 @@ module.exports.staffDashboard = async (req, res) => {
         ]);
 
         const categoryMap = new Map(categories.map(c => [String(c._id), c.name]));
-        const subCategoryMap = new Map(subCategories.map(sc => [String(sc._id), sc.name]));
-
         for (const assignment of assignedClients) {
             const client = assignment.clientId;
             if (!client || client.status !== true || client.isDeleted === true) continue;
@@ -633,7 +635,6 @@ module.exports.getAllClientsByStaff = async (req, res) => {
         const staffId = req.userInfo?.id;
         const {
             search = '',
-            documentType,
             status,
             dateFrom,
             dateTo,
@@ -1412,7 +1413,7 @@ module.exports.updateReminderTemplate = async (req, res) => {
 module.exports.getReminderDashboard = async (req, res) => {
     try {
         const staffId = req.userInfo.id;
-        const role =  await Users.findOne({ _id: staffId })
+        const role = await Users.findOne({ _id: staffId })
         const isSuperAdmin = role?.role_id == 1;
 
         // Staff filter condition (all staff if role=1, else specific staff)
@@ -1757,7 +1758,7 @@ module.exports.getAllReminders = async (req, res) => {
             scheduleTime: reminder.scheduleTime,
             status: reminder.status,
             days: reminder.days,
-            frequency: reminder.frequency,                      
+            frequency: reminder.frequency,
         }));
 
         return res.status(200).json({
@@ -2219,7 +2220,6 @@ exports.addGoogleMaping = async (req, res) => {
         const { clientId, clientFolderName, uncategorized, standardFolder, additionalSubfolders } = req.body;
         let clientRes = await Client.findOne({ _id: clientId });
         const staffId = req.userInfo.id;
-        let getStaff = await Users.findOne({ _id: staffId });
         if (uncategorized) {
             let sharedId = await getSharedFolderDriveId();
             const clientsRootId = await createClientFolder("Clients", null, clientRes?.email, sharedId);
@@ -2317,9 +2317,6 @@ module.exports.updateStaff = async (req, res) => {
             const existingUser = await Users.findById(staffId);
             if (existingUser?.profile) {
                 const oldFilePath = path.join(__dirname, '..', existingUser.profile);
-                if (fs.existsSync(oldFilePath)) {
-        
-                }
             }
         }
 
