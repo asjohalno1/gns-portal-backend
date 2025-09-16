@@ -65,13 +65,6 @@ app.get("/dist/client/token-handler/*", (req, res) => {
     res.sendFile(path.join(__dirname, "dist/client/token-handler/index.html"));
 });
 
-// ✅ Optional: Google Drive cleanup utility
-const { deleteAllFolders, deleteSpecificFolder } = require('./api/services/googleDriveService.js');
-//deleteAllFolders();
-//deleteSpecificFolder("1NAZnyLcQJlkP3iOdtn0XrqABG8jqLwFj")
-const twilioServices = require('./api/services/twilio.services');
-// twilioServices.sendSmsLink('+919027921494', 'https://example.com/upload/secure-token');
-
 // ✅ Start server: HTTPS in staging, HTTP otherwise
 const server = process.env.NODE_ENV === "staging"
     ? https.createServer(
