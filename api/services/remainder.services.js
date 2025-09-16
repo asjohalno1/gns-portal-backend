@@ -44,12 +44,6 @@ function createCronExpression(time, days = [], frequency = "Daily") {
 }
 
 
-// Example usage
-// const time = "15:25";
-// const days = ["Tue", 1, "Wed"];
-// const cronExpression = createCronExpression(time, days);
-// console.log("Generated Cron Expression:", cronExpression); 
-
 module.exports = createCronExpression;
 
 

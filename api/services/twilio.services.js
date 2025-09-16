@@ -42,5 +42,3 @@ const sendSmsLink = async (phoneNumber, secureLink) => {
     }
 module.exports = { sendSmsLink, sendSmsReminder };
 
-// Example usage
-// sendSmsLink('+919876543210', 'https://example.com/upload/secure-token');

@@ -601,8 +601,6 @@ module.exports.getClientDocuments = async (req, res) => {
                 documentName: doc.fileName,
                 documentType: doc.category?.name || 'N/A',
                 documentTypeId: doc.category?._id || null,
-                // subCategory: subCat.name,
-                // subCategoryId: subCat._id,
                 uploadedDate: doc.uploadedAt,
                 status: doc.request?.status || 'pending',
                 comments: doc.rejectionReason || null,
@@ -735,61 +733,6 @@ module.exports.getAllNotifications = async (req, res) => {
         res.status(500).json(resModel);
     }
 };
-
-
-
-
-// exports.getClientDocu = async (req, res) => {
-//     try {
-//         const staffId = req?.userInfo?.id;
-
-//         const staffRes = await User.findOne({ _id: staffId });
-
-//         // if (!staffRes?.folderId) {
-//         //     return res.status(200).json({
-//         //         success: true,
-//         //         message: "No Google Drive folder linked to this staff.",
-//         //         data: []
-//         //     });
-//         // }
-
-//         let data;
-//         try {
-//             data = await getnewFolderStructure();
-//         } catch (err) {
-
-//             console.error(`❌ Google Drive folder not found for staff ${staffId}:`, err.message);
-//             return res.status(200).json({
-//                 success: true,
-//                 message: "No Google Drive documents found",
-//                 data: []
-//             });
-//         }
-
-//         if (!data || (!data.files?.length && !data.folders?.length)) {
-//             return res.status(200).json({
-//                 success: true,
-//                 message: "No Google Drive documents found",
-//                 data: []
-//             });
-//         }
-
-//         return res.status(200).json({
-//             success: true,
-//             message: "Fetched Google Drive documents successfully",
-//             data
-//         });
-
-//     } catch (error) {
-//         console.error(" Error in getClientDocu:", error.message);
-//         return res.status(500).json({
-//             success: false,
-//             message: "Internal Server Error",
-//             data: null
-//         });
-//     }
-// };
-
 
 exports.getClientDocu = async (req, res) => {
     try {

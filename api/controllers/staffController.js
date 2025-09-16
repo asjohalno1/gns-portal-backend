@@ -352,9 +352,6 @@ module.exports.documentRequest = async (req, res) => {
                 const expirationHours = getRemainingWholeHours(dueDate);
                 const expiresIn = parseInt(expirationHours);
                 const requestLink = await jwt.linkToken(tokenInfo, expiresIn);
-
-                // let docRes = await SubCategory.find({ _id: { $in: allSubCategories } });
-                // let docList = docRes.map(doc => doc.name);
                 const docList = await getDocsByCategory(allSubCategories);
                 if (linkMethod === "email" || notifyMethod.includes("email")) {
                     await DocumentRequest.findByIdAndUpdate(
@@ -2224,14 +2221,12 @@ exports.addGoogleMaping = async (req, res) => {
         const staffId = req.userInfo.id;
         let getStaff = await Users.findOne({ _id: staffId });
         if (uncategorized) {
-            // const staticRoot = await createClientFolder(getStaff?.first_name, null, clientRes?.email, staffId);
             let sharedId = await getSharedFolderDriveId();
             const clientsRootId = await createClientFolder("Clients", null, clientRes?.email, sharedId);
             const staticRootId = await createClientFolder(clientRes?.name, clientsRootId, clientRes?.email, staffId);
             await createClientFolder("uncategorized", staticRootId, clientRes?.email);
         }
         if (standardFolder) {
-            // const staticRoot = await createClientFolder(getStaff?.first_name, "", clientRes?.email);
             let sharedId = await getSharedFolderDriveId();
             const clientMainRootid = await createClientFolder("Client_Portal_Testing_SD", null, clientRes?.email, sharedId);
             const clientsRootId = await createClientFolder("Clients", clientMainRootid, clientRes?.email);
@@ -2242,7 +2237,6 @@ exports.addGoogleMaping = async (req, res) => {
             }
         }
         if (additionalSubfolders.length > 0) {
-            // const staticRoot = await createClientFolder(getStaff?.first_name, "", clientRes?.email);
             let sharedId = await getSharedFolderDriveId();
             const clientMainRootid = await createClientFolder("Client_Portal_Testing_SD", null, clientRes?.email, sharedId);
 
@@ -2324,7 +2318,7 @@ module.exports.updateStaff = async (req, res) => {
             if (existingUser?.profile) {
                 const oldFilePath = path.join(__dirname, '..', existingUser.profile);
                 if (fs.existsSync(oldFilePath)) {
-                    // fs.unlinkSync(oldFilePath);
+        
                 }
             }
         }
