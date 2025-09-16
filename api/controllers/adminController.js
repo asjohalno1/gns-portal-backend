@@ -297,8 +297,6 @@ module.exports.addClient = async (req, res) => {
             staffId,
         });
         await newAssign.save();
-        // const getStaff = await Users.findOne({ _id: staffId });
-        // const staticRoot = await createClientFolder(getStaff?.first_name, null, email, staffId);
         let sharedId = await getSharedFolderDriveId();
         let clientMainrootID = await getnewFolderStructure("Client_Portal_Testing_SD", null, email, sharedId);
         clientMainrootID = clientMainrootID[0]?.id;
@@ -1038,15 +1036,6 @@ module.exports.AdminDocumentRequest = async (req, res) => {
             subcategoryPriorities[othersSubCategory._id.toString()] = 'low';
         }
 
-        //    const getRemainingWholeHours = (dueDateStr) => {
-        //     const now = new Date();
-        //     const yesterday = new Date(now);
-        //     yesterday.setDate(now.getDate() - 1);
-        //     const dueDate = new Date(dueDateStr);
-        //     const diffInMs = dueDate - yesterday;
-        //     if (diffInMs <= 0) return "Deadline has passed.";
-        //     return Math.floor(diffInMs / (1000 * 60 * 60));
-        // };
 
         const getRemainingWholeHours = (dueDateStr) => {
             const now = new Date();
@@ -1220,7 +1209,6 @@ module.exports.AdminDocumentRequest = async (req, res) => {
                 const requestLink = await jwt.linkToken(tokenInfo, expiresIn);
 
                 let docRes = await subCategory.find({ _id: subCategoryId });
-                // let docList = docRes.map(doc => doc.name);
                 let formatedDocList = await getDocsByCategory(docRes);
 
                 if ((notifyMethods === "email" || notifyMethods.includes("email"))) {
@@ -1443,34 +1431,6 @@ module.exports.getAllRequestedDocuments = async (req, res) => {
     }
 };
 
-
-
-// module.exports.getAllTemplates = async (req, res) => {
-//     try {
-//         const templates = await Template.find({
-//             userId: req.userInfo.id,
-//             active: true
-//         })
-//             .populate({
-//                 path: 'subcategories',
-//                 model: 'DocumentSubCategory',
-//                 select: 'subCategory priority'
-//             })
-//             .sort({ createdAt: -1 });
-
-//         res.status(200).json({
-//             success: true,
-//             data: templates
-//         });
-
-//     } catch (error) {
-//         console.error("Error fetching templates:", error);
-//         res.status(500).json({
-//             success: false,
-//             message: "Failed to fetch templates"
-//         });
-//     }
-// };
 
 /**
  * @api {post} /api/client/addEmailTemplate Add Email Template 
@@ -2126,21 +2086,17 @@ module.exports.addStaff = async (req, res) => {
     const responseModel = { success: false, message: "", data: null };
 
     try {
-        const { first_name, last_name, email, password, active, phoneNumber, address, dob, rolePermissions } = req.body;
+        const { first_name, last_name, email,active, phoneNumber, address, dob, rolePermissions } = req.body;
 
         const existingUser = await Users.findOne({ email });
         if (existingUser) {
             responseModel.message = "User with this email already exists";
             return res.status(400).json(responseModel);
         }
-
-        // const hashedPassword = await bcryptService.generatePassword("password@123");
-
         const newUser = new Users({
             first_name,
             last_name,
             email: email.toLowerCase(),
-            // password: hashedPassword,
             role_id: "2",
             rolePermissions: rolePermissions || [],
             active,
@@ -2163,15 +2119,6 @@ module.exports.addStaff = async (req, res) => {
             responseModel.message = "Failed to add staff";
             return res.status(400).json(responseModel);
         }
-
-        // send email
-        // await mailServices.sendStaffAddedEmail(
-        //     email,
-        //     `${first_name} ${last_name}`,
-        //     password,
-        //     "https://meanstack.smartdatainc.com:8076/"
-        // );
-
         responseModel.success = true;
         responseModel.message = "Staff member added successfully";
         responseModel.data = {
@@ -2964,74 +2911,6 @@ module.exports.getAllDocumentListing = async (req, res) => {
     }
 };
 
-
-//error handle 
-
-// exports.getAllStaffGoogleDocs = async (req, res) => {
-//     try {
-//         const staffList = await Users.find({ role_id: "2" });
-
-//         if (!staffList || staffList.length === 0) {
-//             resModel.success = true;
-//             resModel.message = "No staff found";
-//             resModel.data = [];
-//             return res.status(200).json(resModel);
-//         }
-
-//         const staffDriveData = await Promise.all(
-//             staffList.map(async (staff) => {
-
-//                 if (!staff.folderId) {
-//                     return {
-//                         staffId: staff._id,
-//                         staffName: `${staff.first_name || ""} ${staff.last_name || ""}`.trim(),
-//                         driveData: null,
-//                         message: "No Google Drive folder assigned"
-//                     };
-//                 }
-
-//                 try {
-//                     const data = await listFilesInFolderStructure(staff.folderId);
-
-//                     // If folder exists but has no files/folders
-//                     if (!data || (!data.files?.length && !data.folders?.length)) {
-//                         return {
-//                             staffId: staff._id,
-//                             staffName: `${staff.first_name || ""} ${staff.last_name || ""}`.trim(),
-//                             driveData: null,
-//                             message: "No Google Drive documents found"
-//                         };
-//                     }
-//                     return {
-//                         staffId: staff._id,
-//                         staffName: `${staff.first_name || ""} ${staff.last_name || ""}`.trim(),
-//                         driveData: data
-//                     };
-//                 } catch (err) {
-//                     console.error(` Error fetching Drive data for staff ${staff._id}:`, err.message);
-//                     return {
-//                         staffId: staff._id,
-//                         staffName: `${staff.first_name || ""} ${staff.last_name || ""}`.trim(),
-//                         driveData: null,
-//                         message: "No Google Drive documents found"
-//                     };
-//                 }
-//             })
-//         );
-
-//         resModel.success = true;
-//         resModel.message = "Fetched all staff Google Drive data successfully";
-//         resModel.data = staffDriveData;
-//         res.status(200).json(resModel);
-
-//     } catch (error) {
-//         console.error("❌ Error fetching staff Drive data:", error);
-//         resModel.success = false;
-//         resModel.message = "Internal Server Error";
-//         resModel.data = null;
-//         res.status(500).json(resModel);
-//     }
-// };
 exports.getAllStaffGoogleDocs = async (req, res) => {
     try {
         const structure = await getnewFolderStructure();
@@ -3105,15 +2984,6 @@ exports.addGoogleMappingByAdmin = async (req, res) => {
                 data: null,
             });
         }
-
-        // Create folders based on uncategorized
-        // if (uncategorized) {
-        //     let sharedId = await getSharedFolderDriveId();
-        //     const clientsRootId = await createClientFolder("Clients", null, clientRes.email);
-        //     const staticRootId = await createClientFolder(clientRes.name, clientsRootId, clientRes.email);
-        //     await createClientFolder("uncategorized", staticRootId, clientRes.email);
-        // }
-
         // Create standard folders
         if (standardFolder) {
             let sharedId = await getSharedFolderDriveId();
