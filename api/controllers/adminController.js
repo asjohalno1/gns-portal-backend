@@ -2586,7 +2586,6 @@ module.exports.getStaffPerformanceMetrics = async (req, res) => {
             staffQuery.$and = searchConditions;
         }
         const allStaffUsers = await Users.find(staffQuery).lean();
-        const totalStaff = allStaffUsers.length;
         const allStaffIds = allStaffUsers.map(staff => staff._id);
         const allRequests = await DocumentRequest.find({
             createdBy: { $in: allStaffIds }
