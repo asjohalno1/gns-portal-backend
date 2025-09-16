@@ -217,7 +217,8 @@ const createClientFolder = async (name, parentId = null, Email, sharedDriveId = 
                         type: 'user',
                         emailAddress: Email,
                     },
-                    supportsAllDrives: true
+                    supportsAllDrives: true,
+                    sendNotificationEmail: false // ← This prevents email notification
                 });
             }
         } catch (shareError) {
@@ -292,7 +293,8 @@ const uploadFileToFolder = async (clientName, files, category, email, staffName)
                     role: 'reader',
                     type: 'anyone',
                 },
-                supportsAllDrives: true
+                supportsAllDrives: true,
+                sendNotificationEmail: false 
             });
 
             // fs.unlinkSync(file.path); // cleanup temp file
