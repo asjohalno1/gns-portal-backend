@@ -1,4 +1,4 @@
-var joi = require("joi");
+let joi = require("joi");
 
 module.exports.signinUser = joi.object({
   email: joi.string().email().required(),

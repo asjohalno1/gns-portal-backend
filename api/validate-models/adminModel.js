@@ -1,4 +1,4 @@
-var joi = require("joi");
+let joi = require("joi");
 
 
 /**Category Model Starts */

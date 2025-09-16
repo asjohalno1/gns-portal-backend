@@ -56,15 +56,6 @@ const sendEmail = async (email, subject, link, name, doctitle, deadline, docList
         </tr>
       </table>
     `;
-
-    // Alternative text link for email clients that struggle with HTML
-    const textLink = `
-      <p style="margin:10px 0; font-size:12px; color:#666;">
-        If the button doesn't work, copy and paste this link into your browser:<br>
-        ${link}
-      </p>
-    `;
-
     // inject into template
     const htmlContent = dbTemplate
       .replace(/{{name}}/g, name)

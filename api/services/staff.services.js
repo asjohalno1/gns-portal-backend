@@ -10,8 +10,8 @@ const staffService = () => {
             const allDocuments = await uploadDocuments.find({ staffId: staffId });
             const categoryStats = categoryRes.map(cat => {
                 const categoryName = cat.name;
-                const categoryDocs = allDocuments.filter(doc => doc.category === categoryName);
-                const uploadedDocs = categoryDocs.filter(doc => doc.isUploaded === true);
+                const categoryDocs = allDocuments.filter(doc => doc.category == categoryName);
+                const uploadedDocs = categoryDocs.filter(doc => doc.isUploaded == true);
 
                 const total = categoryDocs.length;
                 const uploaded = uploadedDocs.length;

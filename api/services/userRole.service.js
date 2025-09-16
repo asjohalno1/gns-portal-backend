@@ -1,6 +1,6 @@
 module.exports = function (req,res,next) {
     if(req.userInfo){
-        userRole = parseInt(req.userInfo.role_id)
+      let userRole = parseInt(req.userInfo.role_id)
         if(userRole == 1) {
                 next();
         } else{
