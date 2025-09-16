@@ -1749,33 +1749,52 @@ module.exports.sendRemainderNow = async (req, res) => {
             });
         }
         const document = await DocumentRequest.findById(reminder.documentId);
-        if (!document) {
-            return res.status(404).json({
+        if (document?.status == "completed") {
+            return res.status(400).json({
                 success: false,
-                message: "Document not found",
+                message: "Reminder Not Send because Document Already Completed",
                 data: null,
             });
-        }
-        const { doctitle, dueDate, requestLink } = document;
-        const subject = `Reminder: Upload ${doctitle}`;
-        for (const clientId of reminder.clientId) {
-            const client = await Client.findById(clientId).select("email name");
-            if (!client) continue;
+        } else {
+            if (!document) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Document not found",
+                    data: null,
+                });
+            }
+            const { doctitle, dueDate, requestLink } = document;
+            const subject = `Reminder: Upload ${doctitle}`;
+            for (const clientId of reminder.clientId) {
+                const client = await Client.findById(clientId).select("email name phoneNumber");
+                if (!client) continue;
 
-            await mailServices.sendEmailRemainder(
-                client.email,
-                subject,
-                requestLink,
-                client.name,
-                dueDate,
-                doctitle
-            );
-        }
+                await mailServices.sendEmailRemainder(
+                    client.email,
+                    subject,
+                    requestLink,
+                    client.name,
+                    dueDate,
+                    doctitle
+                );
+                if (client?.phoneNumber) {
+                    await twilioServices.sendSmsReminder(
+                        client.name,
+                        doctitle,
+                        dueDate,
+                        client.phoneNumber,
+                        requestLink
+                    );
+                }
+            }
 
-        res.status(200).json({
-            success: true,
-            message: "Reminders sent successfully",
-        });
+
+
+            res.status(200).json({
+                success: true,
+                message: "Reminders sent successfully",
+            });
+        }
     } catch (error) {
         console.error("Error in sendReminder:", error);
         res.status(500).json({

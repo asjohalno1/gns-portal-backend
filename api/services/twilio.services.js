@@ -26,7 +26,7 @@ const sendSmsLink = async (phoneNumber, secureLink) => {
     const sendSmsReminder = async (name, documentTitle, duedate, phoneNumber, link) => {
         try {
             if (phoneNumber) {
-                let smsBody = `Reminder: Please upload "${documentTitle}" by ${duedate}. Link: ${link}`;
+                let smsBody = `Dear ${name} This is friendly Reminder: Please upload "${documentTitle}" by ${duedate}. Link: ${link}`;
                 const message = await client.messages.create({
                     body: smsBody,
                     from: '+19517245831', // Your Twilio number
