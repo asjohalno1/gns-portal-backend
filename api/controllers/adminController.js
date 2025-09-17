@@ -3335,7 +3335,7 @@ module.exports.getAllDocumentStatusAdmin = async (req, res) => {
 
                 // Check expiration dynamically
                 let linkStatus = doc.linkStatus;
-                if (doc.dueDate && new Date() > new Date(doc.dueDate)) {
+                if (doc.dueDate && new Date().setHours(0,0,0,0) > new Date(doc.dueDate).setHours(0,0,0,0)) {
                     linkStatus = "Expired";
                 }
 
