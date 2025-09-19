@@ -10,7 +10,7 @@ const transporter = nodemailer.createTransport({
   secure: false,
   auth: {
     user: "info@gns-cpas.com",
-    pass: "lmyf ewmj epqa spml", // Your Gmail App Password
+    pass: "pmwg bcef xhcr claf", // Your Gmail App Password
   },
 });
 
