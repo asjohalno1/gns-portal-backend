@@ -67,7 +67,7 @@ const sendEmail = async (email, subject, link, name, doctitle, deadline, docList
 
     // send email
     const info = await transporter.sendMail({
-      from: "info@gns-cpas.com",
+      from: '"G&S Accountancy" <info@gns-cpas.com>',
       to: email,
       subject: subject,
       html: htmlContent,
