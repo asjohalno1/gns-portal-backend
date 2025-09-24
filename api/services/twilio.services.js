@@ -30,7 +30,7 @@ const sendSmsLink = async (phoneNumber, secureLink) => {
                 const message = await client.messages.create({
                     body: smsBody,
                     from: '+19517245831', // Your Twilio number
-                    to: `+91${phoneNumber}`      // User's phone number in E.164 format (+91 for India, etc.)
+                    to: `+1${phoneNumber}`      // User's phone number in E.164 format (+91 for India, etc.)
                 });
                 console.log('SMS sent successfully:', message.sid);
             } else {

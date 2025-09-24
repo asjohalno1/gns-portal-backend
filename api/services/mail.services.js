@@ -104,11 +104,13 @@ const sendEmailRemainder = async (email, subject, link, name = "User", deadline,
         </tr>
       </table>
     `;
+
+    const formattedDate = new Date(deadline).toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
     // replace variables
     let htmlContent = dbTemplate
       .replace(/{{name}}/g, name)
       .replace(/{{title}}/g, title)
-      .replace(/{{deadline}}/g, deadline)
+      .replace(/{{deadline}}/g, formattedDate)
       .replace(/{{link}}/g, `${buttonHtml}`);
 
     // final cleanup (extra whitespace between tags)
@@ -119,7 +121,7 @@ const sendEmailRemainder = async (email, subject, link, name = "User", deadline,
       .trim();
 
     const info = await transporter.sendMail({
-      from: 'info@gns-cpas.com',
+      from: '"G&S Accountancy" <info@gns-cpas.com>',
       to: email,
       subject: subject,
       html: htmlContent,
@@ -145,7 +147,7 @@ const sendStaffAddedEmail = async (email, name, password, loginLink) => {
     });
 
     const info = await transporter.sendMail({
-      from: 'info@gns-cpas.com',
+      from: '"G&S Accountancy" <info@gns-cpas.com>',
       to: email,
       subject: subject,
       html: htmlContent,

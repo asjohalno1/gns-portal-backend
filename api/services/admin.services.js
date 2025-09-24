@@ -397,150 +397,161 @@ const SuperAdminService = () => {
             throw error;
         }
     };
-    const getDocumentManagement = async (query) => {
-        try {
-            const search = query.search?.toLowerCase() || "";
-            const statusFilter = query.status && query.status !== "all" ? query.status : null;
-            const page = parseInt(query.page) || 1;
-            const limit = parseInt(query.limit) || 10;
-            const skip = (page - 1) * limit;
+   const getDocumentManagement = async (query) => {
+  try {
+    const search = query.search?.toLowerCase() || "";
+    const statusFilter = query.status && query.status !== "all" ? query.status : null;
+    const page = parseInt(query.page) || 1;
+    const limit = parseInt(query.limit) || 10;
+    const skip = (page - 1) * limit;
 
-            const searchQuery = {};
-            if (search) {
-                const clientIds = await Client.find({ name: { $regex: search, $options: "i" } }).distinct('_id');
-                const categoryIds = await Category.find({ name: { $regex: search, $options: "i" } }).distinct('_id');
+    const searchQuery = {};
+    if (search) {
+      const [clientIds, categoryIds] = await Promise.all([
+        Client.find({ name: { $regex: search, $options: "i" } }).distinct("_id"),
+        Category.find({ name: { $regex: search, $options: "i" } }).distinct("_id"),
+      ]);
 
-                searchQuery.$or = [
-                    { clientId: { $in: clientIds } },
-                    { category: { $in: categoryIds } },
-                    { doctitle: { $regex: search, $options: "i" } },
-                ];
-            }
-            if (statusFilter) {
-                searchQuery.status = statusFilter;
-            }
+      searchQuery.$or = [
+        { clientId: { $in: clientIds } },
+        { category: { $in: categoryIds } },
+        { doctitle: { $regex: search, $options: "i" } },
+      ];
+    }
+    if (statusFilter) {
+      searchQuery.status = statusFilter;
+    }
 
-            const documents = await requestDocument
-                .find(searchQuery)
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(limit);
+    // Fetch documents with related client & categories in one go
+    const documents = await requestDocument
+      .find(searchQuery)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate("clientId", "name") // only fetch client name
+      .populate("category", "name") // only fetch category name
+      .lean();
 
-            const enrichedDocs = await Promise.all(
-                documents.map(async (doc) => {
-                    const client = await Client.findById(doc.clientId);
-                    const clientName = client?.name || "N/A";
+    // Preload uploads for all documents in one query
+    const docIds = documents.map((d) => d._id);
+    const uploads = await uploadDocuments.find({ request: { $in: docIds } }).lean();
 
-                    const assignTo = await assignClient.findOne({ clientId: doc.clientId });
-                    let assignedToName = "N/A";
-                    if (assignTo?.staffId) {
-                        const staff = await userModel.findById(assignTo.staffId);
-                        if (staff) {
-                            assignedToName = `${staff.first_name} ${staff.last_name}`;
-                        }
-                    }
+    // Preload subcategories in one go
+    const subCategoryIds = [...new Set(uploads.map((u) => u.subCategory?.toString()))];
+    const subCats = await subCategory.find({ _id: { $in: subCategoryIds } }).lean();
+    const subCatMap = Object.fromEntries(subCats.map((sc) => [sc._id.toString(), sc]));
 
-                    const categories = await Category.find({ _id: { $in: doc.category || [] } });
-                    const categoryNames = categories.map(cat => cat.name);
+    // Preload assigned staff in one go
+    const assignRecords = await assignClient.find({ clientId: { $in: documents.map(d => d.clientId?._id) } }).lean();
+    const staffIds = assignRecords.map((a) => a.staffId).filter(Boolean);
+    const staff = await userModel.find({ _id: { $in: staffIds } }).lean();
+    const staffMap = Object.fromEntries(staff.map((s) => [s._id.toString(), `${s.first_name} ${s.last_name}`]));
+    const assignMap = Object.fromEntries(assignRecords.map((a) => [a.clientId.toString(), staffMap[a.staffId?.toString()] || "N/A"]));
 
-                    const uploads = await uploadDocuments.find({ request: doc._id });
+    // Build enriched docs
+    let enrichedDocs = documents.map((doc) => {
+      const docUploads = uploads.filter((u) => u.request.toString() === doc._id.toString());
 
-                    let totalExpectedDocs = 0;
-                    let uploadedCount = 0;
+      let totalExpectedDocs = 0;
+      let uploadedCount = 0;
 
-                    for (const upload of uploads) {
-                        const subCat = await subCategory.findById(upload.subCategory);
+      for (const upload of docUploads) {
+        const subCat = subCatMap[upload.subCategory?.toString()];
+        if (!subCat) continue;
 
-                        if (!subCat) continue;
-
-                        if (subCat.name.toLowerCase() === "others") {
-                            if (upload.isUploaded) {
-                                totalExpectedDocs++;
-                                if (upload.status === "accepted" || upload.status === "approved") {
-                                    uploadedCount++;
-                                }
-                            }
-                        } else {
-                            totalExpectedDocs++;
-                            if ((upload.status === "accepted" || upload.status === "approved") && upload.isUploaded) {
-                                uploadedCount++;
-                            }
-                        }
-                    }
-
-                    let status = 'pending';
-                    const progress = totalExpectedDocs > 0 ? Math.floor((uploadedCount / totalExpectedDocs) * 100) : 0;
-                    if (progress === 100) status = 'complete';
-                    else if (progress > 0) status = 'partially fulfilled';
-
-                    return {
-                        doctitle: doc.doctitle || "N/A",
-                        dueDate: doc.dueDate || null,
-                        clientName,
-                        assignedTo: assignedToName,
-                        categories: categoryNames,
-                        status: status,
-                    };
-                })
-            );
-
-            const totalDocsCount = await requestDocument.countDocuments();
-            const allDocumentsForSummary = await requestDocument.find({});
-
-            let totalComplete = 0;
-            let totalPending = 0;
-            let overdue = 0;
-
-            for (const doc of allDocumentsForSummary) {
-                const uploads = await uploadDocuments.find({ request: doc._id });
-
-                let totalExpectedDocs = 0;
-                let uploadedCount = 0;
-
-                for (const upload of uploads) {
-                    const subCat = await subCategory.findById(upload.subCategory);
-                    if (!subCat) continue;
-
-                    if (subCat.name.toLowerCase() === "others") {
-                        if (upload.isUploaded) {
-                            totalExpectedDocs++;
-                            if (upload.status === "accepted" || upload.status === "approved") uploadedCount++;
-                        }
-                    } else {
-                        totalExpectedDocs++;
-                        if ((upload.status === "accepted" || upload.status === "approved") && upload.isUploaded) uploadedCount++;
-                    }
-                }
-
-                const progress = totalExpectedDocs > 0 ? Math.floor((uploadedCount / totalExpectedDocs) * 100) : 0;
-                if (progress === 100) totalComplete++;
-                else if (progress < 100 && progress > 0) totalPending++;
-                else if (progress === 0) totalPending++;
-
-                const dueDate = new Date(doc.dueDate);
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                if (dueDate < today) overdue++;
-            }
-
-            return {
-                documents: enrichedDocs,
-                totalDocuments: totalDocsCount,
-                currentPage: page,
-                totalPages: Math.ceil(totalDocsCount / limit),
-                headerTotal: {
-                    totalReq: allDocumentsForSummary.length,
-                    totalComplete,
-                    totalPending,
-                    overdue,
-                },
-            };
-
-        } catch (error) {
-            console.error("Error in getDocumentManagement:", error);
-            throw error;
+        if (subCat.name.toLowerCase() === "others") {
+          if (upload.isUploaded) {
+            totalExpectedDocs++;
+            if (["accepted", "approved"].includes(upload.status)) uploadedCount++;
+          }
+        } else {
+          totalExpectedDocs++;
+          if (upload.isUploaded && ["accepted", "approved"].includes(upload.status)) uploadedCount++;
         }
+      }
+
+      const progress = totalExpectedDocs > 0 ? Math.floor((uploadedCount / totalExpectedDocs) * 100) : 0;
+      let status = "pending";
+      if (progress === 100) status = "complete";
+      else if (progress > 0) status = "partially fulfilled";
+
+      return {
+        doctitle: doc.doctitle || "N/A",
+        dueDate: doc.dueDate || null,
+        clientName: doc.clientId?.name || "N/A",
+        assignedTo: assignMap[doc.clientId?._id?.toString()] || "N/A",
+        categories: (doc.category || []).map((c) => c.name),
+        status,
+      };
+    });
+
+    // Header summary (optimized)
+    const allDocs = await requestDocument.find({}).lean();
+    const allDocIds = allDocs.map((d) => d._id);
+    const allUploads = await uploadDocuments.find({ request: { $in: allDocIds } }).lean();
+
+    const allSubCatIds = [...new Set(allUploads.map((u) => u.subCategory?.toString()))];
+    const allSubCats = await subCategory.find({ _id: { $in: allSubCatIds } }).lean();
+    const allSubCatMap = Object.fromEntries(allSubCats.map((sc) => [sc._id.toString(), sc]));
+
+    let totalComplete = 0, totalPending = 0, overdue = 0;
+
+    for (const doc of allDocs) {
+      const docUploads = allUploads.filter((u) => u.request.toString() === doc._id.toString());
+
+      let totalExpectedDocs = 0, uploadedCount = 0;
+
+      for (const upload of docUploads) {
+        const subCat = allSubCatMap[upload.subCategory?.toString()];
+        if (!subCat) continue;
+
+        if (subCat.name.toLowerCase() === "others") {
+          if (upload.isUploaded) {
+            totalExpectedDocs++;
+            if (["accepted", "approved"].includes(upload.status)) uploadedCount++;
+          }
+        } else {
+          totalExpectedDocs++;
+          if (upload.isUploaded && ["accepted", "approved"].includes(upload.status)) uploadedCount++;
+        }
+      }
+
+      const progress = totalExpectedDocs > 0 ? Math.floor((uploadedCount / totalExpectedDocs) * 100) : 0;
+      if (progress === 100) totalComplete++;
+      else totalPending++;
+
+      const dueDate = new Date(doc.dueDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (dueDate < today) overdue++;
+    }
+    if(statusFilter == "pending"){
+        enrichedDocs = enrichedDocs.filter(doc => doc.status === "pending");
+    }
+    let count
+    if(statusFilter == null){
+        count = await requestDocument.countDocuments()
+    }else{
+        count = enrichedDocs.length
+    }
+    return {
+      documents: enrichedDocs,
+      totalDocuments: count,
+      currentPage: page,
+      totalPages: Math.ceil(count / limit),
+      headerTotal: {
+        totalReq: allDocs.length,
+        totalComplete,
+        totalPending,
+        overdue,
+      },
     };
+  } catch (error) {
+    console.error("Error in getDocumentManagement:", error);
+    throw error;
+  }
+};
+
 
 
     const getUrgentTasks = async (query) => {
