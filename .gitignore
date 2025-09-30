@@ -1,7 +1,7 @@
 node_modules
 public/uploads/
 uploads
-# .env.dev
-# .env.staging
+.env.dev
+.env.staging
 /dist
 dist
