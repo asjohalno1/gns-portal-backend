@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "client-portal-integration",
+  "private_key_id": "aaf9d1775ef1ca6193c95497cc592333866ae9bd",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDhREt8fbwSBagH\n2hp9E1Hqtm9trbdqdVXg0bSVB7xZ8jSpOC78cEQaXaKNRa9PB/apKeMXFm6g+qla\nvfDYIKdJYaM0AGbYpnAmJSw3sqXN2VhoAc6LJzwEfsZdnuKstYzp5Yu9RXA+z9At\nv9eTu0Kj4O3BQLS2Mq3qsrx1Z+TzZQJ0QWpowgpplA/GAI42ZREuwpgVx8Rci8y6\nJ6w+jmtY/VUHtd0DIouDTZ1Qb4r8CMOyrPCA0RQbWFCEwZ0U+V5Yc3Oh4+PgeBmZ\ndHSssE67kEuSvKmEQwej0N1p7+lFWR8ZxS9kUiOGMChPnFGmmsfxkZDuJvPnUO81\nCMkpfJ3JAgMBAAECggEAQeG2bgdb3K140isQeioPWCTY++vFa8Y7QpAyTy++/1Nd\n4WvEGiI/WLKv2r9ZoTSECD9u4g62djA5HYfVi3ApXMXIdGn1qkErJYzTnMqLwWNi\nfrCgloP4ApyNKU5Rnw9N0g5HSyimxkgC645i3xryR3l+L3ncIDk8MhrqETA8fo4s\nm7IsWirE8wkxouUkBu6+u+Kh4uUUj0KsMD6p/YFofQQx3WmBDobMWSF/9ny5xcUx\ndJRxVKhlG2g/lE2nf0duE72KZuKILkCyrNJPKUXptgjp6xiZ2PXrlaGESYVNj7n0\nnB3J6K78C6Ns3Nm3UczIIEKGA3VJYGkhcV8rh7NRvQKBgQD3vZiTKIjvAViWs93c\nrS7ncz9Vu/Si0C6fB5XIGyYKpNcvxMbQ+I5jo4HEwYPwnD2Y+NSw5cwjnnjg7sdD\nLjTA/fIFHKlFtUBiV1+9VnneOWdztOYUVEKl7SQisunGxR6d5YY7Jmgr/zoFhcLF\nVGiEE65WgzjWoA5zhA7vJuxo2wKBgQDoxuPtq+nIUf3/kUbqsy4Zq3eJEL1T1/Gx\nx2vIVAhcBflPYQwao6ujRh7vJNlNKxA+G+UErR7oPHo1cEUfUlcujCfxU4SLRcWF\nQjOK7sRnWMKTIoykoht82KAD6CrPXvbnbqJgwWGdvOa3ToYAlKfohcR6dhr3jQaz\nzsdu09hTKwKBgQCiqRPCm3y9IK8f0906BWOkh+Dv08beF75koEBR8LFbj7vSG2tG\nzcv/091iaITOuGchR0+vDlKomGZZma2viGkOxi3f+V+S61zotOGhmWPO6vXn3MCs\nXF6eP0PYnIwt/EML/SXTNHZ1XNCly5uEoNU20w1GtEXfdZvHcM+1amMSvQKBgEfK\nLzl5r5wsTV2ofGqd4DXif/cxxnI5Qz1E96TM5dcbsIwerhD5MVIlqhyvDKWUBmph\nR/xtN/7/x+D7QxYp2uFsMFVpIJOjbQtwI11RzhjhcwDVwvJzXG7gkFkkHS/fZd5y\nbHnSqjxvqegWu5UqQ66esr3h9ucqA0spFrDDfRAJAoGBAIDC0yXtqq2kCFoF/C6d\ncb5UIfsP5pGL5ltuy6K+JWgG/rs+kdO14b64B6PmKJyW7FrOyk8Fe6vtgknx1XEc\nOrTMEnjyqlZrm9B6eMuJZ/ozk6Nd61dKx4yM59N1ctEs6BRFx2wHt5IaFLC2w2Gq\nQdZtdXzEXfRdObqnE4W7lD0A\n-----END PRIVATE KEY-----\n",
+  "client_email": "gs-client-portal@client-portal-integration.iam.gserviceaccount.com",
+  "client_id": "114529581116323985298",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/gs-client-portal%40client-portal-integration.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

@@ -1,0 +1,49 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "start": "cross-env NODE_ENV=dev nodemon server.js",
+    "staging": "cross-env NODE_ENV=staging node server.js",
+    "dev": "cross-env NODE_ENV=dev nodemon server.js",
+    "prod": "cross-env NODE_ENV=prod node server.js",
+    "build": "mkdir -p dist && cp -r src/* dist/",
+    "apiDoc": "apidoc -i ./api/controllers -o ./apidoc/doc",
+    "seed": "cross-env NODE_ENV=dev SEED_TYPE_NAME=all node api/seeding/index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "apidoc": "^1.2.0",
+    "axios": "^1.6.2",
+    "bcrypt": "^5.1.1",
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "csv-parser": "^3.2.0",
+    "dayjs": "^1.11.18",
+    "dotenv": "^16.3.1",
+    "ejs": "^3.1.10",
+    "exceljs": "^4.4.0",
+    "express": "^4.21.2",
+    "express-joi-validation": "^5.0.1",
+    "googleapis": "^150.0.1",
+    "http": "^0.0.1-security",
+    "joi": "^17.10.2",
+    "knex": "^2.5.1",
+    "mongoose": "^8.10.1",
+    "multer": "^2.0.1",
+    "node-cron": "^4.1.0",
+    "nodemailer": "^7.0.3",
+    "openai": "^4.24.0",
+    "pg": "^8.11.3",
+    "sequelize": "^6.35.2",
+    "socket.io": "^4.7.4",
+    "twilio": "^4.23.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3"
+  }
+}
