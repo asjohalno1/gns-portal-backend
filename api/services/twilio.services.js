@@ -2,8 +2,9 @@
 const twilio = require('twilio');
 
 // Twilio credentials from dashboard
-const accountSid = "ACe8a5448f3d92c946c407a0eaf70f09f1";
-const authToken = "1546b35e584fafd967e15ffe58be4eec";
+
+const accountSid = process.env.TWILIO_ACCOUNT_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
 const client = new twilio(accountSid, authToken);
 
 const sendSmsLink = async (phoneNumber, secureLink) => {
