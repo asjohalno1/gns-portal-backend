@@ -1,4 +1,4 @@
-const { processESRPFiles } = require('../services/esrp.service');
+const { processESRPFiles } = require('../services/esrp.services');
 const { createUpload } = require('../services/multer.services');
 const ESRPHistory = require('../models/esrpHistory');
 const path = require('path');
@@ -14,6 +14,7 @@ const handleESRPUpload = async (req, res) => {
     console.log('req.body:', req.body);
     
     const { adpFile, calChoiceFile } = req.files || {};
+    const { customFilename } = req.body || {};
     const userId = req.userInfo?.id;
 
     if (!userId) {
@@ -33,7 +34,7 @@ const handleESRPUpload = async (req, res) => {
       });
     }
     
-    const result = await processESRPFiles(adpFile[0], calChoiceFile?.[0]);
+    const result = await processESRPFiles(adpFile[0], calChoiceFile?.[0], customFilename);
 
     // Save upload history to database
     try {
@@ -41,7 +42,7 @@ const handleESRPUpload = async (req, res) => {
         userId: userId,
         adpFileName: adpFile[0].originalname,
         calChoiceFileName: calChoiceFile?.[0]?.originalname || null,
-        downloadFileName: result.filename
+        downloadFileName:result.filename
       });
 
       await historyRecord.save();

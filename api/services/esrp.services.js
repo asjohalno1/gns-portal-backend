@@ -208,7 +208,7 @@ const extractMecRates = async (rateSheetJson) => {
 };
 
 // Generate Excel file
-const generateExcel = async (employees, adpFileName = null) => {
+const generateExcel = async (employees, adpFileName = null, customFilename = null) => {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet("1095C Final");
 
@@ -381,11 +381,11 @@ const generateExcel = async (employees, adpFileName = null) => {
   if (adpFileName) {
     // Extract the base name without extension from ADP file
     const adpBaseName = path.parse(adpFileName).name;
-    filename = `ESRP-${adpBaseName}.xlsx`;
+    filename = customFilename || `ESRP-${adpBaseName}.xlsx`;
   } else {
     // Fallback to timestamp if no ADP filename provided
     const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, "");
-    filename = `1095C_Final_${timestamp}.xlsx`;
+    filename = customFilename || `1095C_Final_${timestamp}.xlsx`;
   }
   const outputPath = path.join("api/uploads", filename);
   if (!fs.existsSync("api/uploads")) fs.mkdirSync("api/uploads", { recursive: true });
@@ -555,7 +555,7 @@ const getMonthlyEmployeeCountsFromDates = (employees, targetYear = 2024) => {
 };
 
 // Main ESRP processing function
-const processESRPFiles = async (adpFile, calChoiceFile) => {
+const processESRPFiles = async (adpFile, calChoiceFile, customFilename) => {
   try {
     if (!adpFile) {
       throw new Error("No ADP file uploaded");
@@ -635,7 +635,7 @@ const processESRPFiles = async (adpFile, calChoiceFile) => {
       };
     });
 
-    const outputPath = await generateExcel(employees, adpFile.originalname);
+    const outputPath = await generateExcel(employees, adpFile.originalname, customFilename);
     return {
       success: true,
       filename: outputPath,
