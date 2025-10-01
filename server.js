@@ -1,3 +1,4 @@
+// server.js
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
@@ -7,33 +8,33 @@ const validator = require('express-joi-validation').createValidator({ passError:
 const cors = require('cors');
 const path = require('path');
 const dotenv = require('dotenv');
+const { initSocket } = require('./api/services/socket');
 
+// Load environment variables
 dotenv.config({ path: path.resolve(__dirname, `.env.${process.env.NODE_ENV}`) });
 
 const app = express();
 
-// ✅ CORS setup — allow all origins, support cookies
+// ✅ CORS setup
 app.use(cors({
     origin: true,         // Reflects origin in Access-Control-Allow-Origin
     credentials: true     // Allows cookies/auth headers
 }));
 
-// ✅ Headers middleware — handle preflight and credentials
+// ✅ Headers middleware — handle preflight
 app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", req.headers.origin || "*"); // required for dynamic origins
+    res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
     res.header("Access-Control-Allow-Credentials", "true");
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
     res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
 
-    // Handle OPTIONS preflight requests quickly
     if (req.method === "OPTIONS") {
         return res.sendStatus(200);
     }
-
     next();
 });
 
-// ✅ Middleware
+// ✅ Body parsers
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json({ limit: '100mb' }));
 
@@ -55,27 +56,34 @@ app.use((err, req, res, next) => {
     }
     next();
 });
-app.use(
-    "/dist/client/token-handler/assets",
+
+// ✅ Token handler static files
+app.use("/dist/client/token-handler/assets",
     express.static(path.join(__dirname, "dist/client/token-handler/assets"))
 );
 
-// ✅ Serve the main index.html for all routes under token-handler
 app.get("/dist/client/token-handler/*", (req, res) => {
     res.sendFile(path.join(__dirname, "dist/client/token-handler/index.html"));
 });
 
-// ✅ Start server: HTTPS in staging, HTTP otherwise
-const server = process.env.NODE_ENV === "staging"
-    ? https.createServer(
+// ✅ Create HTTP or HTTPS server
+let server;
+if (process.env.NODE_ENV === "staging") {
+    server = https.createServer(
         {
             key: fs.readFileSync("/home/ubuntu/ssl/privkey.pem"),
             cert: fs.readFileSync("/home/ubuntu/ssl/fullchain.pem")
         },
         app
-    )
-    : http.createServer(app);
+    );
+} else {
+    server = http.createServer(app);
+}
 
+// ✅ Initialize socket with the correct server
+initSocket(server);
+
+// ✅ Start server
 server.listen(process.env.PORT, () => {
     console.log(`App listening on ${process.env.NODE_ENV === 'staging' ? 'HTTPS' : 'HTTP'} port ${process.env.PORT}`);
 });

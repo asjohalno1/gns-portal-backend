@@ -44,6 +44,8 @@ module.exports = function (app, validator) {
    app.get('/api/staff/getDocumentRequestById/:id', auth, staffCntrl.getDocumentRequestById);
    app.get('/api/staff/get-recent-requests', auth, staffCntrl.getRecentRequests);
    app.patch('/api/staff/approvedrequest/:id', auth, checkPermission(PERMISSIONS.APPROVE_ENTIRE_REQUEST), validator.params(staffModel.commonId), staffCntrl.approvedRequest);
+   app.get('/api/staff/getAllNotifiction', auth, staffCntrl.getAllStaffNotification);
+   app.post('/api/staff/markAllNotificationRead', auth, staffCntrl.markAllNotificationRead);
 }
 
 

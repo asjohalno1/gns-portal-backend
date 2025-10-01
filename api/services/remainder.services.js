@@ -6,14 +6,8 @@ function createCronExpression(time, days = [], frequency = "Daily") {
     const hour = parseInt(hourStr, 10);
 
     if (isNaN(minute) || isNaN(hour)) {
-        throw new Error("Invalid time format");
+        throw new Error("Invalid time format. Expected HH:mm");
     }
-
-
-    if (frequency === "Daily") {
-        return `${minute} ${hour} * * *`;
-    }
-
 
     const dayMap = {
         "Sun": 0,
@@ -25,23 +19,41 @@ function createCronExpression(time, days = [], frequency = "Daily") {
         "Sat": 6
     };
 
-    const cronDays = days.map(day => {
-        if (typeof day === 'string') {
-            const normalizedDay = day.slice(0, 3);
-            return dayMap[normalizedDay] ?? '';
-        }
-        if (typeof day === 'number' && day >= 0 && day <= 6) {
-            return day;
-        }
-        return '';
-    }).filter(day => day !== '').sort();
+    const cronDays = days
+        .map(day => {
+            if (typeof day === "string") {
+                const normalizedDay = day.slice(0, 3); // normalize "Wednesday" → "Wed"
+                return dayMap[normalizedDay] ?? "";
+            }
+            if (typeof day === "number" && day >= 0 && day <= 6) {
+                return day;
+            }
+            return "";
+        })
+        .filter(day => day !== "")
+        .sort((a, b) => a - b); // ensure order
 
-    if (frequency === "Weekly" && cronDays.length === 0) {
-        throw new Error("At least one valid day is required for Weekly frequency");
+    // Daily frequency
+    if (frequency === "Daily") {
+        if (cronDays.length > 0) {
+            // Run at given time but only on selected days
+            return `${minute} ${hour} * * ${cronDays.join(",")}`;
+        }
+        // Run at given time every day
+        return `${minute} ${hour} * * *`;
     }
 
-    return `${minute} ${hour} * * ${cronDays.join(',')}`;
+    // Weekly frequency
+    if (frequency === "Weekly") {
+        if (cronDays.length === 0) {
+            throw new Error("At least one valid day is required for Weekly frequency");
+        }
+        return `${minute} ${hour} * * ${cronDays.join(",")}`;
+    }
+
+    throw new Error("Unsupported frequency. Use 'Daily' or 'Weekly'.");
 }
+
 
 
 module.exports = createCronExpression;

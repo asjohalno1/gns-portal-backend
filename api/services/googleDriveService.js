@@ -186,8 +186,8 @@ const uploadFileToFolder = async (clientName, files, category, email, staffName)
 
         return uploadedFiles;
     } catch (error) {
-        logger.error('Error uploading files:', error);
-        throw error;
+        console.error('Error uploading files:', error);
+    
     }
 };
 

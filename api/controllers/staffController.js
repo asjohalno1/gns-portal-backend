@@ -38,6 +38,7 @@ dayjs.extend(timezone);
 const fs = require('fs');
 const bcryptServices = require('../services/bcrypt.services.js');
 const jwtServices = require('../services/jwt.services');
+const socketServices = require('../services/socket');
 
 
 
@@ -179,15 +180,22 @@ module.exports.documentRequest = async (req, res) => {
         if (!subcategoryPriorities[othersSubCategory._id.toString()]) {
             subcategoryPriorities[othersSubCategory._id.toString()] = 'low';
         }
-        const getRemainingWholeHours = (dueDateStr) => {
-            // Current PST time
-            const now = dayjs().tz("America/Los_Angeles");
-            const yesterday = now.subtract(1, "day");
-            const dueDate = dayjs.tz(dueDateStr, "America/Los_Angeles");
-            const diffInMs = dueDate.diff(yesterday);
+        const getRemainingWholeHours = (dueDateStr, timeZone = "America/Los_Angeles") => {
+            // Current time in the given time zone
+            const now = dayjs().tz(timeZone);
+        
+            // Due date in the same time zone, set to end of day (11:59:59 PM)
+            const dueDate = dayjs.tz(dueDateStr, timeZone).endOf("day");
+        
+            // Difference in milliseconds
+            const diffInMs = dueDate.diff(now);
+        
             if (diffInMs <= 0) return "Deadline has passed.";
+        
+            // Convert milliseconds to whole hours
             return Math.floor(diffInMs / (1000 * 60 * 60));
         };
+        
 
         const validPriorities = ['low', 'medium', 'high'];
         const allSubCategories = [...new Set([...subCategoryId, ...editedSubcategories])];
@@ -417,6 +425,7 @@ module.exports.documentRequest = async (req, res) => {
     }
 };
 const { Types } = require("mongoose");
+const userModel = require('../models/userModel.js');
 async function getDocsByCategory(allSubCategories) {
     const subCats = await SubCategory.find({ _id: { $in: allSubCategories } });
 
@@ -1966,7 +1975,8 @@ module.exports.updateUploadedDocument = async (req, res) => {
         const { id } = req.params;
         const { status, tags = [], comments, subCategory } = req.body;
         const staffId = req.userInfo?.id;
-
+        let userRes = await userModel.findOne({ _id: staffId });
+      
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(400).json({
                 success: false,
@@ -2016,7 +2026,34 @@ module.exports.updateUploadedDocument = async (req, res) => {
 
             await notification.create(messageLogs);
         }
-
+        let clientRes = await Client.findOne({ _id: dataRes.clientId });
+        if (status === "rejected") {
+            const newNotification = new notification({
+                staffId: staffId,
+                clientId: dataRes.clientId,
+                message: `Your document has been ${status} please check it out`,
+                type: "Review Document",
+                title: "Review Document",
+                mode: "client"
+            });
+            await newNotification.save();
+            await socketServices.sendReminder("", dataRes.clientId)
+            await mailServices.clientStatusDocuments(dataRes?.clientEmail, clientRes?.name, userRes?.first_name, uploadedDocumentName?.name, status)
+        } else {
+            const newNotification = new notification({
+                staffId: staffId,
+                clientId: dataRes.clientId,
+                message: `Your document has been ${status} please check it out`,
+                type: "Review Document",
+                title: "Review Document",
+                mode: "client"
+            });
+            await newNotification.save();
+            await socketServices.sendReminder("", dataRes.clientId)
+        };
+        if (status === "approved") {
+            await mailServices.clientStatusDocuments(dataRes?.clientEmail, clientRes?.name, userRes?.first_name, uploadedDocumentName?.name, status)
+        }
         return res.status(200).json({
             success: true,
             message: "Document updated successfully",
@@ -2169,6 +2206,8 @@ module.exports.updateDocumentRequestStatus = async (req, res) => {
         const documentTypeDetails = await SubCategory.findOne({ _id: subCatObjId });
         if (document) {
             const clientId = document.clientId;
+            var clientRes = await Client.findOne({ _id: clientId });
+            var userRes = await userModel.findOne({ _id: updatedRequest.staffId });
             let message = "";
 
             if (data.status === "approved") message = `Your document "${documentTypeDetails?.name}" has been approved.`;
@@ -2176,13 +2215,34 @@ module.exports.updateDocumentRequestStatus = async (req, res) => {
             else if (data.status === "feedback_saved") message = `Feedback added for your document "${documentTypeDetails?.name}".`;
             else message = `Update on your document "${documentTypeDetails?.name}".`;
 
+
+        }
+        if (data.status === "rejected") {
             const newNotification = new notification({
-                clientId: clientId,
-                message: message,
+                staffId: document.request,
+                clientId: document.clientId,
+                message: `Your document has been ${data.status} please check it out`,
                 type: data.status === "approved" ? "success" : "warning",
+                title: "Review Document",
+                mode: "client"
             });
             await newNotification.save();
-
+            await socketServices.sendReminder("", document.clientId)
+            await mailServices.clientStatusDocuments(clientRes?.email, clientRes?.name, userRes?.first_name, documentTypeDetails?.name, data.status)
+        } else {
+            const newNotification = new notification({
+                staffId: document.request,
+                clientId: document.clientId,
+                message: `Your document has been ${data.status} please check it out`,
+                type: data.status === "approved" ? "success" : "warning",
+                title: "Review Document",
+                mode: "client"
+            });
+            await newNotification.save();
+            await socketServices.sendReminder("", document.clientId)
+        };
+        if (data.status === "approved") {
+            await mailServices.clientStatusDocuments(clientRes?.email, clientRes?.name, userRes?.first_name, documentTypeDetails?.name, data.status)
         }
 
         res.status(200).json({
@@ -2191,7 +2251,6 @@ module.exports.updateDocumentRequestStatus = async (req, res) => {
             data: updatedRequest,
         });
     } catch (error) {
-        console.error("Update error:", error);
         res.status(500).json({
             success: false,
             message: "Internal Server Error",
@@ -2535,3 +2594,134 @@ module.exports.getUrgentTasks = async (req, res) => {
         });
     }
 };
+
+/**
+ * @api {get} /api/staff/getAllNotifiction  Get All Notifiction
+ * @apiName GetAllNotifiction
+ * @apiGroup Staff
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription Get all automated Notifiction for logged-in staff
+ * @apiSampleRequest http://localhost:2001/api/staff/getAllNotifiction
+ */
+module.exports.getAllStaffNotification = async (req, res) => {
+    try {
+        const staffId = req.userInfo?.id;
+
+        if (!staffId) {
+            return res.status(400).json({
+                success: false,
+                message: "Staff ID missing in request",
+                data: null,
+            });
+        }
+        const notifications = await notification.find({ staffId: staffId }).sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            message: notifications.length > 0
+                ? "Reminders fetched successfully"
+                : "No Reminders found",
+            data: notifications
+        });
+
+    } catch (error) {
+        console.error("Error fetching staff notifications:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null,
+        });
+    }
+};
+
+/**
+ * @api {get} /api/staff/getAllNotification  Get All Notifications
+ * @apiName GetAllNotification
+ * @apiGroup Staff
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription Get all automated notifications for logged-in staff
+ * @apiSampleRequest http://localhost:2001/api/staff/getAllNotification
+ */
+module.exports.getAllStaffNotification = async (req, res) => {
+    try {
+        const query = {};
+        if (req.userInfo?.id) {
+            query.staffId = req.userInfo.id;
+            query.mode = "staff";
+        } else if (req.userInfo?.clientId) {
+            query.clientId = req.userInfo.clientId;
+            query.mode = "client";
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: "User ID or Client ID missing in request",
+                data: null,
+            });
+        }
+        const notifications = await notification.find(query).sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            message: notifications.length > 0
+                ? "Notifications fetched successfully"
+                : "No notifications found",
+            data: notifications
+        });
+    } catch (error) {
+        console.error("Error fetching staff notifications:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null,
+        });
+    }
+};
+
+/**
+ * @api {post} /api/staff/markAllNotificationRead  Mark All Notifications as Read
+ * @apiName MarkAllNotificationRead
+ * @apiGroup Staff
+ * @apiHeader {String} Authorization Bearer token
+ * @apiDescription Mark all notifications for logged-in staff as read
+ * @apiSampleRequest http://localhost:2001/api/staff/markAllNotificationRead
+ */
+module.exports.markAllNotificationRead = async (req, res) => {
+    try {
+        const query = {};
+        if (req.userInfo?.id) {
+            query.staffId = req.userInfo.id;
+            query.mode = "staff";
+        } else if (req.userInfo?.clientId) {
+            query.clientId = req.userInfo.clientId;
+            query.mode = "client";
+        }
+
+        if (!req.userInfo.id && !req.userInfo.clientId) {
+            return res.status(400).json({
+                success: false,
+                message: "Staff ID Or Client ID missing in request",
+                data: null,
+            });
+        }
+
+        await notification.updateMany(
+            { ...query, isRead: false },
+            { $set: { isRead: true } }
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "All notifications Marked as read",
+            data: null
+        });
+
+    } catch (error) {
+        console.error("Error marking notifications as read:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            data: null,
+        });
+    }
+};
+

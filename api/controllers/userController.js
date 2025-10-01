@@ -18,10 +18,13 @@ const userLog = require('../models/userLog');
 const subCategoryModel = require('../models/subCategory');
 const logModel = require('../models/userLog');
 const remainder = require('../models/remainer');
+const mailServices = require('../services/mail.services');
+const socketServices = require('../services/socket');
 
 
 const { listFilesInFolderStructure, uploadFileToFolder, getnewFolderStructure } = require('../services/googleDriveService.js');
 const { default: mongoose } = require('mongoose');
+const { Socket } = require('socket.io');
 
 
 
@@ -371,11 +374,16 @@ module.exports.uploadDocument = async (req, res) => {
         if (newUpload) {
             /**Notification */
             const newNotification = new notification({
+                staffId:staffId,
                 clientId: req?.userInfo?.clientId,
-                message: `Upload successful: ${subCategory?.name}`,
-                type: "Uploaded Document"
+                message: `New Document Uploaded By ${clientRes?.name}`,
+                type: "Upload Documents",
+                title: "Uploaded Document",
+                mode:"staff"
             });
             await newNotification.save();
+            await mailServices.upoadDocuments(userRes?.email, clientRes?.name, userRes?.first_name, newUpload?.doctitle, subCategory?.name)
+            await socketServices.sendReminder(staffId,"")
             resModel.success = true;
             resModel.message = "Document Upload Successfully";
             resModel.data = newUpload

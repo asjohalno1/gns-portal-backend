@@ -69,7 +69,7 @@ const sendEmail = async (email, subject, link, name, doctitle, deadline, docList
     const info = await transporter.sendMail({
       from: '"G&S Accountancy" <info@gns-cpas.com>',
       to: email,
-      subject: subject,
+      subject: dataRes?.title,
       html: htmlContent,
     });
 
@@ -123,7 +123,7 @@ const sendEmailRemainder = async (email, subject, link, name = "User", deadline,
     const info = await transporter.sendMail({
       from: '"G&S Accountancy" <info@gns-cpas.com>',
       to: email,
-      subject: subject,
+      subject:  dataRes?.title,
       html: htmlContent,
     });
 
@@ -133,6 +133,68 @@ const sendEmailRemainder = async (email, subject, link, name = "User", deadline,
   }
 };
 
+const upoadDocuments = async (email, name, staff_name, doctitle, subCategory) => {
+  try {
+    let link = `${process.env.REDIRECT_LINK_URL}/staff/documentmanagement`;
+
+    // Fetch email template
+    let dataRes = await emailTemplate.findOne({ listType: "Notification" });
+    let titleRes = dataRes?.title;
+    let dbTemplate = `${dataRes?.description}`;
+
+    // Remove unwanted string from template
+    dbTemplate = dbTemplate.replace(/" rel="noopener noreferrer" target="_blank">View Documents/g, '');
+
+    // Sanitize HTML to remove extra spacing
+    dbTemplate = dbTemplate
+      .replace(/<p>/g, '<p style="margin:0; padding:0;">')
+      .replace(/<div>/g, '<div style="margin:0; padding:0;">')
+      .replace(/<br>/g, '<br style="line-height:1;">');
+
+    // Create button HTML
+    const buttonHtml = `
+      <table cellpadding="0" cellspacing="0" border="0" style="margin: 15px 0;">
+        <tr>
+          <td align="center" bgcolor="#007bff" style="border-radius: 4px;">
+            <a href="${link}" target="_blank" style="font-size: 16px; font-family: Helvetica, Arial, sans-serif; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 4px; display: inline-block; font-weight: bold;">
+             Access Link
+            </a>
+          </td>
+        </tr>
+      </table>
+    `;
+
+    // Replace variables in template
+    let htmlContent = dbTemplate
+      .replace(/{{staffName}}/g, staff_name)
+      .replace(/{{name}}/g, name)
+      .replace(/{{title}}/g, doctitle)
+      .replace(/{{document}}/g, subCategory)
+      .replace(/{{link}}/g, `${buttonHtml}`);
+
+    // Final cleanup
+    htmlContent = htmlContent
+      .replace(/\n+/g, " ")
+      .replace(/\s{2,}/g, " ")
+      .replace(/>\s+</g, "><")
+      .trim();
+
+    // Replace client name in subject
+    let subject = titleRes.replace(/{{clientName}}/g, name);
+
+    // Send email
+    const info = await transporter.sendMail({
+      from: '"G&S Accountancy" <info@gns-cpas.com>',
+      to: email,
+      subject: subject,
+      html: htmlContent,
+    });
+
+    console.log("Message sent: %s", info.messageId);
+  } catch (error) {
+    console.error("Error sending email:", error);
+  }
+};
 
 
 
@@ -162,4 +224,64 @@ const sendStaffAddedEmail = async (email, name, password, loginLink) => {
 };
 
 
-module.exports = { sendEmail, sendEmailRemainder, sendStaffAddedEmail };
+const clientStatusDocuments = async (email, name, staff_name, document, status) => {
+  try {
+    let link = `${process.env.REDIRECT_LINK_URL}/client/dashboard`;
+
+    // Fetch email template
+    let dataRes = await emailTemplate.findOne({ listType: "Notification Client" });
+    let subject = dataRes?.title;
+    let dbTemplate = `${dataRes?.description}`;
+
+    // Remove unwanted string from template
+    dbTemplate = dbTemplate.replace(/" rel="noopener noreferrer" target="_blank">View Documents/g, '');
+
+    // Sanitize HTML to remove extra spacing
+    dbTemplate = dbTemplate
+      .replace(/<p>/g, '<p style="margin:0; padding:0;">')
+      .replace(/<div>/g, '<div style="margin:0; padding:0;">')
+      .replace(/<br>/g, '<br style="line-height:1;">');
+
+    // Create button HTML
+    const buttonHtml = `
+      <table cellpadding="0" cellspacing="0" border="0" style="margin: 15px 0;">
+        <tr>
+          <td align="center" bgcolor="#007bff" style="border-radius: 4px;">
+            <a href="${link}" target="_blank" style="font-size: 16px; font-family: Helvetica, Arial, sans-serif; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 4px; display: inline-block; font-weight: bold;">
+              View Documents
+            </a>
+          </td>
+        </tr>
+      </table>
+    `;
+
+    // Replace variables in template
+    let htmlContent = dbTemplate
+      .replace(/{{staffName}}/g, staff_name)
+      .replace(/{{clientName}}/g, name)
+      .replace(/{{document}}/g, document)
+      .replace(/{{Status}}/g, status)
+      .replace(/{{link}}/g, `${buttonHtml}`);
+
+    // Final cleanup
+    htmlContent = htmlContent
+      .replace(/\n+/g, " ")
+      .replace(/\s{2,}/g, " ")
+      .replace(/>\s+</g, "><")
+      .trim();
+    // Send email
+    const info = await transporter.sendMail({
+      from: '"G&S Accountancy" <info@gns-cpas.com>',
+      to: email,
+      subject: subject,
+      html: htmlContent,
+    });
+
+    console.log("Message sent: %s", info.messageId);
+  } catch (error) {
+    console.error("Error sending email:", error);
+  }
+};
+
+
+module.exports = { sendEmail, sendEmailRemainder, sendStaffAddedEmail,upoadDocuments,clientStatusDocuments };
